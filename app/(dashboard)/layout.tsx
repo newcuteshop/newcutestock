@@ -4,9 +4,8 @@ import Sidebar from '@/components/layout/Sidebar'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) redirect('/login')
-  const user = session.user
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
