@@ -15,12 +15,17 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง')
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        setError(error.message)
+        setLoading(false)
+      } else {
+        window.location.href = '/dashboard'
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด')
       setLoading(false)
-    } else {
-      window.location.href = '/dashboard'
     }
   }
 
