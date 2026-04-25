@@ -20,8 +20,7 @@ export default function LoginPage() {
       setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง')
       setLoading(false)
     } else {
-      router.push('/dashboard')
-      router.refresh()
+      window.location.href = '/dashboard'
     }
   }
 
