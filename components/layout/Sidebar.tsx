@@ -3,18 +3,26 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
+import type { Permissions } from '@/types'
 import clsx from 'clsx'
 
-const navItems = [
-  { href: '/dashboard',  label: 'ภาพรวม',         icon: '📊' },
-  { href: '/products',   label: 'สินค้า',           icon: '👕' },
-  { href: '/stock',      label: 'รับ-จ่ายสต๊อก',   icon: '📦' },
-  { href: '/sales',      label: 'บันทึกการขาย',     icon: '🛒' },
-  { href: '/labels',     label: 'พิมพ์บาร์โค้ด',   icon: '🏷️' },
-  { href: '/reports',    label: 'รายงาน',           icon: '📈' },
+const navItems: { href: string; label: string; icon: string; perm: keyof Permissions | null }[] = [
+  { href: '/dashboard',  label: 'ภาพรวม',         icon: '📊', perm: null },
+  { href: '/products',   label: 'สินค้า',           icon: '👕', perm: 'products' },
+  { href: '/stock',      label: 'รับ-จ่ายสต๊อก',   icon: '📦', perm: 'stock' },
+  { href: '/sales',      label: 'บันทึกการขาย',     icon: '🛒', perm: 'sales' },
+  { href: '/labels',     label: 'พิมพ์บาร์โค้ด',   icon: '🏷️', perm: 'labels' },
+  { href: '/reports',    label: 'รายงาน',           icon: '📈', perm: 'reports' },
+  { href: '/users',      label: 'จัดการผู้ใช้',    icon: '👥', perm: 'users' },
 ]
 
-export default function Sidebar({ user }: { user: User }) {
+export default function Sidebar({
+  user, permissions, role
+}: {
+  user: User
+  permissions: Permissions
+  role: 'admin' | 'staff'
+}) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -24,6 +32,11 @@ export default function Sidebar({ user }: { user: User }) {
     router.push('/login')
     router.refresh()
   }
+
+  const visibleItems = navItems.filter(item => {
+    if (!item.perm) return true
+    return permissions[item.perm]
+  })
 
   return (
     <aside className="w-60 bg-white border-r border-gray-100 flex flex-col shrink-0">
@@ -42,7 +55,7 @@ export default function Sidebar({ user }: { user: User }) {
 
       {/* Nav */}
       <nav className="flex-1 p-3 space-y-1">
-        {navItems.map(item => (
+        {visibleItems.map(item => (
           <Link
             key={item.href}
             href={item.href}
@@ -63,6 +76,9 @@ export default function Sidebar({ user }: { user: User }) {
       <div className="p-3 border-t border-gray-100">
         <div className="px-3 py-2 mb-1">
           <p className="text-xs text-gray-500 truncate">{user.email}</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {role === 'admin' ? '👑 Admin' : '👤 Staff'}
+          </p>
         </div>
         <button
           onClick={handleLogout}

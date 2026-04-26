@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/auth/permissions'
 import Link from 'next/link'
 import ProductsClient from './ProductsClient'
 
 export default async function ProductsPage() {
+  await requirePermission('products')
   const supabase = createClient()
   const { data: products } = await supabase
     .from('products')

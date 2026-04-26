@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/auth/permissions'
 import StockClient from './StockClient'
 
 export default async function StockPage() {
+  await requirePermission('stock')
   const supabase = createClient()
 
   const [{ data: products }, { data: movements }] = await Promise.all([

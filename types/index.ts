@@ -66,11 +66,48 @@ export interface Category {
 }
 
 // ===== ผู้ใช้งาน =====
+export interface Permissions {
+  products: boolean
+  stock: boolean
+  sales: boolean
+  labels: boolean
+  reports: boolean
+  users: boolean
+}
+
+export const DEFAULT_PERMISSIONS: Permissions = {
+  products: true,
+  stock: true,
+  sales: true,
+  labels: true,
+  reports: true,
+  users: false,
+}
+
+export const ADMIN_PERMISSIONS: Permissions = {
+  products: true,
+  stock: true,
+  sales: true,
+  labels: true,
+  reports: true,
+  users: true,
+}
+
+export const PERMISSION_LABELS: Record<keyof Permissions, string> = {
+  products: 'จัดการสินค้า',
+  stock: 'รับ-จ่ายสต๊อก',
+  sales: 'บันทึกการขาย',
+  labels: 'พิมพ์บาร์โค้ด',
+  reports: 'ดูรายงาน',
+  users: 'จัดการผู้ใช้',
+}
+
 export interface UserProfile {
   id: string
   email: string
   full_name?: string
   role: 'admin' | 'staff'
+  permissions: Permissions
   created_at: string
 }
 

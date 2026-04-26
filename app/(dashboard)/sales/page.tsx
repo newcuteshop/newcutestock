@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/auth/permissions'
 import SalesClient from './SalesClient'
 
 export default async function SalesPage() {
+  await requirePermission('sales')
   const supabase = createClient()
   const [{ data: products }, { data: recentSales }] = await Promise.all([
     supabase.from('products').select('id, name, sku, barcode, sell_price, stock_qty').eq('is_active', true).order('name'),

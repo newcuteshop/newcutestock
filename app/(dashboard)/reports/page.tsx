@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/auth/permissions'
 import ReportsClient from './ReportsClient'
 
 export default async function ReportsPage() {
+  await requirePermission('reports')
   const supabase = createClient()
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 

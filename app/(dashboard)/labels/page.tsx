@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/auth/permissions'
 import LabelsClient from './LabelsClient'
 
 export default async function LabelsPage() {
+  await requirePermission('labels')
   const supabase = createClient()
   const { data: products } = await supabase
     .from('products')
