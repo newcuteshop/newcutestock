@@ -61,6 +61,7 @@ export default function UsersClient({
     const result = editing.id
       ? await updateUserAction({
           id: editing.id,
+          email: editing.email || undefined,
           fullName: editing.fullName,
           role: editing.role,
           permissions: editing.permissions,
@@ -173,8 +174,11 @@ export default function UsersClient({
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">อีเมล *</label>
-                <input className="input" type="email" value={editing.email} disabled={!!editing.id}
+                <input className="input" type="email" value={editing.email}
                   onChange={e => setEditing({ ...editing, email: e.target.value })} />
+                {editing.id && (
+                  <p className="text-xs text-gray-400 mt-1">⚠️ เปลี่ยนอีเมลแล้วจะใช้อีเมลใหม่ในการ login</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อ-นามสกุล</label>

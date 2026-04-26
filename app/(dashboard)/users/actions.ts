@@ -63,6 +63,7 @@ export async function createUserAction(input: {
 
 export async function updateUserAction(input: {
   id: string
+  email?: string
   fullName: string
   role: 'admin' | 'staff'
   permissions: Permissions
@@ -72,18 +73,24 @@ export async function updateUserAction(input: {
     await requireAdmin()
     const admin = createAdminClient()
 
+    // อัพเดต email และ/หรือ password ใน auth
+    const authPayload: { email?: string; password?: string } = {}
+    if (input.email) authPayload.email = input.email
+    if (input.password) authPayload.password = input.password
+
+    if (authPayload.email || authPayload.password) {
+      const { error } = await admin.auth.admin.updateUserById(input.id, authPayload)
+      if (error) return { error: error.message }
+    }
+
+    // อัพเดต profile
     await admin.from('user_profiles').update({
       full_name: input.fullName,
       role: input.role,
       permissions: input.permissions,
+      ...(input.email ? { email: input.email } : {}),
     }).eq('id', input.id)
 
-    if (input.password) {
-      const { error } = await admin.auth.admin.updateUserById(input.id, {
-        password: input.password,
-      })
-      if (error) return { error: error.message }
-    }
     revalidatePath('/users')
     return { success: true }
   } catch (e: unknown) {
