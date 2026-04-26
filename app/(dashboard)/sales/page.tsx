@@ -4,7 +4,7 @@ import SalesClient from './SalesClient'
 export default async function SalesPage() {
   const supabase = createClient()
   const [{ data: products }, { data: recentSales }] = await Promise.all([
-    supabase.from('products').select('id, name, sku, sell_price, stock_qty').eq('is_active', true).order('name'),
+    supabase.from('products').select('id, name, sku, barcode, sell_price, stock_qty').eq('is_active', true).order('name'),
     supabase.from('sales').select('*, sale_items(*, products(name))').order('created_at', { ascending: false }).limit(20),
   ])
 

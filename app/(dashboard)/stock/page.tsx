@@ -5,7 +5,7 @@ export default async function StockPage() {
   const supabase = createClient()
 
   const [{ data: products }, { data: movements }] = await Promise.all([
-    supabase.from('products').select('id, name, sku, stock_qty').eq('is_active', true).order('name'),
+    supabase.from('products').select('id, name, sku, barcode, stock_qty').eq('is_active', true).order('name'),
     supabase.from('stock_movements')
       .select('*, products(name, sku)')
       .order('created_at', { ascending: false })

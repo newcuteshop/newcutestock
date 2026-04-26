@@ -10,6 +10,7 @@ const navItems = [
   { href: '/products',   label: 'สินค้า',           icon: '👕' },
   { href: '/stock',      label: 'รับ-จ่ายสต๊อก',   icon: '📦' },
   { href: '/sales',      label: 'บันทึกการขาย',     icon: '🛒' },
+  { href: '/labels',     label: 'พิมพ์บาร์โค้ด',   icon: '🏷️' },
   { href: '/reports',    label: 'รายงาน',           icon: '📈' },
 ]
 

@@ -4,8 +4,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { th } from 'date-fns/locale'
+import BarcodeScanner from '@/components/BarcodeScanner'
 
-interface Product { id: string; name: string; sku: string; stock_qty: number }
+interface Product { id: string; name: string; sku: string; barcode?: string; stock_qty: number }
 interface Movement {
   id: string; type: string; qty: number; qty_before: number; qty_after: number
   note?: string; created_at: string; products?: { name: string; sku: string }
@@ -21,14 +22,29 @@ const TYPE_BADGE: Record<string, string> = {
 export default function StockClient({ products, movements: initialMovements }: {
   products: Product[]; movements: Movement[]
 }) {
-  const [movements, setMovements] = useState(initialMovements)
+  const [movements] = useState(initialMovements)
   const [form, setForm] = useState({ product_id: '', type: 'in', qty: 1, note: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showScanner, setShowScanner] = useState(false)
+  const [scanMsg, setScanMsg] = useState('')
   const supabase = createClient()
   const router = useRouter()
 
   const selectedProduct = products.find(p => p.id === form.product_id)
+
+  function handleScan(code: string) {
+    const p = products.find(x => x.barcode === code || x.sku === code)
+    if (p) {
+      setForm(f => ({ ...f, product_id: p.id }))
+      setScanMsg(`✅ เลือก: ${p.name}`)
+      setShowScanner(false)
+      setTimeout(() => setScanMsg(''), 1500)
+    } else {
+      setScanMsg(`❌ ไม่พบสินค้า: ${code}`)
+      setTimeout(() => setScanMsg(''), 2000)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -62,9 +78,18 @@ export default function StockClient({ products, movements: initialMovements }: {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {showScanner && <BarcodeScanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
+
       {/* Form */}
       <div className="card p-5 space-y-4 h-fit">
-        <h2 className="font-semibold text-gray-900">บันทึกการเคลื่อนไหว</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-gray-900">บันทึกการเคลื่อนไหว</h2>
+          <button onClick={() => setShowScanner(true)}
+            className="text-xs px-3 py-1 rounded-lg bg-brand-50 text-brand-700 hover:bg-brand-100 font-medium">
+            📷 สแกน
+          </button>
+        </div>
+        {scanMsg && <p className="text-sm text-center bg-gray-50 rounded-lg py-2">{scanMsg}</p>}
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">สินค้า *</label>

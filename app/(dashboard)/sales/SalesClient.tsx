@@ -4,8 +4,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { th } from 'date-fns/locale'
+import BarcodeScanner from '@/components/BarcodeScanner'
 
-interface Product { id: string; name: string; sku: string; sell_price: number; stock_qty: number }
+interface Product { id: string; name: string; sku: string; barcode?: string; sell_price: number; stock_qty: number }
 interface CartItem extends Product { cart_qty: number }
 interface Sale { id: string; sale_no: string; net_amount: number; payment_method: string; created_at: string }
 
@@ -18,11 +19,15 @@ export default function SalesClient({ products, recentSales }: {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer' | 'credit'>('cash')
   const [note, setNote] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showScanner, setShowScanner] = useState(false)
+  const [scanMsg, setScanMsg] = useState('')
   const supabase = createClient()
   const router = useRouter()
 
   const filtered = products.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase())
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    p.sku.toLowerCase().includes(search.toLowerCase()) ||
+    (p.barcode ?? '').toLowerCase().includes(search.toLowerCase())
   )
 
   const total = cart.reduce((s, i) => s + i.sell_price * i.cart_qty, 0)
@@ -31,9 +36,24 @@ export default function SalesClient({ products, recentSales }: {
   function addToCart(product: Product) {
     setCart(c => {
       const exists = c.find(i => i.id === product.id)
-      if (exists) return c.map(i => i.id === product.id ? { ...i, cart_qty: i.cart_qty + 1 } : i)
+      if (exists) {
+        if (exists.cart_qty >= product.stock_qty) return c
+        return c.map(i => i.id === product.id ? { ...i, cart_qty: i.cart_qty + 1 } : i)
+      }
       return [...c, { ...product, cart_qty: 1 }]
     })
+  }
+
+  function handleScan(code: string) {
+    const p = products.find(x => x.barcode === code || x.sku === code)
+    if (p) {
+      addToCart(p)
+      setScanMsg(`✅ เพิ่ม: ${p.name}`)
+      setTimeout(() => setScanMsg(''), 1500)
+    } else {
+      setScanMsg(`❌ ไม่พบสินค้า: ${code}`)
+      setTimeout(() => setScanMsg(''), 2000)
+    }
   }
 
   function updateQty(id: string, qty: number) {
@@ -51,7 +71,6 @@ export default function SalesClient({ products, recentSales }: {
 
     if (error || !sale) { setLoading(false); return }
 
-    // Insert items + update stock
     await supabase.from('sale_items').insert(
       cart.map(i => ({ sale_id: sale.id, product_id: i.id, qty: i.cart_qty, unit_price: i.sell_price, subtotal: i.sell_price * i.cart_qty }))
     )
@@ -73,12 +92,21 @@ export default function SalesClient({ products, recentSales }: {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      {showScanner && <BarcodeScanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
+
       {/* Product Search */}
       <div className="lg:col-span-3 space-y-4">
-        <div className="card p-4">
-          <input className="input" placeholder="🔍 ค้นหาสินค้า..."
+        <div className="card p-4 flex gap-2">
+          <input className="input flex-1" placeholder="🔍 ค้นหาสินค้า / SKU / บาร์โค้ด..."
             value={search} onChange={e => setSearch(e.target.value)} />
+          <button onClick={() => setShowScanner(true)}
+            className="btn-secondary whitespace-nowrap flex items-center gap-1">
+            📷 สแกน
+          </button>
         </div>
+        {scanMsg && (
+          <div className="card px-4 py-2 text-sm font-medium text-center">{scanMsg}</div>
+        )}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[480px] overflow-y-auto">
           {filtered.map(p => (
             <button key={p.id} onClick={() => addToCart(p)} disabled={p.stock_qty === 0}
@@ -97,7 +125,7 @@ export default function SalesClient({ products, recentSales }: {
         <h2 className="font-semibold text-gray-900">ตะกร้า ({cart.length} รายการ)</h2>
 
         {cart.length === 0 && (
-          <p className="text-gray-400 text-sm text-center py-6">กดเลือกสินค้าเพื่อเพิ่มในตะกร้า</p>
+          <p className="text-gray-400 text-sm text-center py-6">กดเลือกสินค้า หรือสแกนบาร์โค้ดเพื่อเพิ่ม</p>
         )}
         <div className="space-y-2 max-h-64 overflow-y-auto">
           {cart.map(item => (
