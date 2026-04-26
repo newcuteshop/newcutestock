@@ -1,8 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 
 interface Product {
   id: string; name: string; sku: string; barcode?: string
@@ -12,25 +11,36 @@ interface Product {
 }
 interface Category { id: string; name: string }
 
+const PAGE_SIZE = 20
+
 export default function ProductsClient({
   initialProducts, categories
 }: { initialProducts: Product[]; categories: Category[] }) {
   const [products, setProducts] = useState(initialProducts)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
-  const router = useRouter()
+  const [page, setPage] = useState(1)
   const supabase = createClient()
 
-  const filtered = products.filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.sku.toLowerCase().includes(search.toLowerCase())
-    const matchCat = !categoryFilter || p.categories?.name === categoryFilter
-    return matchSearch && matchCat
-  })
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase()
+    return products.filter(p => {
+      const matchSearch = !q ||
+        p.name.toLowerCase().includes(q) ||
+        p.sku.toLowerCase().includes(q) ||
+        (p.barcode ?? '').toLowerCase().includes(q)
+      const matchCat = !categoryFilter || p.categories?.name === categoryFilter
+      return matchSearch && matchCat
+    })
+  }, [products, search, categoryFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   async function toggleActive(id: string, current: boolean) {
-    await supabase.from('products').update({ is_active: !current }).eq('id', id)
     setProducts(ps => ps.map(p => p.id === id ? { ...p, is_active: !current } : p))
+    await supabase.from('products').update({ is_active: !current }).eq('id', id)
   }
 
   return (
@@ -39,18 +49,18 @@ export default function ProductsClient({
       <div className="card p-4 flex flex-wrap gap-3">
         <input
           className="input flex-1 min-w-48"
-          placeholder="🔍 ค้นหาชื่อสินค้า, SKU..."
-          value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="🔍 ค้นหาชื่อสินค้า, SKU, บาร์โค้ด..."
+          value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
         />
         <select
           className="input w-48"
-          value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
+          value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setPage(1) }}
         >
           <option value="">ทุกหมวดหมู่</option>
           {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
         </select>
         <span className="text-sm text-gray-400 self-center">
-          แสดง {filtered.length} รายการ
+          แสดง {pageItems.length} / {filtered.length} รายการ
         </span>
       </div>
 
@@ -68,10 +78,10 @@ export default function ProductsClient({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {filtered.length === 0 && (
+            {pageItems.length === 0 && (
               <tr><td colSpan={6} className="text-center py-10 text-gray-400">ไม่พบสินค้า</td></tr>
             )}
-            {filtered.map(p => (
+            {pageItems.map(p => (
               <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-3">
                   <p className="font-medium text-gray-900">{p.name}</p>
@@ -104,6 +114,31 @@ export default function ProductsClient({
             ))}
           </tbody>
         </table>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
+            <p className="text-xs text-gray-500">
+              หน้า {currentPage} / {totalPages}
+            </p>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40"
+              >
+                ← ก่อนหน้า
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40"
+              >
+                ถัดไป →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

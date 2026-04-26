@@ -10,6 +10,7 @@ interface ProductFormProps {
     id: string; name: string; sku: string; barcode?: string
     category_id?: string; size?: string; color?: string
     cost_price: number; sell_price: number; min_stock: number
+    is_active?: boolean
   }
 }
 
@@ -17,6 +18,7 @@ export default function ProductForm({ categories, product }: ProductFormProps) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
 
   const [form, setForm] = useState({
@@ -62,6 +64,20 @@ export default function ProductForm({ categories, product }: ProductFormProps) {
     }
   }
 
+  async function handleDelete() {
+    if (!product?.id) return
+    if (!confirm(`ยืนยันลบสินค้า "${product.name}"?\n\n* ประวัติการเคลื่อนไหวสต๊อกจะถูกลบด้วย`)) return
+    setDeleting(true)
+    const { error } = await supabase.from('products').delete().eq('id', product.id)
+    if (error) {
+      setError(error.message)
+      setDeleting(false)
+    } else {
+      router.push('/products')
+      router.refresh()
+    }
+  }
+
   return (
     <form onSubmit={handleSubmit} className="card p-6 space-y-5">
       <div className="grid grid-cols-2 gap-4">
@@ -94,11 +110,11 @@ export default function ProductForm({ categories, product }: ProductFormProps) {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">ราคาทุน (฿)</label>
-          <input className="input" type="number" min="0" value={form.cost_price} onChange={e => set('cost_price', e.target.value)} />
+          <input className="input" type="number" min="0" step="0.01" value={form.cost_price} onChange={e => set('cost_price', e.target.value)} />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">ราคาขาย (฿)</label>
-          <input className="input" type="number" min="0" value={form.sell_price} onChange={e => set('sell_price', e.target.value)} />
+          <input className="input" type="number" min="0" step="0.01" value={form.sell_price} onChange={e => set('sell_price', e.target.value)} />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">จำนวนขั้นต่ำ (แจ้งเตือน)</label>
@@ -108,13 +124,23 @@ export default function ProductForm({ categories, product }: ProductFormProps) {
 
       {error && <p className="text-red-500 text-sm">{error}</p>}
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3 pt-2 border-t border-gray-100">
         <button type="submit" disabled={loading} className="btn-primary">
           {loading ? 'กำลังบันทึก...' : product ? 'บันทึกการแก้ไข' : 'เพิ่มสินค้า'}
         </button>
         <button type="button" onClick={() => router.back()} className="btn-secondary">
           ยกเลิก
         </button>
+        {product?.id && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="ml-auto px-4 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors text-sm font-medium disabled:opacity-50"
+          >
+            {deleting ? 'กำลังลบ...' : '🗑 ลบสินค้านี้'}
+          </button>
+        )}
       </div>
     </form>
   )
