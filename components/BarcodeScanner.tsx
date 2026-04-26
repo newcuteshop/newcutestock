@@ -13,7 +13,8 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
   const scannerIdRef = useRef('barcode-scanner-' + Math.random().toString(36).slice(2))
 
   useEffect(() => {
-    let html5QrCode: { stop: () => Promise<void>; clear: () => void } | null = null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let html5QrCode: any = null
     let stopped = false
 
     async function start() {
