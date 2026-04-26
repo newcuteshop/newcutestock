@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { th } from 'date-fns/locale'
 import {
@@ -34,6 +35,9 @@ export default function UsersClient({
   const [editing, setEditing] = useState<UserForm | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const router = useRouter()
+  const isSelf = editing?.id === currentUserId
 
   function openCreate() {
     setEditing({ ...EMPTY, permissions: { ...DEFAULT_PERMISSIONS } })
@@ -56,8 +60,18 @@ export default function UsersClient({
 
   async function handleSave() {
     if (!editing) return
+
+    // เตือนถ้าจะปิดสิทธิ์ users ของตัวเอง = ล็อคตัวเองออก
+    if (editing.id === currentUserId) {
+      const losingAdmin = editing.role !== 'admin' && !editing.permissions.users
+      if (losingAdmin) {
+        if (!confirm('⚠️ คุณกำลังปิดสิทธิ์จัดการผู้ใช้ของตัวเอง\nหลังบันทึก คุณจะเข้าหน้านี้ไม่ได้อีก\n\nยืนยัน?')) return
+      }
+    }
+
     setLoading(true)
     setError('')
+    setSuccess('')
     const result = editing.id
       ? await updateUserAction({
           id: editing.id,
@@ -75,16 +89,20 @@ export default function UsersClient({
           permissions: editing.permissions,
         })
     if (result.error) { setError(result.error); setLoading(false); return }
-    setEditing(null)
+    setSuccess('✅ บันทึกเรียบร้อย')
     setLoading(false)
-    location.reload()
+    setTimeout(() => {
+      setEditing(null)
+      setSuccess('')
+      router.refresh()
+    }, 700)
   }
 
   async function handleDelete(u: UserProfile) {
     if (!confirm(`ลบผู้ใช้ ${u.email}?`)) return
     const result = await deleteUserAction(u.id)
     if (result.error) { alert(result.error); return }
-    location.reload()
+    router.refresh()
   }
 
   function setRole(role: 'admin' | 'staff') {
@@ -165,9 +183,14 @@ export default function UsersClient({
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-gray-900 text-lg">
-                {editing.id ? 'แก้ไขผู้ใช้' : 'เพิ่มผู้ใช้ใหม่'}
-              </h3>
+              <div>
+                <h3 className="font-bold text-gray-900 text-lg">
+                  {editing.id ? 'แก้ไขผู้ใช้' : 'เพิ่มผู้ใช้ใหม่'}
+                </h3>
+                {isSelf && (
+                  <p className="text-xs text-brand-600 mt-0.5">📝 คุณกำลังแก้ไขบัญชีตัวเอง</p>
+                )}
+              </div>
               <button onClick={close} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
             </div>
 
@@ -229,11 +252,12 @@ export default function UsersClient({
                 </div>
               </div>
 
-              {error && <p className="text-red-500 text-sm">{error}</p>}
+              {error && <p className="text-red-500 text-sm bg-red-50 rounded-lg p-2">{error}</p>}
+              {success && <p className="text-green-600 text-sm bg-green-50 rounded-lg p-2 font-medium">{success}</p>}
 
-              <div className="flex gap-2 pt-3 border-t border-gray-100">
-                <button onClick={handleSave} disabled={loading} className="btn-primary flex-1">
-                  {loading ? 'กำลังบันทึก...' : (editing.id ? 'บันทึก' : 'เพิ่มผู้ใช้')}
+              <div className="flex gap-2 pt-3 border-t border-gray-100 sticky bottom-0 bg-white">
+                <button onClick={handleSave} disabled={loading || !!success} className="btn-primary flex-1">
+                  {loading ? 'กำลังบันทึก...' : success ? '✅ สำเร็จ' : (editing.id ? 'บันทึก' : 'เพิ่มผู้ใช้')}
                 </button>
                 <button onClick={close} className="btn-secondary">ยกเลิก</button>
               </div>
