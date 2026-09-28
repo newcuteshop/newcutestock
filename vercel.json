@@ -1,0 +1,6 @@
+{
+  "crons": [
+    { "path": "/api/cron/keepalive", "schedule": "0 3 * * *" }
+  ],
+  "regions": ["sin1"]
+}

@@ -1,24 +1,67 @@
-import { createClient } from '@/lib/supabase/server'
+import { cache } from 'react'
 import { redirect } from 'next/navigation'
-import { type Permissions, DEFAULT_PERMISSIONS, ADMIN_PERMISSIONS } from '@/types'
+import type { User } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
+import { type Permissions, ADMIN_PERMISSIONS, NO_PERMISSIONS } from '@/types'
 
-export async function requirePermission(perm: keyof Permissions) {
+export type AppSession = {
+  user: User
+  role: 'admin' | 'staff'
+  permissions: Permissions
+  fullName: string | null
+}
+
+const PERMISSION_KEYS = Object.keys(NO_PERMISSIONS) as (keyof Permissions)[]
+
+// อ่านสิทธิ์จาก JSON ที่เก็บใน user_profiles.permissions
+// fail-closed: เริ่มจากไม่มีสิทธิ์เลย แล้วเปิดเฉพาะคีย์ที่รู้จักและเป็น boolean จริงๆ
+function parseStoredPermissions(raw: unknown): Permissions {
+  const result: Permissions = { ...NO_PERMISSIONS }
+  let value: unknown = raw
+  if (typeof value === 'string') {
+    try { value = JSON.parse(value) } catch { value = null }
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return result
+  const obj = value as Record<string, unknown>
+  for (const key of PERMISSION_KEYS) {
+    const v = obj[key]
+    if (typeof v === 'boolean') result[key] = v
+  }
+  return result
+}
+
+// ข้อมูลผู้ใช้ปัจจุบัน + สิทธิ์ — ห่อด้วย cache() ให้ layout และ page ใน request เดียวกันใช้ผลร่วมกัน (ยิง DB ครั้งเดียว)
+export const getSession = cache(async (): Promise<AppSession | null> => {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return null
 
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from('user_profiles')
-    .select('role, permissions')
+    .select('role, permissions, full_name')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
-  const role = profile?.role
-  const permissions: Permissions = {
-    ...(role === 'admin' ? ADMIN_PERMISSIONS : DEFAULT_PERMISSIONS),
-    ...(profile?.permissions ?? {}),
+  // ไม่มีโปรไฟล์ / อ่านไม่ได้ → ถือเป็นพนักงานที่ไม่มีสิทธิ์ใดๆ (ไม่เดาให้สิทธิ์)
+  if (error || !profile) {
+    return { user, role: 'staff', permissions: { ...NO_PERMISSIONS }, fullName: null }
   }
 
-  if (!permissions[perm]) redirect('/dashboard')
-  return { user, role, permissions }
+  const role: 'admin' | 'staff' = profile.role === 'admin' ? 'admin' : 'staff'
+  const fullName = typeof profile.full_name === 'string' && profile.full_name.trim()
+    ? profile.full_name.trim()
+    : null
+  const permissions: Permissions = role === 'admin'
+    ? { ...ADMIN_PERMISSIONS }
+    : parseStoredPermissions(profile.permissions)
+
+  return { user, role, permissions, fullName }
+})
+
+// ใช้บนหน้า server component: ไม่ได้ login → /login, ไม่มีสิทธิ์ → /dashboard
+export async function requirePermission(perm: keyof Permissions): Promise<AppSession> {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  if (!session.permissions[perm]) redirect('/dashboard')
+  return session
 }

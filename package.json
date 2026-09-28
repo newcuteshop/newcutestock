@@ -2,6 +2,9 @@
   "name": "stock-app",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -10,8 +13,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
-    "@supabase/ssr": "^0.1.0",
-    "next": "14.1.0",
+    "@supabase/ssr": "0.1.0",
+    "next": "14.2.35",
     "react": "^18",
     "react-dom": "^18",
     "chart.js": "^4.4.0",
@@ -34,6 +37,6 @@
     "autoprefixer": "^10.0.1",
     "postcss": "^8",
     "eslint": "^8",
-    "eslint-config-next": "14.1.0"
+    "eslint-config-next": "14.2.35"
   }
 }

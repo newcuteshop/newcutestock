@@ -1,17 +1,18 @@
 // ===== สินค้า =====
+// ตรงกับตาราง products ใน supabase-schema.sql (select('*') คืนทุกคอลัมน์ ค่าว่างเป็น null)
 export interface Product {
   id: string
   name: string
   sku: string
-  barcode?: string
-  category: string
-  size?: string
-  color?: string
+  barcode: string | null
+  category_id: string | null
+  size: string | null
+  color: string | null
   cost_price: number
   sell_price: number
   stock_qty: number
   min_stock: number     // จำนวนขั้นต่ำก่อนแจ้งเตือน
-  image_url?: string
+  image_url: string | null
   is_active: boolean
   created_at: string
   updated_at: string
@@ -44,6 +45,7 @@ export interface Sale {
   net_amount: number
   payment_method: 'cash' | 'transfer' | 'credit'
   note?: string
+  client_id?: string | null   // กันบันทึกบิลซ้ำ (record_sale idempotent)
   created_by: string
   created_at: string
 }
@@ -55,6 +57,7 @@ export interface SaleItem {
   product?: Product
   qty: number
   unit_price: number
+  unit_cost?: number | null   // ต้นทุน ณ ตอนขาย (record_sale เป็นคนเติม)
   subtotal: number
 }
 
@@ -91,6 +94,16 @@ export const ADMIN_PERMISSIONS: Permissions = {
   labels: true,
   reports: true,
   users: true,
+}
+
+// ไม่มีสิทธิ์อะไรเลย — ใช้เป็นค่าเริ่มต้นแบบ fail-closed (หาโปรไฟล์ไม่เจอ / อ่านไม่ได้)
+export const NO_PERMISSIONS: Permissions = {
+  products: false,
+  stock: false,
+  sales: false,
+  labels: false,
+  reports: false,
+  users: false,
 }
 
 export const PERMISSION_LABELS: Record<keyof Permissions, string> = {

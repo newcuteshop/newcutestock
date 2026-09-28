@@ -1,94 +1,226 @@
-# 👕 Stock App — ระบบสต๊อกสินค้าเสื้อผ้า
+# newcutestock — ระบบสต๊อกและขายหน้าร้าน ร้านเสื้อผ้า
 
-Next.js 14 + Supabase + Vercel (ฟรีทั้งหมด)
+- เว็บที่ใช้งานจริง: **https://newcutestock.vercel.app**
+- โค้ด: GitHub `newcuteshop/newcutestock` (push ขึ้น `main` แล้ว Vercel deploy ให้อัตโนมัติ)
+
+ระบบนี้ใช้จัดการร้านเสื้อผ้าขนาดเล็กผ่านมือถือเป็นหลัก (รองลงมาคือ iPad):
+เก็บรายการสินค้าแยกไซซ์/สี, รับเข้า-จ่ายออก-ปรับยอดสต๊อก, ขายหน้าร้านด้วยการสแกนบาร์โค้ด,
+พิมพ์สติกเกอร์บาร์โค้ด, ดูรายงานยอดขาย และกำหนดสิทธิ์พนักงานแต่ละคนได้
 
 ---
 
-## 🚀 วิธีติดตั้ง (ทำตามลำดับ)
+## ฟีเจอร์
 
-### 1. ตั้งค่า Supabase
+- **เข้าสู่ระบบ** ด้วยอีเมล + รหัสผ่าน (ไม่มีสมัครเอง — แอดมินเป็นคนสร้างบัญชีให้)
+- **ภาพรวม** ยอดขายวันนี้/เดือนนี้ มูลค่าสต๊อก และสินค้าใกล้หมด
+- **สินค้า** เพิ่ม / แก้ไข / ปิดใช้งาน, แยกไซซ์และสี, SKU + บาร์โค้ด, หมวดหมู่, ค้นหาและกรอง
+  - สินค้าที่เคยขายแล้วลบไม่ได้ (มีประวัติอ้างอิง) ให้กด "ปิดใช้งาน" แทน
+- **รับ-จ่ายสต๊อก** รับเข้า / จ่ายออก / ปรับยอด (ใส่ยอดที่นับได้จริง) / รับคืน พร้อมประวัติทุกรายการ
+  - ประวัติแสดงจำนวนที่เปลี่ยนเป็น +/− ทุกประเภท, สต๊อกติดลบไม่ได้
+- **บันทึกการขาย (POS)**
+  - สแกนบาร์โค้ดด้วยกล้องมือถือ หรือเครื่องสแกน USB/Bluetooth
+  - ส่วนลดท้ายบิล, ช่องทางชำระ เงินสด / โอนเงิน / บัตรเครดิต
+  - ราคาคิดจากราคาขายในระบบเสมอ, ตัดสต๊อกพร้อมกันและขายเกินของที่มีไม่ได้
+  - กดบันทึกซ้ำหรือเน็ตหลุดกลางทาง จะไม่เกิดบิลซ้ำ
+- **พิมพ์บาร์โค้ด** สร้าง PDF สติกเกอร์บาร์โค้ดบนกระดาษ A4 (3 ขนาด)
+- **รายงาน** กราฟยอดขาย และสัดส่วนช่องทางชำระ
+- **ผู้ใช้และสิทธิ์** แอดมิน/พนักงาน และเปิด-ปิดสิทธิ์รายเมนูได้ทีละคน
+- **กันฐานข้อมูลหลับ** Vercel Cron เรียกฐานข้อมูลวันละครั้ง (ดูหัวข้อ Keep-alive)
 
-1. ไปที่ [supabase.com](https://supabase.com) → สร้าง Project ใหม่
-2. ไปที่ **SQL Editor** → วาง SQL จากไฟล์ `supabase-schema.sql` → กด **Run**
-3. ไปที่ **Project Settings > API** → copy ค่าสองตัว:
-   - `Project URL`
-   - `anon public` key
+### สิทธิ์ผู้ใช้
 
-### 2. ตั้งค่า Environment Variables
+| สิทธิ์ | ชื่อในระบบ | ทำอะไรได้ |
+|--------|-----------|-----------|
+| `products` | จัดการสินค้า | เพิ่ม/แก้ไข/ปิดใช้งานสินค้าและหมวดหมู่ |
+| `stock` | รับ-จ่ายสต๊อก | รับเข้า จ่ายออก ปรับยอด รับคืน |
+| `sales` | บันทึกการขาย | ขายหน้าร้าน |
+| `labels` | พิมพ์บาร์โค้ด | พิมพ์สติกเกอร์ |
+| `reports` | ดูรายงาน | ดูรายงานยอดขาย |
+| `users` | จัดการผู้ใช้ | สร้าง/แก้ไข/ลบผู้ใช้ และตั้งสิทธิ์ |
 
-```bash
-cp .env.local.example .env.local
-```
+แอดมิน (`role = 'admin'`) ได้ทุกสิทธิ์เสมอ ผู้ใช้ที่ไม่มีโปรไฟล์ในตาราง `user_profiles` จะ **ไม่มีสิทธิ์ใดๆ** (ปลอดภัยไว้ก่อน)
+สิทธิ์ถูกตรวจทั้งในหน้าเว็บและในฐานข้อมูล (RLS + ฟังก์ชัน) จึงข้ามเมนูไปเรียกข้อมูลตรงๆ ไม่ได้
 
-แก้ไข `.env.local`:
-```
-NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
-```
+- บัญชีที่ไม่มีสิทธิ์เลยสักอย่าง อ่านข้อมูลร้านไม่ได้ (สินค้า ยอดขาย ประวัติสต๊อก) และเห็นเฉพาะโปรไฟล์ตัวเอง
+- ผู้มีสิทธิ์ `users` ที่ไม่ใช่แอดมิน ให้ได้เฉพาะสิทธิ์ที่ตัวเองมี และแก้/ลบ/ตั้งรหัสผ่านได้เฉพาะบัญชีที่สิทธิ์ไม่เกินตัวเอง
+  (ตั้ง Admin, ให้สิทธิ์ "จัดการผู้ใช้" และจัดการบัญชีที่มีสิทธิ์นี้ ทำได้เฉพาะแอดมิน)
+- ต้องมีแอดมินอย่างน้อย 1 คนเสมอ ฐานข้อมูลไม่ยอมให้ลด/ลบแอดมินคนสุดท้าย
 
-### 3. ติดตั้งและรัน Local
+### เทคโนโลยี
+
+Next.js 14 (App Router) + TypeScript + Tailwind CSS, Supabase (PostgreSQL + Auth),
+Vercel (แพ็กเกจ Hobby, เซิร์ฟเวอร์สิงคโปร์ `sin1`), Node.js 22
+
+---
+
+## ติดตั้งระบบ (ทำตามลำดับ)
+
+### 1. สร้างโปรเจกต์ Supabase
+
+1. ไปที่ [supabase.com](https://supabase.com) → New project → Region เลือก **Southeast Asia (Singapore)**
+2. จด **Database password** เก็บไว้ในที่ปลอดภัย
+
+### 2. รัน SQL ตามลำดับ
+
+ไปที่ **SQL Editor** → New query → วางเนื้อหาไฟล์ → กด **Run** ทีละไฟล์ตามลำดับนี้เท่านั้น
+
+1. `supabase-schema.sql` — สร้างตาราง
+2. `supabase-indexes.sql` — index ให้ค้นหาเร็ว
+3. `supabase-users.sql` — ระบบสิทธิ์ผู้ใช้
+4. `supabase-fix-01.sql` — ฟังก์ชันบันทึกขาย/ตัดสต๊อกที่ปลอดภัย (`record_sale`, `move_stock`) และปิดการแก้สต๊อกตรงๆ
+
+> **สำคัญ — โปรเจกต์ที่ใช้งานอยู่แล้ว (ตัวจริงของร้าน) ต้องรัน `supabase-fix-01.sql` ด้วย**
+> โค้ดรุ่นนี้บันทึกขายและรับ-จ่ายสต๊อกผ่านฟังก์ชันในไฟล์นี้ ถ้ายังไม่รัน จะขายและรับ-จ่ายสต๊อกไม่ได้
+> และหลังรันแล้ว โค้ดรุ่นเก่าจะบันทึกขายไม่ได้ จึงควรทำตอนร้านปิด ตามลำดับนี้
+>
+> 1. สำรองข้อมูลเป็น CSV ก่อน (ดูหัวข้อ "สำรองข้อมูล")
+> 2. **Authentication → Sign In / Providers → ปิด Allow new users to sign up** (ต้องทำ — เดิมใครรู้ที่อยู่ Supabase
+>    ของร้านก็สมัครบัญชีเองได้ ร้านสร้างบัญชีจากเมนู "จัดการผู้ใช้" อยู่แล้ว)
+> 3. รัน `supabase-fix-01.sql` ใน SQL Editor ของโปรเจกต์จริง
+> 4. deploy โค้ดรุ่นใหม่ขึ้น Vercel ทันที
+> 5. **ตรวจรายชื่อบัญชีที่ SQL Editor แสดงหลังรันข้อ 3** (Admin และผู้มีสิทธิ์จัดการผู้ใช้อยู่บนสุด)
+>    เจออีเมลที่ร้านไม่รู้จัก ให้ลบทันทีที่ Authentication → Users — ก่อนแก้ไฟล์นี้ คนนอกสมัครแล้วตั้งตัวเองเป็น Admin ได้
+>    แล้วรันคำสั่ง (ค) ท้ายไฟล์ `supabase-fix-01.sql` หาสินค้าที่สต๊อก/ราคาติดลบค้างจากระบบเก่า
+>    สต๊อกติดลบ → เมนูรับ-จ่ายสต๊อก → "ปรับยอด" ให้ตรงของจริง, ราคาติดลบ → แก้ในหน้าแก้ไขสินค้า
+> 6. ทดลองขาย 1 บิล และรับเข้าสต๊อก 1 รายการ ให้แน่ใจว่าใช้ได้
+
+### 3. ตั้งค่า Supabase Auth
+
+- **Authentication → Sign In / Providers**
+  - ปิด **Allow new users to sign up** (ต้องทำ — ไม่งั้นคนนอกที่รู้ที่อยู่ Supabase สมัครบัญชีเองได้
+    ถึงบัญชีแบบนั้นจะไม่มีสิทธิ์และอ่านข้อมูลร้านไม่ได้ แต่ไม่ควรเปิดทิ้งไว้)
+  - ในหัวข้อ **Email** เปิด **Confirm email** ไว้ตามค่าเดิมได้เลย — บัญชีที่แอดมินสร้าง (จากเมนูจัดการผู้ใช้
+    หรือ Add user แบบติ๊ก Auto Confirm) ยืนยันให้อัตโนมัติ ใช้ได้ทันทีอยู่แล้ว
+- **Authentication → URL Configuration**
+  - **Site URL** = `https://newcutestock.vercel.app`
+
+### 4. สร้างแอดมินคนแรก
+
+1. **Authentication → Users → Add user → Create new user** ใส่อีเมล + รหัสผ่าน และติ๊ก **Auto Confirm User**
+2. ไปที่ **SQL Editor** รันคำสั่งนี้ (เปลี่ยน `owner@example.com` เป็นอีเมลที่เพิ่งสร้าง)
+
+   ```sql
+   update user_profiles
+   set role = 'admin',
+       permissions = '{
+         "products": true, "stock": true, "sales": true,
+         "labels": true, "reports": true, "users": true
+       }'::jsonb
+   where id = (select id from auth.users where email = 'owner@example.com');
+   ```
+
+   ต้องขึ้นว่าอัปเดต 1 แถว (ถ้าเป็น 0 แสดงว่าอีเมลพิมพ์ไม่ตรง)
+3. ผู้ใช้คนต่อไป ให้แอดมินสร้างจากเมนู **จัดการผู้ใช้** ในแอป (ต้องตั้ง `SUPABASE_SERVICE_ROLE_KEY` ก่อน)
+
+### 5. ตั้งค่า Environment Variables
+
+| ตัวแปร | ได้จากไหน / ใช้ทำอะไร | ความลับ |
+|--------|-----------------------|---------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API → Project URL | เปิดเผยได้ |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → `anon` `public` | เปิดเผยได้ (ข้อมูลป้องกันด้วย RLS) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API → `service_role` — ใช้ฝั่งเซิร์ฟเวอร์เท่านั้น สำหรับหน้าจัดการผู้ใช้ | **ลับมาก** ห้ามใส่ `NEXT_PUBLIC_` ห้ามส่งให้ใคร |
+| `CRON_SECRET` | (ไม่บังคับ) ข้อความสุ่มยาวๆ ป้องกัน `/api/cron/keepalive` — Vercel ส่งให้เองตอนเรียก cron | ลับ |
+
+- บนเครื่อง: copy `.env.local.example` เป็น `.env.local` แล้วใส่ค่า (ไฟล์ `.env.local` ห้าม commit)
+- บน Vercel: **Project → Settings → Environment Variables** ใส่ให้ Production (และ Preview ถ้าใช้)
+- **เปลี่ยนค่าบน Vercel แล้วต้อง Redeploy ถึงจะมีผล** (Deployments → เลือกอันล่าสุด → Redeploy)
+  โดยเฉพาะตัวที่ขึ้นต้นด้วย `NEXT_PUBLIC_` ถูกฝังลงโค้ดหน้าเว็บตอน build — ไม่ redeploy = ยังเป็นค่าเก่า
+
+### 6. รันบนเครื่อง (สำหรับนักพัฒนา)
+
+ต้องมี Node.js 22
 
 ```bash
 npm install
+cp .env.local.example .env.local   # Windows: copy .env.local.example .env.local
 npm run dev
 ```
 
 เปิดที่ http://localhost:3000
 
-### 4. สร้าง User แรก
+### 7. Deploy บน Vercel
 
-ไปที่ Supabase Dashboard → **Authentication > Users** → **Add user**  
-ใส่ email + password แล้วกด Create
+1. Vercel → Add New → Project → Import repo `newcuteshop/newcutestock`
+2. ใส่ Environment Variables ตามข้อ 5
+3. กด Deploy — หลังจากนั้นทุกครั้งที่ push ขึ้น `main` จะ deploy ให้อัตโนมัติ
 
-### 5. Deploy บน Vercel
-
-1. Push โค้ดขึ้น GitHub
-2. ไปที่ [vercel.com](https://vercel.com) → Import Repository
-3. เพิ่ม Environment Variables เดียวกันใน Vercel:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-4. กด Deploy → รอ 1-2 นาที
+`vercel.json` ตั้งเซิร์ฟเวอร์ไว้ที่สิงคโปร์ (`sin1`) ใกล้ไทยและใกล้ฐานข้อมูล และตั้ง cron ไว้แล้ว
 
 ---
 
-## 📁 โครงสร้างไฟล์
+## Keep-alive (กันฐานข้อมูลหลับ)
+
+Supabase แพ็กเกจฟรีจะ **หยุดโปรเจกต์อัตโนมัติถ้าไม่มีการใช้งาน 7 วัน** (ร้านเคยโดนหยุดไป 5 เดือน)
+ระบบจึงให้ Vercel Cron เรียก `/api/cron/keepalive` วันละครั้ง เวลา 03:00 UTC (ประมาณ 10:00 น. เวลาไทย
+— แพ็กเกจ Hobby อาจคลาดเคลื่อนภายในชั่วโมงนั้น) ซึ่งจะ query ฐานข้อมูลเบาๆ 1 ครั้ง
+
+- ตรวจว่า cron ทำงาน: Vercel → Project → **Settings → Cron Jobs** ต้องเห็น `/api/cron/keepalive`
+  กด **Run** เพื่อทดลอง และดู log ได้ (cron ทำงานเฉพาะ Production deployment)
+- ทดสอบเอง (ถ้าตั้ง `CRON_SECRET`)
+
+  ```bash
+  curl -H "Authorization: Bearer <CRON_SECRET>" https://newcutestock.vercel.app/api/cron/keepalive
+  ```
+
+  ต้องได้ `{"ok":true,"at":"..."}` (ถ้าไม่ได้ตั้ง `CRON_SECRET` เปิดลิงก์ในเบราว์เซอร์ได้เลย)
+- ถ้าโปรเจกต์ถูกหยุดไปแล้ว: เข้า Supabase Dashboard → เลือกโปรเจกต์ → **Restore project**
+
+---
+
+## สำรองข้อมูล (ทำเป็นประจำ)
+
+**Supabase แพ็กเกจฟรีไม่มีไฟล์สำรองให้ดาวน์โหลด** ถ้าข้อมูลหายจะกู้คืนไม่ได้ จึงต้อง export เก็บเอง
+
+- อย่างน้อยทุกสัปดาห์ (และทุกครั้งก่อนรัน SQL ใหม่): Supabase → **Table Editor** → เลือกตาราง →
+  ปุ่ม **Export** (หรือคลิกขวาที่ชื่อตาราง → Export data) → เลือก **CSV**
+- ตารางที่ต้อง export: `products`, `categories`, `sales`, `sale_items`, `stock_movements`, `user_profiles`
+- เก็บไฟล์ไว้ใน Google Drive หรือคอมพิวเตอร์ แยกโฟลเดอร์ตามวันที่
+
+## ข้อห้าม
+
+- **ห้ามลบบิลหรือแก้ตัวเลขสต๊อกตรงๆ ใน Supabase** (ตาราง `sales`, `sale_items`, `stock_movements`,
+  ช่อง `products.stock_qty`) — สต๊อกจะไม่ตรงกับประวัติ รายงานเพี้ยน และกู้คืนไม่ได้
+  - ขายผิด/ลูกค้าคืนของ: ใช้ **รับ-จ่ายสต๊อก → รับคืน** เพื่อคืนของเข้าสต๊อก และใส่หมายเหตุเลขที่บิล
+    (รายงานยอดขายยังนับบิลเดิม ให้จดยอดคืนเงินแยกไว้)
+  - นับของแล้วไม่ตรง: ใช้ **รับ-จ่ายสต๊อก → ปรับยอด** ใส่จำนวนที่นับได้จริง
+- ห้ามเปิดเผย `SUPABASE_SERVICE_ROLE_KEY` (ถ้าหลุด ให้กด Reset ที่ Supabase → Project Settings → API แล้วเปลี่ยนใน Vercel + Redeploy)
+
+## เคล็ดลับการสแกนบาร์โค้ด
+
+- **กล้องมือถือ** ต้องเปิดเว็บผ่าน https (เว็บจริงเป็น https อยู่แล้ว) และกดอนุญาตให้ใช้กล้อง
+- **เครื่องสแกน USB/Bluetooth** ทำงานเหมือนคีย์บอร์ด ให้ตั้งเครื่องสแกนให้ส่ง Enter ต่อท้าย
+  ถ้าคีย์บอร์ดค้างเป็นภาษาไทยอยู่ ระบบจะแปลงรหัสกลับเป็นภาษาอังกฤษให้อัตโนมัติ
+- SKU และบาร์โค้ดควรเป็นตัวอักษรอังกฤษ ตัวเลข และสัญลักษณ์เท่านั้น (ภาษาไทยพิมพ์เป็นบาร์โค้ดไม่ได้)
+
+---
+
+## โครงสร้างไฟล์
 
 ```
-stock-app/
 ├── app/
-│   ├── (auth)/login/          # หน้า Login
+│   ├── (auth)/login/            # หน้าเข้าสู่ระบบ
 │   ├── (dashboard)/
-│   │   ├── dashboard/         # ภาพรวม + สถิติ
-│   │   ├── products/          # จัดการสินค้า + เพิ่ม/แก้ไข
-│   │   ├── stock/             # รับ-จ่ายสต๊อก + ประวัติ
-│   │   ├── sales/             # POS บันทึกการขาย
-│   │   └── reports/           # รายงาน + กราฟ
-│   └── api/                   # (เพิ่มเติมได้)
-├── components/layout/         # Sidebar
-├── lib/supabase/              # Client + Server
-├── types/                     # TypeScript types
-├── supabase-schema.sql        # SQL สร้างตาราง
-└── middleware.ts              # Auth guard
-```
-
-## ✨ ฟีเจอร์
-
-- ✅ Login / Logout ด้วย Supabase Auth
-- ✅ Dashboard สรุปสต๊อก + แจ้งเตือนสต๊อกใกล้หมด
-- ✅ จัดการสินค้า (เพิ่ม / แก้ไข / ค้นหา / กรองหมวดหมู่)
-- ✅ รับ-จ่ายสต๊อก + ประวัติการเคลื่อนไหว
-- ✅ POS บันทึกการขาย + คำนวณส่วนลด
-- ✅ รายงาน กราฟยอดขาย + Doughnut chart ช่องทางชำระ
-- ✅ Auto-generate เลขที่ใบขาย
-- ✅ Row Level Security (RLS) บน Supabase
-
-## 🔧 พัฒนาต่อใน Claude Code
-
-```bash
-# ติดตั้ง Claude Code
-npm install -g @anthropic-ai/claude-code
-
-# เข้า project แล้วรัน
-cd stock-app
-claude
+│   │   ├── dashboard/           # ภาพรวม
+│   │   ├── products/            # สินค้า + เพิ่ม/แก้ไข
+│   │   ├── stock/               # รับ-จ่ายสต๊อก + ประวัติ
+│   │   ├── sales/               # ขายหน้าร้าน (POS)
+│   │   ├── labels/              # พิมพ์สติกเกอร์บาร์โค้ด
+│   │   ├── reports/             # รายงาน + กราฟ
+│   │   └── users/               # จัดการผู้ใช้และสิทธิ์
+│   └── api/cron/keepalive/      # กันฐานข้อมูลหลับ (Vercel Cron)
+├── components/
+│   ├── BarcodeScanner.tsx       # หน้าต่างสแกนบาร์โค้ด (กล้อง + เครื่องสแกน)
+│   └── layout/                  # เมนูข้าง
+├── lib/
+│   ├── auth/permissions.ts      # ตรวจ login + สิทธิ์ฝั่งเซิร์ฟเวอร์
+│   ├── supabase/                # client (browser / server / admin)
+│   ├── barcode.ts               # แปลงรหัสจากเครื่องสแกน + ค้นหาสินค้าจากบาร์โค้ด
+│   └── format.ts                # จัดรูปแบบเงิน วันที่ (พ.ศ.) ชื่อสินค้า ข้อความ error
+├── types/                       # TypeScript types + สิทธิ์
+├── supabase-schema.sql          # 1. ตาราง
+├── supabase-indexes.sql         # 2. index
+├── supabase-users.sql           # 3. สิทธิ์ผู้ใช้
+├── supabase-fix-01.sql          # 4. ฟังก์ชันขาย/สต๊อก + ปิดการเขียนตรง
+├── middleware.ts                # ตรวจ login ทุกหน้า + ต่ออายุ session
+└── vercel.json                  # cron + region
 ```

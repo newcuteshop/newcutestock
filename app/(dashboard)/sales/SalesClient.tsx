@@ -1,218 +1,1173 @@
 'use client'
-import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import { format } from 'date-fns'
-import { th } from 'date-fns/locale'
+import { createClient } from '@/lib/supabase/client'
 import BarcodeScanner from '@/components/BarcodeScanner'
+import { baht, formatThaiDateTime, productLabel, thaiError, variantText } from '@/lib/format'
+import { codeCandidates, findByCode, normalizeScannedCode } from '@/lib/barcode'
 
-interface Product { id: string; name: string; sku: string; barcode?: string; sell_price: number; stock_qty: number }
-interface CartItem extends Product { cart_qty: number }
-interface Sale { id: string; sale_no: string; net_amount: number; payment_method: string; created_at: string }
+export interface PosProduct {
+  id: string
+  name: string
+  sku: string
+  barcode: string | null
+  size: string | null
+  color: string | null
+  sell_price: number
+  stock_qty: number
+}
 
-export default function SalesClient({ products, recentSales }: {
-  products: Product[]; recentSales: Sale[]
-}) {
-  const [cart, setCart] = useState<CartItem[]>([])
-  const [search, setSearch] = useState('')
-  const [discount, setDiscount] = useState(0)
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer' | 'credit'>('cash')
-  const [note, setNote] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [showScanner, setShowScanner] = useState(false)
-  const [scanMsg, setScanMsg] = useState('')
-  const supabase = createClient()
-  const router = useRouter()
+export interface RecentSale {
+  id: string
+  sale_no: string
+  net_amount: number
+  payment_method: string
+  created_at: string
+}
 
-  const filtered = products.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.sku.toLowerCase().includes(search.toLowerCase()) ||
-    (p.barcode ?? '').toLowerCase().includes(search.toLowerCase())
-  )
+type PaymentMethod = 'cash' | 'transfer' | 'credit'
+interface CartLine { id: string; qty: number }
+interface ScanResult { ok: boolean; message: string }
+interface SentItem { product_id: string; qty: number }
+// บิลที่กดชำระไปแล้วแต่ไม่รู้ผล (เน็ตหลุด/หมดเวลา/ตอบกลับไม่ครบ) — อาจบันทึกไปแล้วก็ได้
+// เก็บแยกจากข้อความ error และจำลงเครื่อง: กดชำระซ้ำด้วยรหัสบิลเดิมได้เสมอ จนกว่าจะรู้ผลแน่นอน
+interface PendingCheckout {
+  clientId: string
+  items: SentItem[]
+  discount: number
+}
+interface SavedCart {
+  lines: CartLine[]
+  discount: number
+  paymentMethod: PaymentMethod
+  note: string
+  clientId: string
+  pending: PendingCheckout | null
+}
 
-  const total = cart.reduce((s, i) => s + i.sell_price * i.cart_qty, 0)
-  const net = total - discount
+// ผลจาก RPC record_sale (ยอดเงินทุกตัวมาจากฝั่งเซิร์ฟเวอร์)
+interface SavedSaleItem {
+  product_id: string
+  name: string
+  sku: string
+  size: string | null
+  color: string | null
+  qty: number
+  unit_price: number
+  subtotal: number
+  stock_after: number
+}
+interface SavedSale {
+  id: string
+  sale_no: string
+  total_amount: number
+  discount: number
+  net_amount: number
+  payment_method: string
+  note: string | null
+  created_at: string
+  already_saved: boolean
+  items: SavedSaleItem[]
+}
+interface SuccessInfo {
+  sale: SavedSale
+  shownNet: number | null  // ยอดที่หน้าจอแสดงตอนกดชำระ (null = กดตรวจบิลค้าง ไม่ได้แสดงยอด)
+  cartMismatch: boolean  // บิลที่บันทึกไว้แล้วไม่ตรงกับตะกร้าตอนกดล่าสุด
+}
 
-  function addToCart(product: Product) {
-    setCart(c => {
-      const exists = c.find(i => i.id === product.id)
-      if (exists) {
-        if (exists.cart_qty >= product.stock_qty) return c
-        return c.map(i => i.id === product.id ? { ...i, cart_qty: i.cart_qty + 1 } : i)
+interface CartView {
+  id: string
+  qty: number
+  product: PosProduct | null
+  label: string
+  problem: string   // ไม่ว่าง = บรรทัดนี้จะไม่ถูกคิดเงิน
+  lineTotal: number
+}
+
+const STORAGE_KEY = 'newcute-pos-v1'
+const MAX_CARDS = 200
+const CHECKOUT_TIMEOUT_MS = 30000
+const EMPTY_CART: SavedCart = { lines: [], discount: 0, paymentMethod: 'cash', note: '', clientId: '', pending: null }
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const TIMEOUT_MSG = 'เซิร์ฟเวอร์ตอบช้าเกินไป — บิลอาจบันทึกไปแล้วหรือยังก็ได้ กด "ชำระเงิน" อีกครั้งได้เลย ระบบจะไม่ตัดสต๊อกซ้ำ'
+const UNSURE_MSG = 'ไม่แน่ใจว่าบิลบันทึกแล้วหรือยัง (เน็ตหลุดระหว่างส่ง) — กด "ชำระเงิน" อีกครั้งเพื่อตรวจสอบ ระบบจะไม่ตัดสต๊อกซ้ำ'
+const PARTIAL_MSG = 'ระบบตอบกลับไม่ครบ — บิลอาจบันทึกแล้ว ดูใน "รายการขายล่าสุด" ก่อน หรือกดชำระเงินอีกครั้ง (ระบบจะไม่ตัดสต๊อกซ้ำ)'
+
+const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; icon: string }[] = [
+  { value: 'cash', label: 'เงินสด', icon: '💵' },
+  { value: 'transfer', label: 'โอนเงิน', icon: '📱' },
+  { value: 'credit', label: 'บัตรเครดิต', icon: '💳' },
+]
+const PAYMENT_LABELS: Record<string, string> = {
+  cash: '💵 เงินสด',
+  transfer: '📱 โอนเงิน',
+  credit: '💳 บัตรเครดิต',
+}
+
+// ===== helpers =====
+function round2(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
+function toNum(v: unknown): number {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
+function toStr(v: unknown): string {
+  return typeof v === 'string' ? v : v == null ? '' : String(v)
+}
+
+function toStrOrNull(v: unknown): string | null {
+  return typeof v === 'string' && v !== '' ? v : null
+}
+
+function isPaymentMethod(v: unknown): v is PaymentMethod {
+  return v === 'cash' || v === 'transfer' || v === 'credit'
+}
+
+// UUID v4 สำหรับ client_id (กันบันทึกบิลซ้ำเวลากดซ้ำ/เน็ตหลุดแล้วกดใหม่)
+function newClientId(): string {
+  const c: Crypto | undefined = typeof crypto !== 'undefined' ? crypto : undefined
+  try {
+    if (c && typeof c.randomUUID === 'function') return c.randomUUID()
+  } catch { /* randomUUID ใช้ไม่ได้บน http ธรรมดา — ใช้วิธีสำรอง */ }
+  const bytes = new Uint8Array(16)
+  let filled = false
+  try {
+    if (c && typeof c.getRandomValues === 'function') { c.getRandomValues(bytes); filled = true }
+  } catch { filled = false }
+  if (!filled) for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256)
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+function parsePending(v: unknown): PendingCheckout | null {
+  if (!v || typeof v !== 'object') return null
+  const o = v as Record<string, unknown>
+  if (typeof o.clientId !== 'string' || !UUID_RE.test(o.clientId) || !Array.isArray(o.items)) return null
+  const items: SentItem[] = []
+  for (const item of o.items) {
+    if (!item || typeof item !== 'object') continue
+    const it = item as Record<string, unknown>
+    const qty = Math.floor(Number(it.qty))
+    if (typeof it.product_id !== 'string' || !UUID_RE.test(it.product_id) || !Number.isFinite(qty) || qty < 1) continue
+    items.push({ product_id: it.product_id, qty })
+  }
+  if (items.length === 0) return null
+  const discount = Number(o.discount)
+  return { clientId: o.clientId, items, discount: Number.isFinite(discount) && discount > 0 ? round2(discount) : 0 }
+}
+
+// error นี้มาจากเซิร์ฟเวอร์จริง (มีรหัสของ Postgres/PostgREST) — ไม่ใช่เน็ตหลุด/หมดเวลา/เกตเวย์ตอบเป็นหน้า HTML
+function serverAnswered(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const code = (err as { code?: unknown }).code
+  if (typeof code !== 'string') return false
+  // SQLSTATE 5 ตัว (ไม่มีกลุ่มไหนขึ้นต้นด้วย E — กันสับสนกับรหัสเครือข่ายอย่าง EPIPE) หรือรหัสของ PostgREST
+  return /^PGRST\d+$/.test(code) || /^(?!E)[0-9A-Z]{5}$/.test(code)
+}
+
+// เซิร์ฟเวอร์ปฏิเสธ "หลัง" ตรวจรหัสบิลซ้ำแล้ว = บิลรหัสนี้ไม่มีในระบบแน่นอน
+// error เรื่องสิทธิ์/การเข้าสู่ระบบเกิด "ก่อน" ตรวจ → ยังบอกไม่ได้ว่าครั้งก่อนบันทึกไปหรือยัง
+function rejectedAfterDuplicateCheck(err: unknown): boolean {
+  if (!serverAnswered(err)) return false
+  const e = err as { code?: unknown; message?: unknown }
+  const code = String(e.code)
+  const message = typeof e.message === 'string' ? e.message : ''
+  if (code === '42501' || code.startsWith('PGRST')) return false
+  if (code === 'P0001' && /เข้าสู่ระบบ|ไม่มีสิทธิ์|รหัสบิล/.test(message)) return false
+  return true
+}
+
+// อ่านตะกร้าที่จำไว้ — ข้อมูลเสีย/รูปแบบไม่ตรง ให้ทิ้งไปเฉย ๆ
+function parseSavedCart(raw: string | null): SavedCart | null {
+  if (!raw) return null
+  try {
+    const v: unknown = JSON.parse(raw)
+    if (!v || typeof v !== 'object') return null
+    const o = v as Record<string, unknown>
+    const qtyById: Record<string, number> = {}
+    const order: string[] = []
+    if (Array.isArray(o.lines)) {
+      for (const item of o.lines) {
+        if (!item || typeof item !== 'object') continue
+        const it = item as Record<string, unknown>
+        const id = typeof it.id === 'string' ? it.id : ''
+        const qty = Math.floor(Number(it.qty))
+        if (!id || !Number.isFinite(qty) || qty < 1) continue
+        if (qtyById[id] === undefined) { order.push(id); qtyById[id] = 0 }
+        qtyById[id] += qty
       }
-      return [...c, { ...product, cart_qty: 1 }]
+    }
+    const discount = Number(o.discount)
+    const pending = parsePending(o.pending)
+    return {
+      lines: order.map(id => ({ id, qty: qtyById[id] })),
+      discount: Number.isFinite(discount) && discount > 0 ? round2(discount) : 0,
+      paymentMethod: isPaymentMethod(o.paymentMethod) ? o.paymentMethod : 'cash',
+      note: typeof o.note === 'string' ? o.note.slice(0, 200) : '',
+      // มีบิลค้างตรวจ → ต้องใช้รหัสบิลของบิลนั้นเสมอ
+      clientId: pending
+        ? pending.clientId
+        : typeof o.clientId === 'string' && UUID_RE.test(o.clientId) ? o.clientId : '',
+      pending,
+    }
+  } catch {
+    return null
+  }
+}
+
+function parseSavedSale(data: unknown): SavedSale | null {
+  const d: unknown = Array.isArray(data) ? data[0] : data
+  if (!d || typeof d !== 'object') return null
+  const o = d as Record<string, unknown>
+  if (o.sale_no == null || o.sale_no === '') return null
+  const items: SavedSaleItem[] = Array.isArray(o.items)
+    ? o.items
+        .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
+        .map(x => ({
+          product_id: toStr(x.product_id),
+          name: toStr(x.name),
+          sku: toStr(x.sku),
+          size: toStrOrNull(x.size),
+          color: toStrOrNull(x.color),
+          qty: toNum(x.qty),
+          unit_price: toNum(x.unit_price),
+          subtotal: toNum(x.subtotal),
+          stock_after: toNum(x.stock_after),
+        }))
+    : []
+  return {
+    id: toStr(o.id),
+    sale_no: toStr(o.sale_no),
+    total_amount: toNum(o.total_amount),
+    discount: toNum(o.discount),
+    net_amount: toNum(o.net_amount),
+    payment_method: toStr(o.payment_method),
+    note: toStrOrNull(o.note),
+    created_at: toStr(o.created_at),
+    already_saved: o.already_saved === true,
+    items,
+  }
+}
+
+function sameItems(a: SentItem[], b: SentItem[]): boolean {
+  const sum = (list: SentItem[]) => {
+    const m: Record<string, number> = {}
+    list.forEach(i => { m[i.product_id] = (m[i.product_id] ?? 0) + i.qty })
+    return m
+  }
+  const ma = sum(a)
+  const mb = sum(b)
+  const ka = Object.keys(ma)
+  return ka.length === Object.keys(mb).length && ka.every(k => ma[k] === mb[k])
+}
+
+// ช่องตัวเลขที่พิมพ์ได้ลื่น (ลบจนว่างระหว่างพิมพ์ได้) แต่ค่าที่ส่งออกไปถูกจำกัดช่วงเสมอ
+function NumberField({
+  id, value, onChange, min, max, decimals = false, emptyZero = false, disabled, className, ariaLabel, placeholder,
+}: {
+  id?: string
+  value: number
+  onChange: (n: number) => void
+  min: number
+  max: number
+  decimals?: boolean
+  emptyZero?: boolean   // แสดงช่องว่างแทน 0 (ใช้กับส่วนลด)
+  disabled?: boolean
+  className?: string
+  ariaLabel: string
+  placeholder?: string
+}) {
+  const show = useCallback((n: number) => (emptyZero && n === 0 ? '' : String(n)), [emptyZero])
+  const [text, setText] = useState(() => show(value))
+
+  // ค่าเปลี่ยนจากภายนอก (กด +/−, ล้างตะกร้า, กู้ตะกร้า) → อัปเดตช่อง ถ้าไม่ตรงกับที่พิมพ์ค้างอยู่
+  useEffect(() => {
+    setText(t => {
+      const typed = t.trim() === '' ? (emptyZero ? 0 : NaN) : Number(t)
+      return typed === value ? t : show(value)
     })
+  }, [value, emptyZero, show])
+
+  function clamp(n: number): number {
+    const r = decimals ? round2(n) : Math.floor(n)
+    return Math.min(Math.max(r, min), Math.max(min, max))
   }
 
-  function handleScan(code: string) {
-    const p = products.find(x => x.barcode === code || x.sku === code)
-    if (p) {
-      addToCart(p)
-      setScanMsg(`✅ เพิ่ม: ${p.name}`)
-      setTimeout(() => setScanMsg(''), 1500)
-    } else {
-      setScanMsg(`❌ ไม่พบสินค้า: ${code}`)
-      setTimeout(() => setScanMsg(''), 2000)
+  function handleChange(raw: string) {
+    const cleaned = decimals ? raw.replace(/[^\d.]/g, '') : raw.replace(/\D/g, '')
+    if (cleaned === '') {
+      setText('')
+      if (emptyZero && value !== 0) onChange(clamp(0))
+      return
     }
-  }
-
-  function updateQty(id: string, qty: number) {
-    if (qty <= 0) setCart(c => c.filter(i => i.id !== id))
-    else setCart(c => c.map(i => i.id === id ? { ...i, cart_qty: qty } : i))
-  }
-
-  async function handleCheckout() {
-    if (cart.length === 0 || net < 0) return
-    setLoading(true)
-
-    const { data: sale, error } = await supabase.from('sales').insert({
-      total_amount: total, discount, net_amount: net, payment_method: paymentMethod, note: note || null
-    }).select().single()
-
-    if (error || !sale) { setLoading(false); return }
-
-    await supabase.from('sale_items').insert(
-      cart.map(i => ({ sale_id: sale.id, product_id: i.id, qty: i.cart_qty, unit_price: i.sell_price, subtotal: i.sell_price * i.cart_qty }))
-    )
-    for (const item of cart) {
-      const newQty = item.stock_qty - item.cart_qty
-      await supabase.from('products').update({ stock_qty: newQty }).eq('id', item.id)
-      await supabase.from('stock_movements').insert({
-        product_id: item.id, type: 'out', qty: item.cart_qty,
-        qty_before: item.stock_qty, qty_after: newQty,
-        ref_id: sale.id, note: `ขาย ${sale.sale_no}`
-      })
-    }
-
-    setCart([]); setDiscount(0); setNote('')
-    router.refresh()
-    setLoading(false)
-    alert(`✅ บันทึกการขายสำเร็จ\nเลขที่: ${sale.sale_no}\nยอดสุทธิ: ฿${net.toLocaleString()}`)
+    const n = Number(cleaned)
+    if (!Number.isFinite(n)) { setText(cleaned); return }
+    const c = clamp(n)
+    setText(c === n ? cleaned : show(c))
+    if (c !== value) onChange(c)
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-      {showScanner && <BarcodeScanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
+    <input
+      id={id}
+      type="text"
+      inputMode={decimals ? 'decimal' : 'numeric'}
+      pattern={decimals ? undefined : '[0-9]*'}
+      autoComplete="off"
+      aria-label={ariaLabel}
+      placeholder={placeholder}
+      disabled={disabled}
+      className={className}
+      value={text}
+      onChange={e => handleChange(e.target.value)}
+      onFocus={e => e.currentTarget.select()}
+      onBlur={() => setText(show(value))}
+      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+    />
+  )
+}
 
-      {/* Product Search */}
-      <div className="lg:col-span-3 space-y-4">
-        <div className="card p-4 flex gap-2">
-          <input className="input flex-1" placeholder="🔍 ค้นหาสินค้า / SKU / บาร์โค้ด..."
-            value={search} onChange={e => setSearch(e.target.value)} />
-          <button onClick={() => setShowScanner(true)}
-            className="btn-secondary whitespace-nowrap flex items-center gap-1">
-            📷 สแกน
-          </button>
-        </div>
-        {scanMsg && (
-          <div className="card px-4 py-2 text-sm font-medium text-center">{scanMsg}</div>
-        )}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[480px] overflow-y-auto">
-          {filtered.map(p => (
-            <button key={p.id} onClick={() => addToCart(p)} disabled={p.stock_qty === 0}
-              className="card p-3 text-left hover:shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95">
-              <p className="font-medium text-gray-900 text-sm line-clamp-2">{p.name}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{p.sku}</p>
-              <p className="text-brand-600 font-bold mt-2">฿{p.sell_price.toLocaleString()}</p>
-              <p className="text-xs text-gray-400">คงเหลือ: {p.stock_qty}</p>
+export default function SalesClient({ products, recentSales }: {
+  products: PosProduct[]; recentSales: RecentSale[]
+}) {
+  const router = useRouter()
+  const supabase = useMemo(() => createClient(), [])
+
+  // ----- ตะกร้า: เก็บแค่ id + จำนวน — ชื่อ/ราคา/สต๊อก อ่านจาก products ล่าสุดเสมอ -----
+  const [lines, setLinesState] = useState<CartLine[]>([])
+  const linesRef = useRef<CartLine[]>([])   // ค่าล่าสุดแบบ sync (สแกนรัว ๆ ก่อน re-render ก็นับถูก)
+  const [discount, setDiscount] = useState(0)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
+  const [note, setNote] = useState('')
+  const [clientId, setClientId] = useState('')
+  const [pending, setPending] = useState<PendingCheckout | null>(null)
+  const [hydrated, setHydrated] = useState(false)
+
+  const [search, setSearch] = useState('')
+  const [showScanner, setShowScanner] = useState(false)
+  const [notice, setNotice] = useState<ScanResult | null>(null)
+  const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)   // กันกดชำระเบิ้ล (state อัปเดตไม่ทันนิ้ว)
+  const [checkoutError, setCheckoutError] = useState('')
+  const [success, setSuccess] = useState<SuccessInfo | null>(null)
+  const [payButtonVisible, setPayButtonVisible] = useState(false)
+
+  const searchRef = useRef<HTMLInputElement>(null)
+  const payButtonRef = useRef<HTMLButtonElement>(null)
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const knownLabels = useRef<Map<string, string>>(new Map())
+
+  const updateLines = useCallback((fn: (prev: CartLine[]) => CartLine[]) => {
+    const next = fn(linesRef.current)
+    if (next === linesRef.current) return
+    linesRef.current = next
+    setLinesState(next)
+  }, [])
+
+  const applySaved = useCallback((s: SavedCart) => {
+    updateLines(() => s.lines)
+    setDiscount(s.discount)
+    setPaymentMethod(s.paymentMethod)
+    setNote(s.note)
+    setClientId(s.clientId)
+    setPending(s.pending)
+  }, [updateLines])
+
+  // ----- กู้ตะกร้าจาก localStorage ตอน mount (ไม่ทำตอน render กัน hydration mismatch) -----
+  useEffect(() => {
+    let saved: SavedCart | null = null
+    try {
+      saved = parseSavedCart(window.localStorage.getItem(STORAGE_KEY))
+    } catch {
+      saved = null
+    }
+    if (saved) applySaved(saved)
+    setHydrated(true)
+    // คอม/เครื่องที่มีเมาส์ (มักต่อเครื่องสแกน USB) → โฟกัสช่องค้นหารอเลย; มือถือไม่โฟกัส กันคีย์บอร์ดเด้ง
+    try {
+      if (window.matchMedia && window.matchMedia('(pointer: fine)').matches) searchRef.current?.focus()
+    } catch { /* ignore */ }
+  }, [applySaved])
+
+  // ----- จำตะกร้าทุกครั้งที่เปลี่ยน -----
+  useEffect(() => {
+    if (!hydrated) return
+    try {
+      const data: SavedCart = { lines, discount, paymentMethod, note, clientId, pending }
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    } catch { /* storage เต็ม/ถูกปิด — ขายต่อได้ปกติ แค่ไม่จำตะกร้า */ }
+  }, [hydrated, lines, discount, paymentMethod, note, clientId, pending])
+
+  // ----- เปิด POS หลายแท็บ: ใช้ตะกร้าเดียวกัน (ขายในแท็บหนึ่งแล้ว อีกแท็บต้องว่างตาม) -----
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key !== STORAGE_KEY || savingRef.current) return
+      applySaved(parseSavedCart(e.newValue) ?? EMPTY_CART)
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [applySaved])
+
+  // ----- client_id สร้างตอนตะกร้ามีสินค้าชิ้นแรก แล้วใช้ซ้ำตอนกดชำระใหม่ -----
+  // (แท็บที่ซ่อนอยู่ไม่สร้าง — กันสองแท็บสุ่มรหัสแข่งกันผ่านตะกร้าที่ใช้ร่วมกัน)
+  useEffect(() => {
+    if (hydrated && lines.length > 0 && !clientId && document.visibilityState === 'visible') setClientId(newClientId())
+  }, [hydrated, lines.length, clientId])
+
+  // ----- กลับมาที่แท็บ/เน็ตกลับมา → โหลดราคา+สต๊อกใหม่ ไม่ขายด้วยข้อมูลเก่า -----
+  // ออฟไลน์อยู่ห้าม refresh: Next 14 จะโหลดทั้งหน้าใหม่ กลายเป็นหน้า "ไม่มีอินเทอร์เน็ต" ของเบราว์เซอร์
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === 'visible' && navigator.onLine !== false) router.refresh()
+    }
+    function onOnline() {
+      router.refresh()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', onOnline)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', onOnline)
+    }
+  }, [router])
+
+  // ----- ปุ่มชำระเงินจริงอยู่บนจอแล้ว → ซ่อนแถบล่าง (มือถือ) -----
+  useEffect(() => {
+    const el = payButtonRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(
+      entries => setPayButtonVisible(entries.some(en => en.isIntersecting)),
+      { threshold: 0.5 },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  useEffect(() => () => {
+    if (noticeTimer.current) clearTimeout(noticeTimer.current)
+  }, [])
+
+  // ----- เครื่องสแกน USB/บลูทูธ: พิมพ์ตอนโฟกัสไม่อยู่ในช่องกรอก (เช่นเพิ่งแตะการ์ดสินค้า) → ส่งเข้าช่องค้นหา -----
+  // ไม่งั้นตัวอักษรหาย และ Enter ท้ายรหัสไปกดปุ่มที่โฟกัสค้างอยู่ (เพิ่มสินค้าตัวก่อนซ้ำ)
+  useEffect(() => {
+    function onKeyDown(e: globalThis.KeyboardEvent) {
+      if (showScanner || e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return
+      const el = document.activeElement
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement
+        || (el instanceof HTMLElement && el.isContentEditable)) return
+      // เว้นวรรคบนปุ่ม = ผู้ใช้คีย์บอร์ดกดปุ่ม ไม่ใช่การสแกน
+      if (e.key === ' ' && (el instanceof HTMLButtonElement || el instanceof HTMLAnchorElement)) return
+      if (success) setSuccess(null)
+      searchRef.current?.focus({ preventScroll: true })
+    }
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => document.removeEventListener('keydown', onKeyDown, true)
+  }, [showScanner, success])
+
+  // ----- สินค้าจาก props (ห้าม copy ลง state — router.refresh() ต้องอัปเดตราคา/สต๊อกได้) -----
+  const catalog = useMemo<PosProduct[]>(() => products.map(p => ({
+    ...p,
+    barcode: p.barcode ?? null,
+    size: p.size ?? null,
+    color: p.color ?? null,
+    sell_price: toNum(p.sell_price),
+    stock_qty: Math.max(0, Math.floor(toNum(p.stock_qty))),
+  })), [products])
+
+  const productById = useMemo(() => {
+    const m = new Map<string, PosProduct>()
+    catalog.forEach(p => m.set(p.id, p))
+    return m
+  }, [catalog])
+
+  // จำชื่อสินค้าที่เคยเห็น เผื่อสินค้าในตะกร้าถูกปิดใช้งานระหว่างขาย จะได้ยังบอกได้ว่าตัวไหน
+  useEffect(() => {
+    catalog.forEach(p => knownLabels.current.set(p.id, productLabel(p)))
+  }, [catalog])
+
+  // จำนวนในตะกร้าเกินสต๊อกล่าสุด → ลดลงให้เท่าสต๊อก
+  // เฉพาะแท็บที่เปิดดูอยู่: แท็บที่ซ่อนมีสต๊อกเก่า ถ้าเขียนกลับจะไปลดจำนวนในแท็บที่ใช้งานจริง (ตะกร้าใช้ร่วมกัน)
+  // แท็บที่ซ่อนยังแสดง/คิดเงินไม่เกินสต๊อกผ่าน cartView อยู่แล้ว กลับมาเปิดดูเมื่อไรก็ refresh แล้วมาตรวจใหม่
+  useEffect(() => {
+    if (document.visibilityState !== 'visible') return
+    const over = lines.some(l => {
+      const p = productById.get(l.id)
+      return !!p && p.stock_qty > 0 && l.qty > p.stock_qty
+    })
+    if (!over) return
+    updateLines(prev => prev.map(l => {
+      const p = productById.get(l.id)
+      return p && p.stock_qty > 0 && l.qty > p.stock_qty ? { ...l, qty: p.stock_qty } : l
+    }))
+  }, [lines, productById, updateLines])
+
+  const cartView: CartView[] = lines.map(l => {
+    const p = productById.get(l.id) ?? null
+    if (!p) {
+      return {
+        id: l.id, qty: l.qty, product: null, lineTotal: 0,
+        label: knownLabels.current.get(l.id) ?? 'สินค้าที่ไม่มีในรายการขายแล้ว',
+        problem: 'สินค้านี้ถูกปิดใช้งานหรือถูกลบแล้ว — จะไม่ถูกคิดเงินในบิลนี้ กด ✕ เพื่อเอาออก',
+      }
+    }
+    if (p.stock_qty <= 0) {
+      return {
+        id: l.id, qty: l.qty, product: p, lineTotal: 0, label: productLabel(p),
+        problem: 'สต๊อกหมดแล้ว — จะไม่ถูกคิดเงินในบิลนี้ กด ✕ เพื่อเอาออก',
+      }
+    }
+    const qty = Math.min(l.qty, p.stock_qty)
+    return { id: l.id, qty, product: p, label: productLabel(p), problem: '', lineTotal: round2(p.sell_price * qty) }
+  })
+  const payable = cartView.filter(v => v.product !== null && v.problem === '')
+  const excludedCount = cartView.length - payable.length
+  const itemCount = payable.reduce((s, v) => s + v.qty, 0)
+  const total = round2(payable.reduce((s, v) => s + v.lineTotal, 0))
+  const effDiscount = round2(Math.min(Math.max(0, discount), total))
+  const net = round2(Math.max(0, total - effDiscount))
+
+  // ส่วนลดต้องไม่เกินยอดรวม (เช่น เอาสินค้าออกหลังใส่ส่วนลด) — เฉพาะแท็บที่เปิดดูอยู่ (เหตุผลเดียวกับด้านบน)
+  useEffect(() => {
+    if (!hydrated || document.visibilityState !== 'visible') return
+    if (discount > total) setDiscount(total)
+  }, [hydrated, discount, total])
+
+  const cartQtyById = useMemo(() => {
+    const m = new Map<string, number>()
+    lines.forEach(l => m.set(l.id, l.qty))
+    return m
+  }, [lines])
+
+  // ----- ค้นหา: ชื่อ / SKU / บาร์โค้ด / ไซส์ / สี (+ รหัสที่พิมพ์ตอนคีย์บอร์ดเป็นภาษาไทย) -----
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return catalog
+    const tokens = q.split(/\s+/)
+    const codes = /\s/.test(q)
+      ? []
+      : codeCandidates(search).map(c => c.toLowerCase()).filter(c => c.length >= 3 && c !== q)
+    return catalog.filter(p => {
+      const hay = `${p.name} ${p.sku} ${p.barcode ?? ''} ${p.size ?? ''} ${p.color ?? ''}`.toLowerCase()
+      if (tokens.every(t => hay.includes(t))) return true
+      if (codes.length === 0) return false
+      const sku = p.sku.toLowerCase()
+      const bc = (p.barcode ?? '').toLowerCase()
+      return codes.some(c => sku.includes(c) || (bc !== '' && bc.includes(c)))
+    })
+  }, [catalog, search])
+  const shown = filtered.length > MAX_CARDS ? filtered.slice(0, MAX_CARDS) : filtered
+
+  // ----- actions -----
+  function showNotice(r: ScanResult) {
+    setNotice(r)
+    if (noticeTimer.current) clearTimeout(noticeTimer.current)
+    noticeTimer.current = setTimeout(() => setNotice(null), r.ok ? 2000 : 3500)
+  }
+
+  function addProduct(p: PosProduct): ScanResult {
+    const label = productLabel(p)
+    if (savingRef.current) return { ok: false, message: 'กำลังบันทึกบิล รอสักครู่แล้วค่อยเพิ่มสินค้า' }
+    const inCart = linesRef.current.find(l => l.id === p.id)?.qty ?? 0
+    if (p.stock_qty <= 0) return { ok: false, message: `สต๊อกหมด: ${label}` }
+    if (inCart >= p.stock_qty) {
+      return { ok: false, message: `สต๊อกหมด: ${label} (ในตะกร้าครบ ${p.stock_qty} ชิ้นแล้ว)` }
+    }
+    updateLines(prev => (prev.some(l => l.id === p.id)
+      ? prev.map(l => (l.id === p.id ? { ...l, qty: Math.min(l.qty + 1, p.stock_qty) } : l))
+      : [...prev, { id: p.id, qty: 1 }]))
+    setCheckoutError('')
+    return { ok: true, message: `เพิ่ม: ${label} (ในตะกร้า ${inCart + 1})` }
+  }
+
+  // BarcodeScanner ส่งรหัสที่ normalize แล้วมาให้ และโชว์ข้อความที่คืนไปในหน้าต่างสแกนเอง
+  function handleScan(code: string): ScanResult {
+    const p = findByCode(catalog, code)
+    if (!p) return { ok: false, message: `ไม่พบสินค้า: ${code}` }
+    return addProduct(p)
+  }
+
+  // เครื่องสแกน USB พิมพ์รหัสแล้วกด Enter ใส่ช่องค้นหา
+  function handleSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+    e.preventDefault()
+    const input = e.currentTarget
+    const raw = input.value
+    if (!raw.trim()) return
+    const p = findByCode(catalog, raw)
+    if (p) {
+      showNotice(addProduct(p))
+      setSearch('')
+      input.focus()
+      return
+    }
+    if (filtered.length === 0) {
+      showNotice({ ok: false, message: `ไม่พบสินค้า: ${normalizeScannedCode(raw) || raw.trim()}` })
+      input.select()   // สแกนครั้งถัดไปจะพิมพ์ทับทันที
+    }
+  }
+
+  function setLineQty(id: string, qty: number) {
+    if (savingRef.current) return
+    const p = productById.get(id)
+    if (!p || p.stock_qty <= 0) return
+    const q = Math.min(Math.max(1, Math.floor(qty)), p.stock_qty)
+    updateLines(prev => prev.map(l => (l.id === id ? { ...l, qty: q } : l)))
+    setCheckoutError('')
+  }
+
+  function removeLine(id: string) {
+    if (savingRef.current) return
+    updateLines(prev => prev.filter(l => l.id !== id))
+    setCheckoutError('')
+  }
+
+  function clearCart() {
+    if (savingRef.current) return
+    if (linesRef.current.length > 0 || pending) {
+      const msg = pending
+        ? 'บิลก่อนหน้าอาจบันทึกไปแล้ว — ควรกด "ชำระเงิน" เพื่อตรวจสอบก่อน (ระบบจะไม่ตัดสต๊อกซ้ำ) หรือดู "รายการขายล่าสุด" ด้านล่าง\nถ้าล้างตะกร้าแล้วสแกนขายใหม่ อาจได้บิลซ้ำ\n\nยืนยันล้างสินค้าทั้งหมดในตะกร้า?'
+        : 'ล้างสินค้าทั้งหมดในตะกร้า?'
+      if (!window.confirm(msg)) return
+    }
+    updateLines(() => [])
+    setDiscount(0)
+    setNote('')
+    setClientId(newClientId())
+    setPending(null)
+    setCheckoutError('')
+  }
+
+  function scrollToCart() {
+    document.getElementById('cart')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function startNewBill() {
+    setSuccess(null)
+    try {
+      if (window.matchMedia && window.matchMedia('(pointer: fine)').matches) searchRef.current?.focus()
+    } catch { /* ignore */ }
+  }
+
+  async function handleCheckout() {
+    if (savingRef.current) return
+    // ตะกร้าคิดเงินไม่ได้ แต่มีบิลค้างตรวจ (เช่นบิลนั้นขายชิ้นสุดท้ายไปแล้ว สต๊อกเลยเป็น 0) → ส่งบิลเดิมไปตรวจ
+    const retryPending = payable.length === 0 ? pending : null
+    if (payable.length === 0 && !retryPending) return
+    savingRef.current = true
+    setSaving(true)
+    setCheckoutError('')
+
+    const hadPending = pending !== null
+    const cid = pending ? pending.clientId : (clientId || newClientId())
+    if (cid !== clientId) setClientId(cid)
+    const sent: SentItem[] = retryPending ? retryPending.items : payable.map(v => ({ product_id: v.id, qty: v.qty }))
+    const sentDiscount = retryPending ? retryPending.discount : effDiscount
+    const shownNet = retryPending ? null : net
+    const nextPending: PendingCheckout = { clientId: cid, items: sent, discount: sentDiscount }
+    setPending(nextPending)
+    // จำลงเครื่องทันทีก่อนส่ง (ไม่รอ effect) — แอปถูกปิด/รีโหลดกลางทางก็ยังรู้ว่ามีบิลค้างตรวจ
+    try {
+      const data: SavedCart = { lines: linesRef.current, discount, paymentMethod, note, clientId: cid, pending: nextPending }
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    } catch { /* storage ใช้ไม่ได้ — ยังจำใน state ของหน้านี้ */ }
+
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null
+    let timedOut = false
+    let answered = false   // เซิร์ฟเวอร์ตอบกลับมาจริง (สำเร็จ หรือปฏิเสธพร้อมรหัส error)
+    let partial = false    // ได้คำตอบแต่อ่านผลบิลไม่ได้
+    const timer = setTimeout(() => { timedOut = true; ctrl?.abort() }, CHECKOUT_TIMEOUT_MS)
+
+    try {
+      // ราคาไม่ส่งไป — เซิร์ฟเวอร์ใช้ราคาในระบบเอง, ล็อกสต๊อก, กันขายเกิน, กันบันทึกซ้ำด้วย client_id
+      let req = supabase.rpc('record_sale', {
+        p_client_id: cid,
+        p_items: sent,
+        p_discount: sentDiscount,
+        p_payment_method: paymentMethod,
+        p_note: note.trim() || null,
+      })
+      if (ctrl) req = req.abortSignal(ctrl.signal)
+      const { data, error } = await req
+      if (error) throw error
+      const sale = parseSavedSale(data)
+      if (!sale) {
+        partial = true
+        throw new Error(PARTIAL_MSG)
+      }
+      answered = true
+      setSuccess({
+        sale,
+        shownNet,
+        cartMismatch: sale.already_saved && sale.items.length > 0 && !sameItems(sent, sale.items),
+      })
+      updateLines(() => [])
+      setDiscount(0)
+      setNote('')
+      setClientId(newClientId())
+      setPending(null)
+      setCheckoutError('')
+    } catch (err) {
+      // เก็บตะกร้า + client_id เดิมไว้ กดชำระซ้ำได้อย่างปลอดภัย
+      if (serverAnswered(err)) {
+        answered = true
+        // เซิร์ฟเวอร์ปฏิเสธบิลนี้จริง = ไม่ได้บันทึก → ไม่มีบิลค้างตรวจแล้ว
+        // (ยกเว้นมีบิลค้างจากครั้งก่อน แล้วรอบนี้โดนปฏิเสธเรื่องสิทธิ์/การเข้าสู่ระบบ ซึ่งยังไม่ได้ตรวจบิลเดิมเลย)
+        if (!hadPending || rejectedAfterDuplicateCheck(err)) setPending(null)
+        setCheckoutError(thaiError(err))
+      } else {
+        // เน็ตหลุด/หมดเวลา/ตอบกลับไม่ครบ → บิลค้างตรวจ (pending) ยังอยู่
+        setCheckoutError(timedOut ? TIMEOUT_MSG : partial ? PARTIAL_MSG : UNSURE_MSG)
+      }
+    } finally {
+      clearTimeout(timer)
+      savingRef.current = false
+      setSaving(false)
+      // โหลดราคา/สต๊อกใหม่เฉพาะตอนเซิร์ฟเวอร์ตอบจริงและยังออนไลน์ (ออฟไลน์แล้ว refresh = ทั้งหน้าหายไป)
+      if (answered && navigator.onLine !== false) router.refresh()
+    }
+  }
+
+  const successSale = success?.sale ?? null
+  const priceChanged = !!success && !success.sale.already_saved && success.shownNet !== null
+    && Math.abs(success.sale.net_amount - success.shownNet) >= 0.005
+  const checkingPending = payable.length === 0 && pending !== null
+
+  return (
+    <div className="pb-28 lg:pb-0">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6 items-start">
+        {/* ===== สินค้า ===== */}
+        <section className="lg:col-span-3 space-y-3 min-w-0">
+          <div className="card p-3 sm:p-4 flex gap-2">
+            <input
+              ref={searchRef}
+              type="text"
+              className="input flex-1 min-w-0 min-h-[44px]"
+              placeholder="🔍 ค้นหาชื่อ / SKU / บาร์โค้ด / ไซส์ / สี"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              enterKeyHint="search"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              aria-label="ค้นหาสินค้า หรือยิงบาร์โค้ดแล้วกด Enter"
+            />
+            <button
+              type="button"
+              onClick={() => setShowScanner(true)}
+              className="btn-secondary whitespace-nowrap min-h-[44px] shrink-0"
+            >
+              📷 สแกน
             </button>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      {/* Cart */}
-      <div className="lg:col-span-2 card p-5 space-y-4 h-fit">
-        <h2 className="font-semibold text-gray-900">ตะกร้า ({cart.length} รายการ)</h2>
-
-        {cart.length === 0 && (
-          <p className="text-gray-400 text-sm text-center py-6">กดเลือกสินค้า หรือสแกนบาร์โค้ดเพื่อเพิ่ม</p>
-        )}
-        <div className="space-y-2 max-h-64 overflow-y-auto">
-          {cart.map(item => (
-            <div key={item.id} className="flex items-center gap-3 bg-gray-50 rounded-lg p-2">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
-                <p className="text-xs text-gray-400">฿{item.sell_price.toLocaleString()} × {item.cart_qty}</p>
-              </div>
-              <div className="flex items-center gap-1">
-                <button onClick={() => updateQty(item.id, item.cart_qty - 1)}
-                  className="w-6 h-6 rounded bg-gray-200 text-gray-700 font-bold text-sm hover:bg-gray-300">-</button>
-                <span className="w-8 text-center text-sm font-semibold">{item.cart_qty}</span>
-                <button onClick={() => updateQty(item.id, item.cart_qty + 1)}
-                  disabled={item.cart_qty >= item.stock_qty}
-                  className="w-6 h-6 rounded bg-gray-200 text-gray-700 font-bold text-sm hover:bg-gray-300 disabled:opacity-40">+</button>
-              </div>
-              <p className="text-sm font-semibold text-gray-900 w-16 text-right">
-                ฿{(item.sell_price * item.cart_qty).toLocaleString()}
-              </p>
+          {catalog.length === 0 ? (
+            <div className="card p-6 text-center text-sm text-gray-400">
+              ยังไม่มีสินค้าที่เปิดขาย — เพิ่มสินค้าที่เมนู &quot;สินค้า&quot; ก่อน
             </div>
-          ))}
-        </div>
+          ) : filtered.length === 0 ? (
+            <div className="card p-6 text-center text-sm text-gray-400">
+              ไม่พบสินค้าที่ตรงกับ &quot;{search.trim()}&quot;
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto lg:pr-1">
+                {shown.map(p => {
+                  const variant = variantText(p)
+                  const inCart = cartQtyById.get(p.id) ?? 0
+                  const out = p.stock_qty <= 0
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => showNotice(addProduct(p))}
+                      disabled={out || saving}
+                      title={productLabel(p)}
+                      className="card relative min-h-[72px] p-3 text-left transition-all hover:shadow-md active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {inCart > 0 && (
+                        <span className="absolute right-2 top-2 min-w-[1.5rem] rounded-full bg-brand-600 px-1.5 py-0.5 text-center text-xs font-bold text-white">
+                          {inCart}
+                        </span>
+                      )}
+                      <p className={`font-medium text-gray-900 text-sm line-clamp-2 break-words ${inCart > 0 ? 'pr-7' : ''}`}>
+                        {p.name}
+                      </p>
+                      {variant && <p className="text-xs font-medium text-brand-700 mt-0.5">{variant}</p>}
+                      <p className="text-xs text-gray-400 mt-0.5 truncate">{p.sku}</p>
+                      <div className="mt-2 flex items-end justify-between gap-1">
+                        <span className="text-brand-600 font-bold">{baht(p.sell_price)}</span>
+                        <span className={`text-xs ${out ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
+                          คงเหลือ {p.stock_qty}
+                        </span>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+              {filtered.length > shown.length && (
+                <p className="text-xs text-center text-gray-400">
+                  แสดง {shown.length} จาก {filtered.length} รายการ — พิมพ์ค้นหาเพื่อกรองให้แคบลง
+                </p>
+              )}
+            </>
+          )}
+        </section>
 
-        <div className="border-t border-gray-100 pt-4 space-y-3">
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>ยอดรวม</span><span className="font-semibold">฿{total.toLocaleString()}</span>
+        {/* ===== ตะกร้า ===== */}
+        <section id="cart" className="lg:col-span-2 card p-4 sm:p-5 space-y-4 scroll-mt-20 lg:scroll-mt-4" aria-label="ตะกร้าสินค้า">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-semibold text-gray-900">
+              🛒 ตะกร้า{' '}
+              <span className="font-normal text-gray-500 text-sm">
+                ({lines.length} รายการ{itemCount > 0 ? ` · ${itemCount} ชิ้น` : ''})
+              </span>
+            </h2>
+            {lines.length > 0 && (
+              <button
+                type="button"
+                onClick={clearCart}
+                disabled={saving}
+                className="min-h-[40px] px-2 -mr-2 text-xs text-gray-400 underline underline-offset-2 hover:text-red-600 disabled:opacity-40"
+              >
+                ล้างตะกร้า
+              </button>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-600 shrink-0">ส่วนลด ฿</label>
-            <input type="number" min="0" max={total} value={discount}
-              onChange={e => setDiscount(Number(e.target.value))}
-              className="input text-right" />
+
+          {lines.length === 0 ? (
+            <p className="text-gray-400 text-sm text-center py-6">แตะสินค้า หรือสแกนบาร์โค้ดเพื่อเพิ่มลงตะกร้า</p>
+          ) : (
+            <ul className="space-y-2 lg:max-h-[40vh] lg:overflow-y-auto lg:pr-1">
+              {cartView.map(v => (
+                <li key={v.id} className={`rounded-lg p-2.5 ${v.problem ? 'bg-red-50 border border-red-100' : 'bg-gray-50'}`}>
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium break-words ${v.problem ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                        {v.label}
+                      </p>
+                      {v.product && !v.problem && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {baht(v.product.sell_price)} / ชิ้น · คงเหลือ {v.product.stock_qty}
+                        </p>
+                      )}
+                      {v.problem && <p className="text-xs font-medium text-red-600 mt-0.5">{v.problem}</p>}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeLine(v.id)}
+                      disabled={saving}
+                      aria-label={`เอา ${v.label} ออกจากตะกร้า`}
+                      className="w-10 h-10 shrink-0 -mr-1 -mt-1 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {v.product && !v.problem && (
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setLineQty(v.id, v.qty - 1)}
+                          disabled={v.qty <= 1 || saving}
+                          aria-label="ลดจำนวน"
+                          className="w-10 h-10 rounded-lg border border-gray-200 bg-white text-lg font-bold text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+                        >
+                          −
+                        </button>
+                        <NumberField
+                          value={v.qty}
+                          min={1}
+                          max={v.product.stock_qty}
+                          onChange={n => setLineQty(v.id, n)}
+                          disabled={saving}
+                          ariaLabel={`จำนวน ${v.label}`}
+                          className="input w-14 h-10 px-1 text-center font-semibold"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setLineQty(v.id, v.qty + 1)}
+                          disabled={v.qty >= v.product.stock_qty || saving}
+                          aria-label="เพิ่มจำนวน"
+                          className="w-10 h-10 rounded-lg border border-gray-200 bg-white text-lg font-bold text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-900 text-right">{baht(v.lineTotal)}</p>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="border-t border-gray-100 pt-4 space-y-3">
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>ยอดรวม</span>
+              <span className="font-semibold">{baht(total)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="pos-discount" className="text-sm text-gray-600 shrink-0">ส่วนลด (บาท)</label>
+              <div className="flex-1">
+                <NumberField
+                  id="pos-discount"
+                  value={discount}
+                  min={0}
+                  max={total}
+                  decimals
+                  emptyZero
+                  onChange={setDiscount}
+                  disabled={saving || total <= 0}
+                  ariaLabel="ส่วนลด (บาท)"
+                  placeholder="0"
+                  className="input text-right min-h-[44px]"
+                />
+              </div>
+            </div>
+            <div className="flex justify-between items-center text-base font-bold text-gray-900 bg-gray-50 rounded-lg px-3 py-2">
+              <span>ยอดสุทธิ</span>
+              <span className="text-xl text-brand-700">{baht(net)}</span>
+            </div>
+
+            <div>
+              <p className="block text-sm font-medium text-gray-700 mb-1.5">ช่องทางชำระ</p>
+              <div className="grid grid-cols-3 gap-2" role="group" aria-label="ช่องทางชำระ">
+                {PAYMENT_OPTIONS.map(opt => {
+                  const active = paymentMethod === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setPaymentMethod(opt.value)}
+                      disabled={saving}
+                      aria-pressed={active}
+                      className={`min-h-[52px] rounded-lg border-2 px-1 py-1.5 text-sm font-medium leading-tight transition-colors disabled:opacity-50 ${
+                        active
+                          ? 'border-brand-600 bg-brand-50 text-brand-700'
+                          : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="block text-lg leading-none mb-0.5">{opt.icon}</span>
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <input
+              className="input min-h-[44px]"
+              placeholder="หมายเหตุ (ถ้ามี)"
+              value={note}
+              maxLength={200}
+              disabled={saving}
+              onChange={e => setNote(e.target.value)}
+              aria-label="หมายเหตุ"
+            />
+
+            {excludedCount > 0 && (
+              <p className="text-xs font-medium text-red-600">
+                ⚠️ มี {excludedCount} รายการที่จะไม่ถูกคิดเงิน (สินค้าหมดหรือถูกปิดใช้งาน)
+              </p>
+            )}
+
+            {checkoutError && (
+              <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                <p className="font-medium">❌ {checkoutError}</p>
+                <p className="mt-1 text-xs text-red-600">
+                  ตะกร้ายังอยู่ครบ — แก้ไขแล้วกดชำระเงินอีกครั้งได้ ถ้าบิลเคยบันทึกไปแล้วระบบจะไม่ตัดสต๊อกซ้ำ
+                </p>
+              </div>
+            )}
+
+            {pending && !saving && (
+              <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                <p className="font-medium">⚠️ บิลก่อนหน้าอาจบันทึกไปแล้ว — กดชำระเงินเพื่อตรวจสอบ ระบบจะไม่ตัดสต๊อกซ้ำ</p>
+                {checkingPending && (
+                  <p className="mt-1 text-xs">
+                    สินค้าในตะกร้าขึ้นว่าหมด อาจเป็นเพราะบิลนั้นบันทึกไปแล้ว — กดปุ่มด้านล่างเพื่อดูผล
+                  </p>
+                )}
+              </div>
+            )}
+
+            <button
+              ref={payButtonRef}
+              type="button"
+              onClick={handleCheckout}
+              disabled={(payable.length === 0 && !pending) || saving}
+              className="btn-primary w-full min-h-[52px] text-lg"
+            >
+              {saving ? 'กำลังบันทึก...' : checkingPending ? '🔎 ตรวจสอบบิลก่อนหน้า' : `✅ ชำระเงิน ${baht(net)}`}
+            </button>
           </div>
-          <div className="flex justify-between text-base font-bold text-gray-900 bg-gray-50 rounded-lg px-3 py-2">
-            <span>ยอดสุทธิ</span><span className="text-brand-700">฿{net.toLocaleString()}</span>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">ช่องทางชำระ</label>
-            <select className="input" value={paymentMethod}
-              onChange={e => setPaymentMethod(e.target.value as 'cash' | 'transfer' | 'credit')}>
-              <option value="cash">💵 เงินสด</option>
-              <option value="transfer">📱 โอนเงิน</option>
-              <option value="credit">💳 บัตรเครดิต</option>
-            </select>
-          </div>
-          <input className="input" placeholder="หมายเหตุ..." value={note} onChange={e => setNote(e.target.value)} />
-          <button onClick={handleCheckout} disabled={cart.length === 0 || loading || net < 0}
-            className="btn-primary w-full text-base">
-            {loading ? 'กำลังบันทึก...' : `✅ ชำระเงิน ฿${net.toLocaleString()}`}
-          </button>
-          <button onClick={() => { setCart([]); setDiscount(0) }} className="btn-secondary w-full text-sm">
-            ล้างตะกร้า
-          </button>
-        </div>
+        </section>
       </div>
 
-      {/* Recent Sales */}
-      <div className="lg:col-span-5 card overflow-hidden">
+      {/* ===== รายการขายล่าสุด ===== */}
+      <section className="card overflow-hidden mt-6">
         <div className="p-4 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">รายการขายล่าสุด</h2>
         </div>
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50"><tr>
-            <th className="text-left px-4 py-3 font-semibold text-gray-600">เลขที่</th>
-            <th className="text-left px-4 py-3 font-semibold text-gray-600">ช่องทาง</th>
-            <th className="text-right px-4 py-3 font-semibold text-gray-600">ยอดสุทธิ</th>
-            <th className="text-right px-4 py-3 font-semibold text-gray-600">เวลา</th>
-          </tr></thead>
-          <tbody className="divide-y divide-gray-50">
-            {recentSales.length === 0 && (
-              <tr><td colSpan={4} className="text-center py-6 text-gray-400">ยังไม่มีรายการ</td></tr>
-            )}
-            {recentSales.map(s => (
-              <tr key={s.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-mono text-xs text-gray-600">{s.sale_no}</td>
-                <td className="px-4 py-3 text-gray-600">
-                  {s.payment_method === 'cash' ? '💵 เงินสด' : s.payment_method === 'transfer' ? '📱 โอน' : '💳 บัตร'}
-                </td>
-                <td className="px-4 py-3 text-right font-semibold text-gray-900">฿{s.net_amount.toLocaleString()}</td>
-                <td className="px-4 py-3 text-right text-gray-400 text-xs">
-                  {format(new Date(s.created_at), 'dd MMM yy HH:mm', { locale: th })}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[480px] text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">เลขที่</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">ช่องทาง</th>
+                <th className="text-right px-4 py-3 font-semibold text-gray-600">ยอดสุทธิ</th>
+                <th className="text-right px-4 py-3 font-semibold text-gray-600">เวลา</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {recentSales.length === 0 && (
+                <tr><td colSpan={4} className="text-center py-6 text-gray-400">ยังไม่มีรายการ</td></tr>
+              )}
+              {recentSales.map(s => (
+                <tr key={s.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-mono text-xs text-gray-600 whitespace-nowrap">{s.sale_no}</td>
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                    {PAYMENT_LABELS[s.payment_method] ?? s.payment_method}
+                  </td>
+                  <td className="px-4 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">
+                    {baht(toNum(s.net_amount))}
+                  </td>
+                  <td className="px-4 py-3 text-right text-gray-400 text-xs whitespace-nowrap">
+                    {formatThaiDateTime(s.created_at)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* ===== แถบชำระเงินด้านล่าง (มือถือ/แท็บเล็ต) ===== */}
+      {!payButtonVisible && !success && (
+        <div className="lg:hidden fixed inset-x-0 md:left-60 bottom-0 z-30 border-t border-gray-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.06)] pb-[env(safe-area-inset-bottom)] pl-safe pr-safe md:pl-0">
+          <div className="flex items-center gap-3 px-4 py-2.5">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-gray-500">
+                {itemCount > 0 ? `ในตะกร้า ${itemCount} ชิ้น` : 'ตะกร้าว่าง'}
+              </p>
+              <p className="text-lg font-bold text-brand-700 leading-tight truncate">{baht(net)}</p>
+            </div>
+            <button type="button" onClick={scrollToCart} className="btn-primary min-h-[44px] px-6 text-base shrink-0">
+              ชำระเงิน
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== ข้อความแจ้งผลการเพิ่มสินค้า ===== */}
+      {notice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none fixed inset-x-4 z-40 flex justify-center bottom-[calc(5.5rem_+_env(safe-area-inset-bottom))] lg:bottom-6"
+        >
+          <div
+            className={`max-w-md rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-lg ${
+              notice.ok ? 'bg-green-600' : 'bg-red-600'
+            }`}
+          >
+            {notice.ok ? '✅ ' : '❌ '}{notice.message}
+          </div>
+        </div>
+      )}
+
+      {showScanner && (
+        <BarcodeScanner
+          title="📷 สแกนสินค้าเข้าตะกร้า"
+          onScan={handleScan}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
+
+      {/* ===== บิลสำเร็จ ===== */}
+      {success && successSale && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-3 sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pos-success-title"
+          onKeyDown={e => { if (e.key === 'Escape') startNewBill() }}
+        >
+          <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl bg-white p-5 space-y-4 pb-[calc(1.25rem_+_env(safe-area-inset-bottom))] sm:pb-5">
+            <div className="text-center">
+              <div className="text-4xl">{successSale.already_saved ? 'ℹ️' : '✅'}</div>
+              <h3 id="pos-success-title" className="mt-1 text-lg font-bold text-gray-900">
+                {successSale.already_saved ? 'บิลนี้บันทึกไว้แล้ว' : 'บันทึกการขายสำเร็จ'}
+              </h3>
+              <p className="font-mono text-sm text-gray-600">เลขที่ {successSale.sale_no}</p>
+              <p className="text-xs text-gray-400">
+                {formatThaiDateTime(successSale.created_at)} · {PAYMENT_LABELS[successSale.payment_method] ?? successSale.payment_method}
+              </p>
+            </div>
+
+            {successSale.already_saved && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                บิลนี้บันทึกไว้แล้ว ไม่ได้ตัดสต๊อกซ้ำ
+              </div>
+            )}
+            {success.cartMismatch && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                รายการในตะกร้าตอนกดล่าสุดไม่ตรงกับบิลที่บันทึกไว้ — ตรวจรายการด้านล่าง ถ้ายังมีสินค้าที่ต้องขายเพิ่ม ให้ขายเป็นบิลใหม่
+              </div>
+            )}
+            {priceChanged && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                ราคาสินค้าในระบบถูกอัปเดตระหว่างขาย — ยอดที่บันทึกจริงคือ <b>{baht(successSale.net_amount)}</b>{' '}
+                (หน้าจอแสดง {baht(success.shownNet)}) กรุณาเก็บเงินตามยอดจริง
+              </div>
+            )}
+
+            {successSale.items.length > 0 && (
+              <ul className="divide-y divide-gray-100 text-sm">
+                {successSale.items.map((it, i) => (
+                  <li key={`${it.product_id}-${i}`} className="flex items-start justify-between gap-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-gray-900 break-words">{productLabel(it)}</p>
+                      <p className="text-xs text-gray-400">{baht(it.unit_price)} × {it.qty}</p>
+                    </div>
+                    <p className="font-semibold text-gray-900 whitespace-nowrap">{baht(it.subtotal)}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="space-y-1 border-t border-gray-100 pt-3 text-sm">
+              <div className="flex justify-between text-gray-600">
+                <span>ยอดรวม</span><span>{baht(successSale.total_amount)}</span>
+              </div>
+              {successSale.discount > 0 && (
+                <div className="flex justify-between text-gray-600">
+                  <span>ส่วนลด</span><span>-{baht(successSale.discount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-1 text-base font-bold text-gray-900">
+                <span>ยอดสุทธิ</span><span className="text-2xl text-brand-700">{baht(successSale.net_amount)}</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              autoFocus
+              onClick={startNewBill}
+              className="btn-primary w-full min-h-[56px] text-lg"
+            >
+              🧾 ขายบิลใหม่
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
