@@ -65,3 +65,22 @@ export async function requirePermission(perm: keyof Permissions): Promise<AppSes
   if (!session.permissions[perm]) redirect('/dashboard')
   return session
 }
+
+// เมนูที่ใช้ได้เฉพาะบทบาท admin (เช่น "ตั้งค่าการเชื่อมต่อ" ที่จัดการคีย์ร้าน) — พนักงานที่มีสิทธิ์ครบทุกช่องก็เข้าไม่ได้
+// ใช้บนหน้า server component: ไม่ได้ login → /login, ไม่ใช่ admin → /dashboard
+export async function requireAdmin(): Promise<AppSession> {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  if (session.role !== 'admin') redirect('/dashboard')
+  return session
+}
+
+// ใช้ใน server action (ห้าม redirect กลางคำขอของ action): admin → session, อื่นๆ/อ่านไม่ได้ → null
+export async function getAdminSessionOrError(): Promise<AppSession | null> {
+  try {
+    const session = await getSession()
+    return session && session.role === 'admin' ? session : null
+  } catch {
+    return null
+  }
+}

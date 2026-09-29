@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { bangkokDateKey, bangkokDayStartISO } from '@/lib/format'
 import { fetchAllRows } from '@/lib/fetchAllRows'
+import { isMissingSalesColumn } from '@/lib/salesCompat'
 import ReportsClient, { type ReportDay, type ReportProduct, type ReportSale } from './ReportsClient'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -32,14 +33,23 @@ export default async function ReportsPage() {
   }
   const rangeLabel = `${dayLabel(bangkokDateKey(new Date(rangeStartMs)), true)} – ${dayLabel(bangkokDateKey(new Date(todayStartMs)), true)}`
 
-  const [sales, products] = await Promise.all([
-    fetchAllRows<ReportSale>((from, to) => supabase
+  // บิลออเดอร์แพลตฟอร์มที่ยกเลิกก่อนส่ง (voided_at — คืนสต๊อกแล้ว) ไม่นับเป็นรายรับ
+  //   ฐานข้อมูลที่ยังไม่ได้รัน fix-03 ไม่มีคอลัมน์นี้ (และไม่มีบิลยกเลิก) → ดึงแบบเดิม
+  const loadSales = (skipVoided: boolean) => fetchAllRows<ReportSale>((from, to) => {
+    const q = supabase
       .from('sales')
       .select('id, net_amount, created_at, payment_method')
       .gte('created_at', sinceISO)
+    return (skipVoided ? q.is('voided_at', null) : q)
       .order('created_at')
       .order('id')
-      .range(from, to)),
+      .range(from, to)
+  })
+  const [sales, products] = await Promise.all([
+    loadSales(true).catch((e: unknown) => {
+      if (isMissingSalesColumn(e)) return loadSales(false)
+      throw e
+    }),
     fetchAllRows<ReportProduct>((from, to) => supabase
       .from('products')
       .select('id, name, sku, size, color, stock_qty, cost_price, min_stock')

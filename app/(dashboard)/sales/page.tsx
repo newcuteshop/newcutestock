@@ -2,13 +2,29 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { thaiError } from '@/lib/format'
 import { fetchAllRows } from '@/lib/fetchAllRows'
-import SalesClient, { type PosProduct } from './SalesClient'
+import { isMissingSalesColumn } from '@/lib/salesCompat'
+import SalesClient, { type PosProduct, type RecentSale } from './SalesClient'
 
 export default async function SalesPage() {
   await requirePermission('sales')
   const supabase = createClient()
+  // รายการขายล่าสุด + ช่องทางขาย/บิลยกเลิก (คอลัมน์จาก fix-03 — ยังไม่รันก็ขายได้ตามเดิม)
+  const recentSales = async (withChannel: boolean): Promise<{ data: RecentSale[] | null; error: unknown }> => {
+    const r = withChannel
+      ? await supabase
+        .from('sales')
+        .select('id, sale_no, net_amount, payment_method, created_at, channel, voided_at')
+        .order('created_at', { ascending: false })
+        .limit(20)
+      : await supabase
+        .from('sales')
+        .select('id, sale_no, net_amount, payment_method, created_at')
+        .order('created_at', { ascending: false })
+        .limit(20)
+    return { data: (r.data ?? null) as RecentSale[] | null, error: r.error }
+  }
   // สินค้าเกิน 1,000 รายการ (หลายไซส์/สี) ต้องดึงทีละหน้า ไม่งั้นสแกนตัวที่เกินแล้วขึ้น "ไม่พบสินค้า"
-  const [products, salesRes] = await Promise.all([
+  const [products, firstSalesRes] = await Promise.all([
     fetchAllRows<PosProduct>((from, to) => supabase
       .from('products')
       .select('id, name, sku, barcode, size, color, sell_price, stock_qty')
@@ -16,12 +32,9 @@ export default async function SalesPage() {
       .order('name')
       .order('id')
       .range(from, to)),
-    supabase
-      .from('sales')
-      .select('id, sale_no, net_amount, payment_method, created_at')
-      .order('created_at', { ascending: false })
-      .limit(20),
+    recentSales(true),
   ])
+  const salesRes = firstSalesRes.error && isMissingSalesColumn(firstSalesRes.error) ? await recentSales(false) : firstSalesRes
 
   // โหลดไม่ได้ต้องบอกให้ชัด — ห้ามโชว์หน้าขายที่รายการสินค้า/ราคาว่างเปล่าแบบเงียบ ๆ
   // (สินค้าโหลดไม่ได้ fetchAllRows โยน error ภาษาไทยให้เองแล้ว)

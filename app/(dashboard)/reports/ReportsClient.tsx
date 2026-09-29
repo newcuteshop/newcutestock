@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { baht, bangkokDateKey, productLabel } from '@/lib/format'
 import { ICON } from '@/components/theme/icons'
+import { PAYMENT_METHOD_LABELS } from '@/lib/integrations/labels'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
 
@@ -31,6 +32,7 @@ const PAYMENT_METHODS: { key: string; label: string; color: string }[] = [
   { key: 'cash',     label: 'เงินสด',     color: '#B23A5E' },
   { key: 'transfer', label: 'โอนเงิน',    color: '#F4A7BB' },
   { key: 'credit',   label: 'บัตรเครดิต', color: '#5C2336' },
+  { key: 'marketplace', label: PAYMENT_METHOD_LABELS.marketplace, color: '#D9738F' },
 ]
 
 // สีกราฟแท่ง / เส้นตาราง / ตัวเลขแกน / กล่องทิป

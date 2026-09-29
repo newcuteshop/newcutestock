@@ -8,6 +8,7 @@ import {
   Crown,
   LayoutDashboard,
   LogOut,
+  PlugZap,
   ReceiptText,
   ScanBarcode,
   Shirt,
@@ -23,7 +24,15 @@ import BrandMark from '@/components/theme/BrandMark'
 import MotionToggle from '@/components/theme/MotionToggle'
 import { ICON, ICON_SM } from '@/components/theme/icons'
 
-export type NavItem = { href: string; label: string; icon: LucideIcon; perm: keyof Permissions | null }
+// adminOnly = แสดงเฉพาะบทบาท admin (พนักงานที่มีทุกสิทธิ์ก็ไม่เห็น) ; group 'settings' = อยู่ใต้หัวข้อ "ตั้งค่า"
+export type NavItem = {
+  href: string
+  label: string
+  icon: LucideIcon
+  perm: keyof Permissions | null
+  adminOnly?: boolean
+  group?: 'settings'
+}
 
 export const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard',  label: 'ภาพรวม',         icon: LayoutDashboard, perm: null },
@@ -33,6 +42,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/labels',     label: 'พิมพ์บาร์โค้ด',   icon: ScanBarcode,     perm: 'labels' },
   { href: '/reports',    label: 'รายงาน',           icon: BarChart3,       perm: 'reports' },
   { href: '/users',      label: 'จัดการผู้ใช้',    icon: Users,           perm: 'users' },
+  { href: '/settings/integrations', label: 'ตั้งค่าการเชื่อมต่อ', icon: PlugZap, perm: null, adminOnly: true, group: 'settings' },
 ]
 
 // props ที่ layout ส่งให้ทั้งเมนูเดสก์ท็อป (Sidebar) และมือถือ (MobileNav)
@@ -43,8 +53,48 @@ export type NavProps = {
   permissions: Permissions
 }
 
-export function visibleNavItems(permissions: Permissions): NavItem[] {
-  return NAV_ITEMS.filter(item => !item.perm || permissions[item.perm])
+// role ไม่ส่งมา = ถือเป็นพนักงาน (ซ่อนเมนูแอดมิน — fail closed)
+export function visibleNavItems(permissions: Permissions, role: NavProps['role'] = 'staff'): NavItem[] {
+  return NAV_ITEMS.filter(item => (!item.adminOnly || role === 'admin') && (!item.perm || permissions[item.perm]))
+}
+
+// เมนูหลัก + กลุ่ม "ตั้งค่า" (หัวข้อเล็กคั่น) — ใช้ทั้งเมนูข้างและลิ้นชักมือถือ
+export function NavLinks({
+  items, pathname, className, onNavigate,
+}: {
+  items: NavItem[]
+  pathname: string | null
+  className?: string
+  onNavigate?: () => void
+}) {
+  const main = items.filter(item => !item.group)
+  const settings = items.filter(item => item.group === 'settings')
+  const link = (item: NavItem) => {
+    const Icon = item.icon
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={onNavigate}
+        aria-current={isActivePath(pathname, item.href) ? 'page' : undefined}
+        className={className ? `nav-item ${className}` : 'nav-item'}
+      >
+        <Icon {...ICON} />
+        <span>{item.label}</span>
+      </Link>
+    )
+  }
+  return (
+    <>
+      {main.map(link)}
+      {settings.length > 0 && (
+        <div role="group" aria-label="ตั้งค่า" className="space-y-1 pt-3">
+          <p aria-hidden="true" className="section-kicker px-4 pb-0.5">ตั้งค่า</p>
+          {settings.map(link)}
+        </div>
+      )}
+    </>
+  )
 }
 
 export function isActivePath(pathname: string | null, href: string): boolean {
@@ -128,7 +178,7 @@ export function useLogout() {
 export default function Sidebar({ email, fullName, role, permissions }: NavProps) {
   const pathname = usePathname()
   const { loggingOut, logout } = useLogout()
-  const items = visibleNavItems(permissions)
+  const items = visibleNavItems(permissions, role)
   const login = displayLogin(email)
 
   return (
@@ -145,21 +195,7 @@ export default function Sidebar({ email, fullName, role, permissions }: NavProps
 
       {/* Nav — เมนูที่เลือกอยู่ (aria-current) เป็นแคปซูลลูกกวาดเองจาก .nav-item */}
       <nav aria-label="เมนูหลัก" className="flex-1 overflow-y-auto overscroll-y-contain pl-3 pr-6 py-2 space-y-1">
-        {items.map(item => {
-          const active = isActivePath(pathname, item.href)
-          const Icon = item.icon
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={active ? 'page' : undefined}
-              className="nav-item"
-            >
-              <Icon {...ICON} />
-              <span>{item.label}</span>
-            </Link>
-          )
-        })}
+        <NavLinks items={items} pathname={pathname} />
       </nav>
 
       {/* สวิตช์เอฟเฟกต์ + ผู้ใช้ + ออกจากระบบ */}

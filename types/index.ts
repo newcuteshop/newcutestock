@@ -1,3 +1,5 @@
+import type { PaymentMethod, SaleChannel } from '@/lib/integrations/types'
+
 // ===== สินค้า =====
 // ตรงกับตาราง products ใน supabase-schema.sql (select('*') คืนทุกคอลัมน์ ค่าว่างเป็น null)
 // ตั้งแต่ supabase-fix-02.sql: 1 แถว = 1 SKU (1 ไซส์) ของ "แบบสินค้า" (product_groups)
@@ -53,11 +55,16 @@ export interface Sale {
   total_amount: number
   discount: number
   net_amount: number
-  payment_method: 'cash' | 'transfer' | 'credit'
+  payment_method: PaymentMethod   // 'marketplace' = บิลจากออเดอร์แพลตฟอร์ม (ลูกค้าจ่ายผ่านแพลตฟอร์ม)
   note?: string
   client_id?: string | null   // กันบันทึกบิลซ้ำ (record_sale idempotent)
-  created_by: string
+  created_by: string | null   // บิลจากออเดอร์แพลตฟอร์ม = null (ระบบสร้าง)
   created_at: string
+  // ----- จาก supabase-fix-03-integrations.sql -----
+  channel?: SaleChannel             // ช่องทางขาย ('store' = หน้าร้าน)
+  channel_id?: string | null        // ช่องทางที่เชื่อมต่อ (บิลจากออเดอร์แพลตฟอร์ม)
+  external_order_id?: string | null // เลขออเดอร์บนแพลตฟอร์ม
+  voided_at?: string | null         // ออเดอร์ยกเลิกก่อนส่ง = ยกเลิกทั้งใบ (คืนสต๊อกแล้ว ไม่นับยอด)
 }
 
 export interface SaleItem {

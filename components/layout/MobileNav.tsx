@@ -9,7 +9,7 @@ import BrandMark from '@/components/theme/BrandMark'
 import MotionToggle from '@/components/theme/MotionToggle'
 import { TopbarPetals } from '@/components/theme/PetalLayer'
 import { ICON, ICON_LG } from '@/components/theme/icons'
-import { isActivePath, useLogout, UserPill, visibleNavItems, type NavProps } from './Sidebar'
+import { NavLinks, useLogout, UserPill, visibleNavItems, type NavProps } from './Sidebar'
 
 const DRAWER_ID = 'mobile-nav-drawer'
 
@@ -18,7 +18,7 @@ export default function MobileNav({ email, fullName, role, permissions }: NavPro
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const { loggingOut, logout } = useLogout()
-  const items = visibleNavItems(permissions)
+  const items = visibleNavItems(permissions, role)
   const login = displayLogin(email)
 
   const menuButtonRef = useRef<HTMLButtonElement>(null)
@@ -181,22 +181,7 @@ export default function MobileNav({ email, fullName, role, permissions }: NavPro
 
           {/* Nav — เมนูที่เลือกอยู่ (aria-current) เป็นแคปซูลลูกกวาดเองจาก .nav-item */}
           <nav aria-label="เมนูหลัก" className="flex-1 overflow-y-auto overscroll-contain pl-3 pr-6 py-1 space-y-1">
-            {items.map(item => {
-              const active = isActivePath(pathname, item.href)
-              const Icon = item.icon
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setOpen(false)}
-                  aria-current={active ? 'page' : undefined}
-                  className="nav-item text-base"
-                >
-                  <Icon {...ICON} />
-                  <span>{item.label}</span>
-                </Link>
-              )
-            })}
+            <NavLinks items={items} pathname={pathname} className="text-base" onNavigate={() => setOpen(false)} />
           </nav>
 
           {/* สวิตช์เอฟเฟกต์ + ออกจากระบบ */}

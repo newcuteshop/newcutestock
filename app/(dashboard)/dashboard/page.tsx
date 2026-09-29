@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth/permissions'
 import { baht, bangkokDayStartISO, productLabel } from '@/lib/format'
 import { fetchAllRows } from '@/lib/fetchAllRows'
+import { isMissingSalesColumn } from '@/lib/salesCompat'
 import { ICON, ICON_SM } from '@/components/theme/icons'
 
 type ProductRow = {
@@ -102,6 +103,18 @@ export default async function DashboardPage() {
   const supabase = createClient()
   // เริ่มวันตามเวลาไทย (ไม่ใช่ UTC) — ยอดขายวันนี้ตั้งแต่ 00:00 น. เวลาไทย
   const todayStart = bangkokDayStartISO()
+  // บิลออเดอร์แพลตฟอร์มที่ยกเลิกก่อนส่ง (voided_at) ไม่นับเป็นยอดขายวันนี้
+  //   ฐานข้อมูลที่ยังไม่ได้รัน fix-03 ไม่มีคอลัมน์นี้ (และไม่มีบิลยกเลิก) → ดึงแบบเดิม
+  const loadTodaySales = (skipVoided: boolean) => fetchAllRows<SaleRow>((from, to) => {
+    const q = supabase
+      .from('sales')
+      .select('net_amount')
+      .gte('created_at', todayStart)
+    return (skipVoided ? q.is('voided_at', null) : q)
+      .order('created_at')
+      .order('id')
+      .range(from, to)
+  })
 
   const [products, todaySales] = await Promise.all([
     fetchAllRows<ProductRow>((from, to) => supabase
@@ -110,13 +123,10 @@ export default async function DashboardPage() {
       .eq('is_active', true)
       .order('id')
       .range(from, to)),
-    fetchAllRows<SaleRow>((from, to) => supabase
-      .from('sales')
-      .select('net_amount')
-      .gte('created_at', todayStart)
-      .order('created_at')
-      .order('id')
-      .range(from, to)),
+    loadTodaySales(true).catch((e: unknown) => {
+      if (isMissingSalesColumn(e)) return loadTodaySales(false)
+      throw e
+    }),
   ])
 
   // คำนวณใน JS — PostgREST เทียบคอลัมน์กับคอลัมน์ (stock_qty <= min_stock) ไม่ได้

@@ -71,7 +71,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // ไม่ต้องตรวจ login กับไฟล์ static และ cron (Vercel Cron ไม่มี cookie ผู้ใช้)
+  // /api/integrations/* (webhook / OAuth callback / worker) และ /api/feed/* ยืนยันตัวตนเอง (ลายเซ็น / state / Bearer / โทเคนฟีด)
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|ico|webp|webmanifest)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|api/cron|api/integrations/|api/feed/|.*\\.(?:svg|png|jpg|jpeg|gif|ico|webp|webmanifest)$).*)',
   ],
 }

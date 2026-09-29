@@ -11,6 +11,8 @@ import {
   XCircle, type LucideIcon,
 } from 'lucide-react'
 import { ICON, ICON_SM } from '@/components/theme/icons'
+import { MANUAL_SALE_CHANNEL_OPTIONS, PAYMENT_METHOD_LABELS, SALE_CHANNEL_LABELS, saleChannelLabel } from '@/lib/integrations/labels'
+import type { ManualSaleChannel } from '@/lib/integrations/types'
 
 export interface PosProduct {
   id: string
@@ -29,6 +31,8 @@ export interface RecentSale {
   net_amount: number
   payment_method: string
   created_at: string
+  channel?: string | null      // ช่องทางขาย ('store' = หน้าร้าน)
+  voided_at?: string | null    // บิลออเดอร์แพลตฟอร์มที่ถูกยกเลิกก่อนส่ง (คืนสต๊อกแล้ว ไม่นับยอด)
 }
 
 type PaymentMethod = 'cash' | 'transfer' | 'credit'
@@ -74,6 +78,7 @@ interface SavedSale {
   created_at: string
   already_saved: boolean
   items: SavedSaleItem[]
+  channel: string   // ช่องทางขายของบิล ('store' = หน้าร้าน) — ไม่มีในผลเก่า = ''
 }
 interface SuccessInfo {
   sale: SavedSale
@@ -98,22 +103,25 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const TIMEOUT_MSG = 'เซิร์ฟเวอร์ตอบช้าเกินไป — บิลอาจบันทึกไปแล้วหรือยังก็ได้ กด "ชำระเงิน" อีกครั้งได้เลย ระบบจะไม่ตัดสต๊อกซ้ำ'
 const UNSURE_MSG = 'ไม่แน่ใจว่าบิลบันทึกแล้วหรือยัง (เน็ตหลุดระหว่างส่ง) — กด "ชำระเงิน" อีกครั้งเพื่อตรวจสอบ ระบบจะไม่ตัดสต๊อกซ้ำ'
 const PARTIAL_MSG = 'ระบบตอบกลับไม่ครบ — บิลอาจบันทึกแล้ว ดูใน "รายการขายล่าสุด" ก่อน หรือกดชำระเงินอีกครั้ง (ระบบจะไม่ตัดสต๊อกซ้ำ)'
+// ช่องทางขายที่เลือกล่าสุด — จำแยกจากตะกร้า (ไม่แตะรูปแบบตะกร้า/บิลค้างตรวจเดิม)
+const CHANNEL_STORAGE_KEY = 'newcute-pos-channel-v1'
+
+function isManualSaleChannel(v: unknown): v is ManualSaleChannel {
+  return MANUAL_SALE_CHANNEL_OPTIONS.some(o => o.value === v)
+}
 
 const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; icon: LucideIcon }[] = [
   { value: 'cash', label: 'เงินสด', icon: Banknote },
   { value: 'transfer', label: 'โอนเงิน', icon: Smartphone },
   { value: 'credit', label: 'บัตรเครดิต', icon: CreditCard },
 ]
-const PAYMENT_LABELS: Record<string, string> = {
-  cash: 'เงินสด',
-  transfer: 'โอนเงิน',
-  credit: 'บัตรเครดิต',
-}
+const PAYMENT_LABELS: Record<string, string> = PAYMENT_METHOD_LABELS
 // ไอคอนช่องทางชำระ (ช่องทางที่ไม่รู้จักแสดงแค่ข้อความ)
 const PAYMENT_ICONS: Partial<Record<string, LucideIcon>> = {
   cash: Banknote,
   transfer: Smartphone,
   credit: CreditCard,
+  marketplace: ShoppingBag,
 }
 
 // ช่องทางชำระ = ไอคอน + ชื่อ (ใช้ในตารางขายล่าสุด และหน้าต่างบิลสำเร็จ)
@@ -274,6 +282,7 @@ function parseSavedSale(data: unknown): SavedSale | null {
     created_at: toStr(o.created_at),
     already_saved: o.already_saved === true,
     items,
+    channel: toStr(o.channel),
   }
 }
 
@@ -370,6 +379,8 @@ export default function SalesClient({ products, recentSales }: {
   const [clientId, setClientId] = useState('')
   const [pending, setPending] = useState<PendingCheckout | null>(null)
   const [hydrated, setHydrated] = useState(false)
+  const [saleChannel, setSaleChannel] = useState<ManualSaleChannel>('store')
+  const [channelLoaded, setChannelLoaded] = useState(false)
 
   const [search, setSearch] = useState('')
   const [showScanner, setShowScanner] = useState(false)
@@ -425,6 +436,22 @@ export default function SalesClient({ products, recentSales }: {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
     } catch { /* storage เต็ม/ถูกปิด — ขายต่อได้ปกติ แค่ไม่จำตะกร้า */ }
   }, [hydrated, lines, discount, paymentMethod, note, clientId, pending])
+
+  // ----- ช่องทางขาย: กู้ค่าที่เลือกไว้ตอน mount แล้วจำทุกครั้งที่เปลี่ยน (ค่าเสีย/อ่านไม่ได้ = หน้าร้าน) -----
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(CHANNEL_STORAGE_KEY)
+      if (isManualSaleChannel(saved)) setSaleChannel(saved)
+    } catch { /* storage ถูกปิด — ใช้หน้าร้าน */ }
+    setChannelLoaded(true)
+  }, [])
+
+  useEffect(() => {
+    if (!channelLoaded) return
+    try {
+      window.localStorage.setItem(CHANNEL_STORAGE_KEY, saleChannel)
+    } catch { /* ไม่เป็นไร */ }
+  }, [channelLoaded, saleChannel])
 
   // ----- เปิด POS หลายแท็บ: ใช้ตะกร้าเดียวกัน (ขายในแท็บหนึ่งแล้ว อีกแท็บต้องว่างตาม) -----
   useEffect(() => {
@@ -713,6 +740,8 @@ export default function SalesClient({ products, recentSales }: {
         p_discount: sentDiscount,
         p_payment_method: paymentMethod,
         p_note: note.trim() || null,
+        // หน้าร้าน = ไม่ส่ง (ฐานข้อมูลใช้ค่าเริ่มต้น 'store' เอง — ขายหน้าร้านได้แม้ยังไม่ได้รัน fix-03)
+        ...(saleChannel !== 'store' ? { p_channel: saleChannel } : {}),
       })
       if (ctrl) req = req.abortSignal(ctrl.signal)
       const { data, error } = await req
@@ -734,6 +763,8 @@ export default function SalesClient({ products, recentSales }: {
       setClientId(newClientId())
       setPending(null)
       setCheckoutError('')
+      // บิลถัดไปเริ่มที่หน้าร้านเสมอ — ขายทางแชตแล้วลืมเปลี่ยนกลับ บิลหน้าร้านจะถูกนับเป็นช่องทางแชตทั้งวัน
+      setSaleChannel('store')
     } catch (err) {
       // เก็บตะกร้า + client_id เดิมไว้ กดชำระซ้ำได้อย่างปลอดภัย
       if (serverAnswered(err)) {
@@ -982,6 +1013,27 @@ export default function SalesClient({ products, recentSales }: {
             </div>
 
             <div>
+              <label htmlFor="pos-sale-channel" className="block text-sm font-medium text-gray-700 mb-1.5">ช่องทางขาย</label>
+              <select
+                id="pos-sale-channel"
+                className={`input ${saleChannel !== 'store' ? 'border-brand-600' : ''}`}
+                value={saleChannel}
+                disabled={saving}
+                onChange={e => { if (isManualSaleChannel(e.target.value)) setSaleChannel(e.target.value) }}
+                aria-describedby={saleChannel !== 'store' ? 'pos-sale-channel-note' : undefined}
+              >
+                {MANUAL_SALE_CHANNEL_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              {saleChannel !== 'store' && (
+                <p id="pos-sale-channel-note" className="mt-1 text-xs font-medium text-brand-700">
+                  บิลนี้บันทึกเป็นการขายทาง {SALE_CHANNEL_LABELS[saleChannel]} — ชำระเสร็จแล้ว บิลถัดไปกลับเป็นหน้าร้านเอง
+                </p>
+              )}
+            </div>
+
+            <div>
               <p className="block text-sm font-medium text-gray-700 mb-1.5">ช่องทางชำระ</p>
               <div className="grid grid-cols-3 gap-2" role="group" aria-label="ช่องทางชำระ">
                 {PAYMENT_OPTIONS.map(opt => {
@@ -1096,20 +1148,44 @@ export default function SalesClient({ products, recentSales }: {
               {recentSales.length === 0 && (
                 <tr><td colSpan={4} className="text-center py-6 text-gray-400">ยังไม่มีรายการ</td></tr>
               )}
-              {recentSales.map(s => (
-                <tr key={s.id}>
-                  <td className="font-mono text-xs text-gray-600 whitespace-nowrap">{s.sale_no}</td>
-                  <td className="text-gray-600 whitespace-nowrap">
-                    <PaymentText method={s.payment_method} />
-                  </td>
-                  <td className="text-right money text-gray-900 whitespace-nowrap">
-                    {baht(toNum(s.net_amount))}
-                  </td>
-                  <td className="text-right text-gray-400 text-xs whitespace-nowrap">
-                    {formatThaiDateTime(s.created_at)}
-                  </td>
-                </tr>
-              ))}
+              {recentSales.map(s => {
+                const voided = !!s.voided_at
+                const channel = s.channel && s.channel !== 'store' ? saleChannelLabel(s.channel) : ''
+                return (
+                  <tr key={s.id}>
+                    <td className={`font-mono text-xs whitespace-nowrap ${voided ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {s.sale_no}
+                      {voided && (
+                        <span className="chip-outline mt-1 flex w-fit font-display" title="ออเดอร์ถูกยกเลิกก่อนส่ง — คืนสต๊อกแล้ว ไม่นับในยอดขาย">
+                          ยกเลิก
+                        </span>
+                      )}
+                    </td>
+                    <td className="text-gray-600 whitespace-nowrap">
+                      {s.payment_method === 'marketplace' ? (
+                        // บิลจากออเดอร์แพลตฟอร์ม: ลูกค้าจ่ายผ่านแพลตฟอร์ม — แสดงชื่อแพลตฟอร์มแทน (คอลัมน์ไม่กว้างเกินจอมือถือ)
+                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap" title={PAYMENT_LABELS.marketplace}>
+                          <ShoppingBag size={18} strokeWidth={1.9} aria-hidden="true" className="text-brand-600" />
+                          {channel || PAYMENT_LABELS.marketplace}
+                        </span>
+                      ) : (
+                        <>
+                          <PaymentText method={s.payment_method} />
+                          {channel && <span className="block text-xs text-gray-500">{channel}</span>}
+                        </>
+                      )}
+                    </td>
+                    <td className="text-right whitespace-nowrap">
+                      <span className={voided ? 'money text-gray-400 line-through' : 'money text-gray-900'}>
+                        {baht(toNum(s.net_amount))}
+                      </span>
+                    </td>
+                    <td className="text-right text-gray-400 text-xs whitespace-nowrap">
+                      {formatThaiDateTime(s.created_at)}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -1184,6 +1260,12 @@ export default function SalesClient({ products, recentSales }: {
                 <span>{formatThaiDateTime(successSale.created_at)}</span>
                 <span>·</span>
                 <PaymentText method={successSale.payment_method} size={14} />
+                {successSale.channel && successSale.channel !== 'store' && (
+                  <>
+                    <span>·</span>
+                    <span>{saleChannelLabel(successSale.channel)}</span>
+                  </>
+                )}
               </p>
             </div>
 
