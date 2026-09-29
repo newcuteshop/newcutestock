@@ -5,6 +5,11 @@ import { createClient } from '@/lib/supabase/client'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import { productLabel, variantText, thaiError, formatThaiDateTime } from '@/lib/format'
 import { codeCandidates, findByCode, normalizeScannedCode } from '@/lib/barcode'
+import {
+  AlertCircle, AlertTriangle, ArrowDownToLine, ArrowDownUp, ArrowUpFromLine, Camera, CheckCircle2, ChevronRight,
+  History, Loader2, Minus, Plus, Search, SearchX, Shirt, SlidersHorizontal, Undo2, type LucideIcon,
+} from 'lucide-react'
+import { ICON, ICON_SM } from '@/components/theme/icons'
 
 export type MoveType = 'in' | 'out' | 'adjust' | 'return'
 
@@ -41,11 +46,12 @@ interface MoveResult {
   created_at: string
 }
 
-const TYPES: { value: MoveType; label: string; icon: string; active: string; hint: string }[] = [
-  { value: 'in', label: 'รับเข้า', icon: '📥', active: 'bg-green-600 border-green-600 text-white', hint: 'เพิ่มสต๊อก เช่น รับของจากซัพพลายเออร์' },
-  { value: 'out', label: 'จ่ายออก', icon: '📤', active: 'bg-red-600 border-red-600 text-white', hint: 'ตัดสต๊อก เช่น ของเสีย ของแถม (การขายให้บันทึกที่หน้าขาย)' },
-  { value: 'adjust', label: 'ปรับยอด', icon: '🔧', active: 'bg-blue-600 border-blue-600 text-white', hint: 'ตั้งยอดคงเหลือให้ตรงกับจำนวนที่นับได้จริง' },
-  { value: 'return', label: 'รับคืน', icon: '↩️', active: 'bg-amber-500 border-amber-500 text-white', hint: 'ลูกค้าคืนสินค้า เพิ่มกลับเข้าสต๊อก' },
+// tone = สีตอนถูกเลือก (คลาส .choice.tone-* ใน globals.css): รับเข้า=เขียว จ่ายออก=แดง ปรับยอด=โกโก้ รับคืน=น้ำผึ้ง
+const TYPES: { value: MoveType; label: string; icon: LucideIcon; tone: string; hint: string }[] = [
+  { value: 'in', label: 'รับเข้า', icon: ArrowDownToLine, tone: 'tone-leaf', hint: 'เพิ่มสต๊อก เช่น รับของจากซัพพลายเออร์' },
+  { value: 'out', label: 'จ่ายออก', icon: ArrowUpFromLine, tone: 'tone-cherry', hint: 'ตัดสต๊อก เช่น ของเสีย ของแถม (การขายให้บันทึกที่หน้าขาย)' },
+  { value: 'adjust', label: 'ปรับยอด', icon: SlidersHorizontal, tone: 'tone-cocoa', hint: 'ตั้งยอดคงเหลือให้ตรงกับจำนวนที่นับได้จริง' },
+  { value: 'return', label: 'รับคืน', icon: Undo2, tone: 'tone-honey', hint: 'ลูกค้าคืนสินค้า เพิ่มกลับเข้าสต๊อก' },
 ]
 
 const TYPE_LABELS: Record<string, string> = {
@@ -53,6 +59,20 @@ const TYPE_LABELS: Record<string, string> = {
 }
 const TYPE_BADGE: Record<string, string> = {
   in: 'badge-in', out: 'badge-out', adjust: 'badge-adjust', return: 'badge-return'
+}
+const TYPE_ICONS: Partial<Record<string, LucideIcon>> = {
+  in: ArrowDownToLine, out: ArrowUpFromLine, adjust: SlidersHorizontal, return: Undo2
+}
+
+// ป้ายประเภทในประวัติ = ไอคอน + ชื่อ (ต่างทั้งสีและความเข้ม)
+function TypeBadge({ type }: { type: string }) {
+  const Icon = TYPE_ICONS[type] ?? SlidersHorizontal
+  return (
+    <span className={TYPE_BADGE[type] ?? 'badge-adjust'}>
+      <Icon size={14} strokeWidth={2} aria-hidden="true" />
+      {TYPE_LABELS[type] ?? type}
+    </span>
+  )
 }
 
 const MAX_RESULTS = 8
@@ -330,7 +350,7 @@ export default function StockClient({ products, movements, initialType }: {
   const visible = matches.slice(0, MAX_RESULTS)
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
+    <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 lg:items-start">
       {/* lg+: ฟอร์มกว้างคงที่ด้านซ้าย + ประวัติยืดเต็มที่เหลือ / มือถือ-iPad แนวตั้ง: เรียงลงมาเหมือนเดิม */}
       {showScanner && (
         <BarcodeScanner
@@ -343,74 +363,93 @@ export default function StockClient({ products, movements, initialType }: {
 
       {/* ฟอร์มบันทึก */}
       <section className="lg:w-[420px] lg:shrink-0 min-w-0 card p-4 sm:p-5 space-y-5">
-        <h2 className="font-semibold text-gray-900">บันทึกการเคลื่อนไหว</h2>
+        <h2 className="section-title">
+          <ArrowDownUp {...ICON} className="text-brand-600" />
+          บันทึกการเคลื่อนไหว
+        </h2>
 
         {/* 1) เลือกสินค้า */}
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-medium text-gray-700">สินค้า</span>
             <button type="button" onClick={() => setShowScanner(true)}
-              className="min-h-[40px] px-3 rounded-lg bg-brand-50 text-brand-700 hover:bg-brand-100 text-sm font-medium">
-              📷 สแกน
+              className="btn-soft px-4 text-sm">
+              <Camera {...ICON_SM} />
+              สแกน
             </button>
           </div>
 
           {selected ? (
-            <div className="rounded-xl border border-brand-200 bg-brand-50 p-3 flex items-center gap-3">
+            <div className="rounded-3xl border-2 border-blush-line bg-milk p-3 sm:p-3.5 flex items-center gap-3">
+              {/* มือถือเล็กซ่อนฟองไอคอน ให้ชื่อสินค้ามีที่พอ */}
+              <span className="icon-bubble hidden sm:inline-grid"><Shirt {...ICON} /></span>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-900 break-words">{productLabel(selected)}</p>
+                <p className="font-display font-semibold text-gray-900 break-words">{productLabel(selected)}</p>
                 <p className="text-xs text-gray-500 break-all">
                   SKU {selected.sku}{selected.barcode ? ` · ${selected.barcode}` : ''}
                 </p>
                 <p className="text-sm text-gray-700 mt-0.5">
-                  คงเหลือ <span className={`font-bold ${selected.stock_qty <= 0 ? 'text-red-600' : 'text-gray-900'}`}>{num(selected.stock_qty)}</span> ชิ้น
+                  คงเหลือ <span className={`font-display font-bold tabular-nums ${selected.stock_qty <= 0 ? 'text-red-700' : 'text-gray-900'}`}>{num(selected.stock_qty)}</span> ชิ้น
                 </p>
               </div>
-              <button type="button" onClick={changeProduct} className="btn-secondary min-h-[40px] shrink-0">
+              <button type="button" onClick={changeProduct} className="btn-secondary shrink-0 px-4">
                 เปลี่ยน
               </button>
             </div>
           ) : (
             <>
-              <input
-                ref={searchRef}
-                className="input"
-                type="search"
-                enterKeyHint="search"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="none"
-                spellCheck={false}
-                aria-label="ค้นหาสินค้า"
-                placeholder="🔍 ชื่อ / SKU / บาร์โค้ด / ไซส์ / สี"
-                value={search}
-                onChange={e => { setSearch(e.target.value); setPickMsg('') }}
-                onKeyDown={handleSearchKeyDown}
-              />
-              {pickMsg && <p className="text-sm text-red-600" role="alert">{pickMsg}</p>}
+              <div className="input-icon">
+                <Search {...ICON_SM} />
+                <input
+                  ref={searchRef}
+                  className="input pl-11"
+                  type="search"
+                  enterKeyHint="search"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  aria-label="ค้นหาสินค้า"
+                  placeholder="ชื่อ / SKU / บาร์โค้ด / ไซส์ / สี"
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setPickMsg('') }}
+                  onKeyDown={handleSearchKeyDown}
+                />
+              </div>
+              {pickMsg && (
+                <p className="flex items-start gap-1.5 text-sm text-red-700" role="alert">
+                  <AlertCircle {...ICON_SM} className="mt-px" />
+                  <span className="min-w-0 break-words">{pickMsg}</span>
+                </p>
+              )}
 
               {products.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-4">
-                  ยังไม่มีสินค้าที่เปิดใช้งาน — เพิ่มสินค้าที่เมนูจัดการสินค้าก่อน
-                </p>
+                <div className="empty-state py-6">
+                  <span className="icon-bubble"><Shirt {...ICON} /></span>
+                  <p className="empty-state-title">ยังไม่มีสินค้าที่เปิดใช้งาน — เพิ่มสินค้าที่เมนูจัดการสินค้าก่อน</p>
+                </div>
               ) : matches.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-4">ไม่พบสินค้าที่ตรงกับ “{search.trim()}”</p>
+                <div className="empty-state py-6">
+                  <span className="icon-bubble"><SearchX {...ICON} /></span>
+                  <p className="empty-state-title break-words">ไม่พบสินค้าที่ตรงกับ “{search.trim()}”</p>
+                </div>
               ) : (
-                <div className="rounded-lg border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+                <div className="rounded-3xl border-2 border-blush-hair bg-white divide-y divide-blush-hair overflow-hidden">
                   {visible.map(p => (
                     <button key={p.id} type="button" onClick={() => selectProduct(p)}
-                      className="w-full min-h-[48px] px-3 py-2 flex items-center gap-3 text-left hover:bg-gray-50 active:bg-brand-50">
+                      className="w-full min-h-[52px] px-4 py-2.5 flex items-center gap-3 text-left transition-colors [@media(hover:hover)]:hover:bg-gray-50 active:bg-milk">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 break-words">{productLabel(p)}</p>
                         <p className="text-xs text-gray-400 truncate">{p.sku}</p>
                       </div>
-                      <span className={`text-xs whitespace-nowrap shrink-0 ${p.stock_qty <= 0 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                      <span className={`text-xs whitespace-nowrap shrink-0 ${p.stock_qty <= 0 ? 'text-red-700 font-medium' : 'text-gray-500'}`}>
                         คงเหลือ {num(p.stock_qty)}
                       </span>
+                      <ChevronRight {...ICON_SM} className="-mr-1 text-brand-300" />
                     </button>
                   ))}
                   {matches.length > visible.length && (
-                    <p className="px-3 py-2 text-xs text-gray-400 bg-gray-50">
+                    <p className="px-4 py-2.5 text-xs text-gray-500 bg-milk">
                       แสดง {visible.length} จาก {num(matches.length)} รายการ — พิมพ์เพิ่มเพื่อค้นหาให้แคบลง
                     </p>
                   )}
@@ -428,10 +467,8 @@ export default function StockClient({ products, movements, initialType }: {
               {TYPES.map(t => (
                 <button key={t.value} type="button" aria-pressed={type === t.value}
                   onClick={() => changeType(t.value)}
-                  className={`min-h-[56px] rounded-lg border px-1 py-2 flex flex-col items-center justify-center gap-0.5 text-sm font-medium transition-colors ${
-                    type === t.value ? t.active : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                  }`}>
-                  <span aria-hidden="true">{t.icon}</span>
+                  className={`choice ${t.tone} min-h-[60px] px-1`}>
+                  <t.icon {...ICON} />
                   <span className="whitespace-nowrap">{t.label}</span>
                 </button>
               ))}
@@ -446,11 +483,13 @@ export default function StockClient({ products, movements, initialType }: {
             </label>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => stepQty(-1)} aria-label="ลดจำนวน"
-                className="w-11 h-11 shrink-0 rounded-lg bg-gray-100 text-gray-700 text-xl font-bold hover:bg-gray-200">−</button>
+                className="btn-icon">
+                <Minus {...ICON} />
+              </button>
               <input
                 id="stock-qty"
                 ref={qtyRef}
-                className="input min-w-0 text-center text-lg font-semibold"
+                className="input min-w-0 text-center text-lg font-display font-semibold tabular-nums"
                 type="text"
                 inputMode="numeric"
                 enterKeyHint="done"
@@ -460,10 +499,12 @@ export default function StockClient({ products, movements, initialType }: {
                 onChange={e => handleQtyChange(e.target.value)}
               />
               <button type="button" onClick={() => stepQty(1)} aria-label="เพิ่มจำนวน"
-                className="w-11 h-11 shrink-0 rounded-lg bg-gray-100 text-gray-700 text-xl font-bold hover:bg-gray-200">+</button>
+                className="btn-icon">
+                <Plus {...ICON} />
+              </button>
             </div>
             {qtyProblem ? (
-              <p className="text-sm text-red-600 mt-1">{qtyProblem}</p>
+              <p className="text-sm text-red-700 mt-1">{qtyProblem}</p>
             ) : qtyEmpty ? (
               <p className="text-xs text-gray-400 mt-1">
                 {type === 'adjust' ? 'กรอกจำนวนที่นับได้จริงทั้งหมด (0 ได้)' : 'กรอกจำนวนชิ้น'}
@@ -473,26 +514,29 @@ export default function StockClient({ products, movements, initialType }: {
 
           {/* ตัวอย่างผลลัพธ์ */}
           {selected && (
-            <div className={`rounded-lg p-3 text-sm ${insufficient ? 'bg-red-50' : 'bg-gray-50'}`}>
+            <div className={`p-3.5 text-sm ${insufficient ? 'rounded-2xl border border-red-200 bg-red-50' : 'panel'}`}>
               {after === null ? (
-                <p className="text-gray-600">คงเหลือ <span className="font-semibold text-gray-900">{num(before)}</span> ชิ้น</p>
+                <p className="text-gray-600">คงเหลือ <span className="font-semibold text-gray-900 tabular-nums">{num(before)}</span> ชิ้น</p>
               ) : (
                 <p className="text-gray-600">
-                  คงเหลือ <span className="font-semibold text-gray-900">{num(before)}</span>
+                  คงเหลือ <span className="font-semibold text-gray-900 tabular-nums">{num(before)}</span>
                   {' → '}
-                  <span className={`font-bold ${insufficient ? 'text-red-600' : 'text-brand-700'}`}>{num(after)}</span>
+                  <span className={`font-display font-bold tabular-nums ${insufficient ? 'text-red-700' : 'text-brand-700'}`}>{num(after)}</span>
                   {' '}
-                  <span className={`font-medium ${changeColor(after - before)}`}>({signed(after - before)})</span>
+                  <span className={`font-semibold tabular-nums ${changeColor(after - before)}`}>({signed(after - before)})</span>
                   {type === 'adjust' && after === before && (
-                    <span className="text-gray-400"> — ยอดตรงกับระบบ</span>
+                    <span className="text-gray-500"> — ยอดตรงกับระบบ</span>
                   )}
                 </p>
               )}
               {insufficient && (
-                <p className="text-red-600 font-medium mt-1">
-                  {negativeBase
-                    ? `⚠️ ${negativeBaseText(before)}`
-                    : `⚠️ สต๊อกไม่พอ มีอยู่ ${num(before)} ชิ้น จ่ายออกได้ไม่เกิน ${num(before)} ชิ้น`}
+                <p className="mt-1.5 flex items-start gap-1.5 text-red-700 font-medium">
+                  <AlertTriangle {...ICON_SM} className="mt-px" />
+                  <span className="min-w-0">
+                    {negativeBase
+                      ? negativeBaseText(before)
+                      : `สต๊อกไม่พอ มีอยู่ ${num(before)} ชิ้น จ่ายออกได้ไม่เกิน ${num(before)} ชิ้น`}
+                  </span>
                 </p>
               )}
             </div>
@@ -506,40 +550,62 @@ export default function StockClient({ products, movements, initialType }: {
           </div>
 
           {error && (
-            <p className="bg-red-50 text-red-700 text-sm rounded-lg p-3" role="alert">{error}</p>
+            <div className="alert-err" role="alert">
+              <AlertCircle {...ICON_SM} />
+              <p className="min-w-0 break-words">{error}</p>
+            </div>
           )}
           {success && (
-            <p className="bg-green-50 text-green-700 text-sm rounded-lg p-3 break-words" role="status">✅ {success}</p>
+            <div className="alert-ok" role="status">
+              <CheckCircle2 {...ICON_SM} />
+              <p className="min-w-0 break-words">{success}</p>
+            </div>
           )}
 
-          <button type="submit" disabled={!canSubmit} className="btn-primary w-full min-h-[48px] text-base">
-            {saving ? 'กำลังบันทึก...' : !selected ? 'เลือกสินค้าก่อน' : `บันทึก${typeInfo.label}`}
+          <button type="submit" disabled={!canSubmit} className="btn-primary w-full min-h-[52px] text-base">
+            {saving ? (
+              <>
+                <Loader2 {...ICON_SM} className="animate-spin" />
+                <span>กำลังบันทึก...</span>
+              </>
+            ) : !selected ? 'เลือกสินค้าก่อน' : (
+              <>
+                <typeInfo.icon {...ICON_SM} />
+                <span>{`บันทึก${typeInfo.label}`}</span>
+              </>
+            )}
           </button>
         </form>
       </section>
 
       {/* ประวัติ */}
       <section className="lg:flex-1 min-w-0 card overflow-hidden">
-        <div className="p-4 border-b border-gray-100 flex items-baseline justify-between gap-2">
-          <h2 className="font-semibold text-gray-900">ประวัติการเคลื่อนไหว</h2>
-          <span className="text-xs text-gray-400">ล่าสุด {num(movements.length)} รายการ</span>
+        <div className="px-4 py-3.5 sm:px-5 border-b border-blush-hair flex flex-wrap items-center justify-between gap-2">
+          <h2 className="section-title">
+            <History {...ICON} className="text-brand-600" />
+            ประวัติการเคลื่อนไหว
+          </h2>
+          <span className="chip">ล่าสุด {num(movements.length)} รายการ</span>
         </div>
         {movements.length === 0 ? (
-          <p className="text-center py-10 text-gray-400">ยังไม่มีรายการ</p>
+          <div className="empty-state">
+            <span className="icon-bubble icon-bubble-lg"><History size={30} strokeWidth={1.8} aria-hidden="true" /></span>
+            <p className="empty-state-title">ยังไม่มีรายการ</p>
+          </div>
         ) : (
           <>
             {/* มือถือ / iPad / คอมทั่วไป: รายการเรียงลงมา */}
-            <ul className="2xl:hidden divide-y divide-gray-50 lg:max-h-[640px] lg:overflow-y-auto">
+            <ul className="2xl:hidden divide-y divide-blush-hair lg:max-h-[640px] lg:overflow-y-auto lg:overscroll-contain">
               {movements.map(m => {
                 const qb = toNum(m.qty_before)
                 const qa = toNum(m.qty_after)
                 const change = qb !== null && qa !== null ? qa - qb : null
                 return (
-                  <li key={m.id} className={`px-4 py-3 ${m.id === lastSavedId ? 'bg-green-50' : ''}`}>
+                  <li key={m.id} className={`px-4 py-3 sm:px-5 ${m.id === lastSavedId ? 'bg-green-50' : ''}`}>
                     <div className="flex items-start gap-3">
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className={TYPE_BADGE[m.type] ?? 'badge-adjust'}>{TYPE_LABELS[m.type] ?? m.type}</span>
+                          <TypeBadge type={m.type} />
                           <span className="text-xs text-gray-400">{formatThaiDateTime(m.created_at)}</span>
                         </div>
                         <p className="text-sm font-medium text-gray-900 break-words">
@@ -548,10 +614,10 @@ export default function StockClient({ products, movements, initialType }: {
                         {m.note && <p className="text-xs text-gray-500 break-words">{m.note}</p>}
                       </div>
                       <div className="text-right shrink-0">
-                        <p className={`text-base font-bold ${changeColor(change)}`}>
+                        <p className={`font-display text-lg font-bold leading-tight tabular-nums ${changeColor(change)}`}>
                           {change === null ? '–' : signed(change)}
                         </p>
-                        <p className="text-xs text-gray-400 whitespace-nowrap">
+                        <p className="text-xs text-gray-400 whitespace-nowrap tabular-nums">
                           {qb === null ? '?' : num(qb)} → {qa === null ? '?' : num(qa)}
                         </p>
                       </div>
@@ -562,40 +628,40 @@ export default function StockClient({ products, movements, initialType }: {
             </ul>
 
             {/* จอกว้างมาก (2xl+): ตารางแยกคอลัมน์ เวลา / ประเภท / สินค้า / หมายเหตุ / จำนวน / คงเหลือ */}
-            <div className="hidden 2xl:block max-h-[640px] overflow-auto">
-              <table className="w-full min-w-[640px] text-sm">
-                <thead className="bg-gray-50 sticky top-0 z-10">
+            <div className="hidden 2xl:block max-h-[640px] overflow-auto overscroll-contain">
+              <table className="table-soft min-w-[640px]">
+                <thead className="sticky top-0 z-10">
                   <tr>
-                    <th className="text-left px-4 py-3 font-semibold text-gray-600 whitespace-nowrap">เวลา</th>
-                    <th className="text-left px-4 py-3 font-semibold text-gray-600">ประเภท</th>
-                    <th className="text-left px-4 py-3 font-semibold text-gray-600">สินค้า</th>
-                    <th className="text-left px-4 py-3 font-semibold text-gray-600">หมายเหตุ</th>
-                    <th className="text-right px-4 py-3 font-semibold text-gray-600 whitespace-nowrap">จำนวน</th>
-                    <th className="text-right px-4 py-3 font-semibold text-gray-600 whitespace-nowrap">คงเหลือ</th>
+                    <th>เวลา</th>
+                    <th>ประเภท</th>
+                    <th>สินค้า</th>
+                    <th>หมายเหตุ</th>
+                    <th className="text-right">จำนวน</th>
+                    <th className="text-right">คงเหลือ</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody>
                   {movements.map(m => {
                     const qb = toNum(m.qty_before)
                     const qa = toNum(m.qty_after)
                     const change = qb !== null && qa !== null ? qa - qb : null
                     return (
-                      <tr key={m.id} className={m.id === lastSavedId ? 'bg-green-50' : 'hover:bg-gray-50'}>
-                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{formatThaiDateTime(m.created_at)}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={TYPE_BADGE[m.type] ?? 'badge-adjust'}>{TYPE_LABELS[m.type] ?? m.type}</span>
+                      <tr key={m.id} className={m.id === lastSavedId ? 'bg-green-50' : ''}>
+                        <td className="text-xs text-gray-500 whitespace-nowrap">{formatThaiDateTime(m.created_at)}</td>
+                        <td className="whitespace-nowrap">
+                          <TypeBadge type={m.type} />
                         </td>
-                        <td className="px-4 py-3">
+                        <td>
                           <p className="font-medium text-gray-900 break-words">
                             {m.products ? productLabel(m.products) : '(ไม่พบสินค้า)'}
                           </p>
                           {m.products && <p className="text-xs text-gray-400 break-all">SKU {m.products.sku}</p>}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-500 break-words">{m.note || '-'}</td>
-                        <td className={`px-4 py-3 text-right text-base font-bold whitespace-nowrap ${changeColor(change)}`}>
+                        <td className="text-xs text-gray-500 break-words">{m.note || '-'}</td>
+                        <td className={`text-right font-display text-base font-bold whitespace-nowrap tabular-nums ${changeColor(change)}`}>
                           {change === null ? '–' : signed(change)}
                         </td>
-                        <td className="px-4 py-3 text-right text-xs text-gray-400 whitespace-nowrap">
+                        <td className="text-right text-xs text-gray-400 whitespace-nowrap tabular-nums">
                           {qb === null ? '?' : num(qb)} → {qa === null ? '?' : num(qa)}
                         </td>
                       </tr>

@@ -1,8 +1,10 @@
 import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { productLabel, thaiError } from '@/lib/format'
+import { ICON_SM } from '@/components/theme/icons'
 import ProductForm from '../ProductForm'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -29,14 +31,12 @@ export default async function EditProductPage({ params }: { params: { id: string
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="min-w-0">
-        <Link
-          href="/products"
-          className="inline-flex items-center gap-1 min-h-[40px] text-sm text-brand-600 hover:underline"
-        >
-          ← กลับไปรายการสินค้า
+        <Link href="/products" className="link text-sm">
+          <ArrowLeft {...ICON_SM} />
+          กลับไปรายการสินค้า
         </Link>
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">แก้ไขสินค้า</h1>
-        <p className="text-gray-500 text-sm mt-1 break-words">{productLabel(product)}</p>
+        <h1 className="page-title">แก้ไขสินค้า</h1>
+        <p className="page-subtitle break-words">{productLabel(product)}</p>
       </div>
       <ProductForm categories={categoriesRes.data ?? []} product={product} />
     </div>

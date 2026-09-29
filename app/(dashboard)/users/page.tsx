@@ -1,3 +1,5 @@
+import { AlertTriangle } from 'lucide-react'
+import { ICON_SM } from '@/components/theme/icons'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { thaiError } from '@/lib/format'
@@ -26,15 +28,18 @@ export default async function UsersPage() {
       currentPermissions={permissions}
       header={
         <>
-          <h1 className="text-2xl font-bold text-gray-900">จัดการผู้ใช้</h1>
-          <p className="text-gray-500 text-sm mt-1">เพิ่ม / แก้ไข / ลบ และกำหนดสิทธิ์ผู้ใช้</p>
+          <h1 className="page-title">จัดการผู้ใช้</h1>
+          <p className="page-subtitle">เพิ่ม / แก้ไข / ลบ และกำหนดสิทธิ์ผู้ใช้</p>
         </>
       }
     >
       {serviceKeyMissing && (
-        <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          ⚠️ ยังไม่ได้ตั้งค่า SUPABASE_SERVICE_ROLE_KEY บน Vercel (Settings → Environment Variables) —
-          ดูรายชื่อได้ แต่จะเพิ่ม/แก้ไข/ลบผู้ใช้ไม่ได้จนกว่าจะตั้งค่าและ Redeploy
+        <div role="alert" className="alert-warn">
+          <AlertTriangle {...ICON_SM} />
+          <span className="min-w-0 break-words">
+            ยังไม่ได้ตั้งค่า SUPABASE_SERVICE_ROLE_KEY บน Vercel (Settings → Environment Variables) —
+            ดูรายชื่อได้ แต่จะเพิ่ม/แก้ไข/ลบผู้ใช้ไม่ได้จนกว่าจะตั้งค่าและ Redeploy
+          </span>
         </div>
       )}
     </UsersClient>

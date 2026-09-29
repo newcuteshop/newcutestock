@@ -1,5 +1,10 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  AlertTriangle, Check, CheckCircle2, Download, Eraser, Info, Loader2, Minus, Plus, Printer,
+  ScanBarcode, Search, SearchX, Tag, X, XCircle,
+} from 'lucide-react'
+import { ICON, ICON_SM } from '@/components/theme/icons'
 import { baht, bangkokDateKey, productLabel, thaiError, variantText } from '@/lib/format'
 import { findByCode, isPrintableAscii } from '@/lib/barcode'
 
@@ -560,72 +565,96 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
     }
   }
 
+  // กล่องข้อความตามธีม: สำเร็จ = เขียว, ผิดพลาด = แดง, แจ้งให้ทราบ = นมชมพู
   const noticeClass = (n: Notice) =>
-    n.type === 'ok' ? 'bg-green-50 text-green-700 border-green-200'
-      : n.type === 'error' ? 'bg-red-50 text-red-700 border-red-200'
-        : 'bg-gray-50 text-gray-700 border-gray-200'
+    n.type === 'ok' ? 'alert-ok'
+      : n.type === 'error' ? 'alert-err'
+        : 'alert-info'
+
+  const noticeIcon = (n: Notice) =>
+    n.type === 'ok' ? <CheckCircle2 {...ICON_SM} />
+      : n.type === 'error' ? <XCircle {...ICON_SM} />
+        : <Info {...ICON_SM} />
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 lg:items-start">
       {/* รายการสินค้า — lg+: ยืดเต็มที่เหลือ (แผงรายการสติกเกอร์กว้างคงที่ด้านขวา) */}
-      <div className="lg:flex-1 space-y-3 min-w-0">
-        <div className="card p-3 sm:p-4 space-y-2">
-          <input
-            ref={searchRef}
-            type="search"
-            className="input"
-            placeholder="🔍 ค้นหาชื่อ / SKU / บาร์โค้ด / ไซส์ / สี"
-            autoComplete="off"
-            aria-label="ค้นหาสินค้า หรือยิงบาร์โค้ดแล้วกด Enter"
-            value={search}
-            onChange={e => { setSearch(e.target.value); setSearchMsg(null) }}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                onSearchEnter()
-              }
-            }}
-          />
+      <div className="lg:flex-1 space-y-3 sm:space-y-4 min-w-0">
+        <div className="card p-4 sm:p-5 space-y-2.5">
+          <div className="input-icon">
+            <Search {...ICON_SM} />
+            <input
+              ref={searchRef}
+              type="search"
+              className="input pl-11"
+              placeholder="ค้นหาชื่อ / SKU / บาร์โค้ด / ไซส์ / สี"
+              autoComplete="off"
+              aria-label="ค้นหาสินค้า หรือยิงบาร์โค้ดแล้วกด Enter"
+              value={search}
+              onChange={e => { setSearch(e.target.value); setSearchMsg(null) }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  onSearchEnter()
+                }
+              }}
+            />
+          </div>
           {searchMsg ? (
-            <p className={`text-sm rounded-lg border px-3 py-2 ${noticeClass(searchMsg)}`}
+            <p className={noticeClass(searchMsg)}
               role={searchMsg.type === 'error' ? 'alert' : 'status'}>
-              {searchMsg.text}
+              {noticeIcon(searchMsg)}
+              <span className="min-w-0 break-words">{searchMsg.text}</span>
             </p>
           ) : (
-            <p className="text-xs text-gray-400">แตะสินค้าเพื่อเพิ่ม — หรือยิงบาร์โค้ดใส่ช่องค้นหาแล้วกด Enter</p>
+            <p className="flex items-start gap-2 px-1 text-xs leading-relaxed text-gray-500">
+              <ScanBarcode {...ICON_SM} />
+              <span className="min-w-0">แตะสินค้าเพื่อเพิ่ม — หรือยิงบาร์โค้ดใส่ช่องค้นหาแล้วกด Enter</span>
+            </p>
           )}
         </div>
 
         <div className="card overflow-hidden">
           {/* จอกว้างมาก (2xl+): รายการสินค้า 2 คอลัมน์ */}
-          <div className="max-h-[55vh] lg:max-h-[600px] overflow-y-auto divide-y divide-gray-50 2xl:divide-y-0 2xl:grid 2xl:grid-cols-2 2xl:content-start">
+          <div className="max-h-[55vh] lg:max-h-[600px] overflow-y-auto divide-y divide-blush-hair 2xl:divide-y-0 2xl:grid 2xl:grid-cols-2 2xl:content-start">
             {shown.map(p => {
               const picked = selected[p.id]
               return (
                 <button key={p.id} type="button" onClick={() => addRow(p)}
-                  className="w-full text-left px-4 py-3 min-h-[56px] hover:bg-gray-50 active:bg-brand-50 transition-colors flex items-center gap-3 2xl:!border-b 2xl:border-gray-50 2xl:odd:border-r">
+                  className="w-full text-left px-4 sm:px-5 py-3 min-h-[60px] [@media(hover:hover)]:hover:bg-milk active:bg-blush-hair focus-visible:outline-offset-[-3px] transition-colors flex items-center gap-3 2xl:!border-b 2xl:border-blush-hair 2xl:odd:border-r">
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 text-sm truncate">{productLabel(p)}</p>
-                    <p className="text-xs text-gray-400 truncate">
+                    <p className="font-semibold text-gray-900 text-sm truncate">{productLabel(p)}</p>
+                    <p className="text-xs text-gray-500 truncate mt-0.5">
                       {codeOf(p) || 'ไม่มีรหัส'} · {baht(Number(p.sell_price))}
                     </p>
                   </div>
                   {picked ? (
-                    <span className="shrink-0 rounded-full bg-brand-100 text-brand-700 text-xs font-medium px-2 py-0.5">
-                      ✓ {picked} ดวง
+                    <span className="chip shrink-0">
+                      <Check size={14} strokeWidth={2.4} aria-hidden="true" />
+                      {picked} ดวง
                     </span>
                   ) : null}
-                  <span className="shrink-0 text-brand-600 text-sm font-medium">+ เพิ่ม</span>
+                  <span className="chip chip-outline shrink-0">
+                    <Plus size={14} strokeWidth={2.4} aria-hidden="true" />
+                    เพิ่ม
+                  </span>
                 </button>
               )
             })}
             {filtered.length === 0 && (
-              <p className="text-center py-10 text-gray-400 text-sm 2xl:col-span-2">
-                {products.length === 0 ? 'ยังไม่มีสินค้าที่เปิดใช้งาน' : 'ไม่พบสินค้า'}
-              </p>
+              <div className="empty-state 2xl:col-span-2">
+                <span className="icon-bubble icon-bubble-lg">
+                  {products.length === 0
+                    ? <Tag size={30} strokeWidth={1.8} aria-hidden="true" />
+                    : <SearchX size={30} strokeWidth={1.8} aria-hidden="true" />}
+                </span>
+                <p className="empty-state-title">
+                  {products.length === 0 ? 'ยังไม่มีสินค้าที่เปิดใช้งาน' : 'ไม่พบสินค้า'}
+                </p>
+              </div>
             )}
             {filtered.length > shown.length && (
-              <p className="text-center py-3 text-xs text-gray-400 2xl:col-span-2">
+              <p className="text-center px-4 py-3 text-xs text-gray-500 2xl:col-span-2">
                 แสดง {shown.length} จาก {filtered.length} รายการ — พิมพ์ค้นหาเพื่อกรองให้แคบลง
               </p>
             )}
@@ -635,9 +664,12 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
 
       {/* รายการที่เลือก + ตั้งค่า */}
       <div className="card p-4 sm:p-5 space-y-4 h-fit min-w-0 lg:w-[380px] lg:shrink-0 lg:sticky lg:top-0">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-semibold text-gray-900">รายการสติกเกอร์</h2>
-          <span className="text-sm text-gray-500">{totalLabels.toLocaleString('en-US')} ดวง · {pages} หน้า</span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="section-title min-w-0">
+            <span className="icon-bubble icon-bubble-sm"><Tag {...ICON_SM} /></span>
+            รายการสติกเกอร์
+          </h2>
+          <span className="chip tabular-nums">{totalLabels.toLocaleString('en-US')} ดวง · {pages} หน้า</span>
         </div>
 
         <div>
@@ -650,14 +682,14 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
           </select>
         </div>
 
-        <div className="space-y-1">
-          <label className="flex items-center gap-3 min-h-[40px] text-sm cursor-pointer">
-            <input type="checkbox" className="w-5 h-5 accent-brand-600" checked={showPrice} disabled={generating}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
+          <label className="panel flex items-center gap-3 min-h-[48px] px-4 py-2 text-sm font-medium text-gray-700 cursor-pointer">
+            <input type="checkbox" className="w-5 h-5 shrink-0 accent-brand-600" checked={showPrice} disabled={generating}
               onChange={e => setShowPrice(e.target.checked)} />
             แสดงราคา
           </label>
-          <label className="flex items-center gap-3 min-h-[40px] text-sm cursor-pointer">
-            <input type="checkbox" className="w-5 h-5 accent-brand-600" checked={border} disabled={generating}
+          <label className="panel flex items-center gap-3 min-h-[48px] px-4 py-2 text-sm font-medium text-gray-700 cursor-pointer">
+            <input type="checkbox" className="w-5 h-5 shrink-0 accent-brand-600" checked={border} disabled={generating}
               onChange={e => setBorder(e.target.checked)} />
             เส้นขอบ (สำหรับตัดเอง)
           </label>
@@ -665,37 +697,40 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
 
         <div className="space-y-2 lg:max-h-80 lg:overflow-y-auto">
           {rows.length === 0 && (
-            <p className="text-gray-400 text-sm text-center py-4">ยังไม่มี — แตะสินค้าเพื่อเพิ่ม</p>
+            <div className="panel empty-state py-6">
+              <span className="icon-bubble"><Tag {...ICON} /></span>
+              <p>ยังไม่มี — แตะสินค้าเพื่อเพิ่ม</p>
+            </div>
           )}
           {rows.map(r => {
             const p = r.product
             const label = productLabel(p)
             return (
-              <div key={p.id} className="bg-gray-50 rounded-lg p-2">
+              <div key={p.id} className="panel p-3">
                 <div className="flex items-start gap-2">
-                  <div className="flex-1 min-w-0 pt-1">
-                    <p className="text-sm font-medium text-gray-900 truncate">{label}</p>
-                    <p className="text-xs text-gray-400 truncate">{codeOf(p) || 'ไม่มีรหัส'} · {baht(Number(p.sell_price))}</p>
+                  <div className="flex-1 min-w-0 pt-1 pl-1">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{label}</p>
+                    <p className="text-xs text-gray-500 truncate">{codeOf(p) || 'ไม่มีรหัส'} · {baht(Number(p.sell_price))}</p>
                   </div>
                   <button type="button" onClick={() => removeRow(p.id)} disabled={generating}
                     aria-label={`ลบ ${label}`} title="ลบออกจากรายการ"
-                    className="shrink-0 w-10 h-10 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50">
-                    ✕
+                    className="btn-icon btn-icon-plain btn-icon-danger -mr-1 -mt-1">
+                    <X {...ICON_SM} />
                   </button>
                 </div>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-2 pl-1">
                   <span className="text-xs text-gray-500">จำนวน</span>
                   <button type="button" onClick={() => stepQty(p.id, -1)} disabled={generating}
                     aria-label={`ลดจำนวน ${label}`}
-                    className="w-10 h-10 rounded-lg bg-white border border-gray-200 text-gray-700 font-bold disabled:opacity-50">
-                    -
+                    className="btn-icon">
+                    <Minus {...ICON_SM} />
                   </button>
                   <input
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"
                     aria-label={`จำนวน ${label}`}
-                    className="input w-16 h-10 text-center px-1"
+                    className="input w-16 text-center px-1 font-display font-bold tabular-nums"
                     value={r.qty}
                     disabled={generating}
                     onChange={e => setQtyRaw(p.id, e.target.value)}
@@ -704,59 +739,73 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
                   />
                   <button type="button" onClick={() => stepQty(p.id, 1)} disabled={generating}
                     aria-label={`เพิ่มจำนวน ${label}`}
-                    className="w-10 h-10 rounded-lg bg-white border border-gray-200 text-gray-700 font-bold disabled:opacity-50">
-                    +
+                    className="btn-icon">
+                    <Plus {...ICON_SM} />
                   </button>
-                  <span className="text-xs text-gray-400" title={`ได้ ${MIN_QTY}-${MAX_QTY} ดวงต่อรายการ`}>ดวง</span>
+                  <span className="text-xs text-gray-500" title={`ได้ ${MIN_QTY}-${MAX_QTY} ดวงต่อรายการ`}>ดวง</span>
                 </div>
               </div>
             )
           })}
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           <button type="button" onClick={generatePDF} disabled={rows.length === 0 || generating}
-            className="btn-primary w-full">
+            className="btn-primary w-full min-h-[52px]">
             {generating
-              ? `กำลังสร้าง... ${progress ? `${progress.done.toLocaleString('en-US')}/${progress.total.toLocaleString('en-US')}` : ''}`
-              : `📄 ดาวน์โหลด PDF (${totalLabels.toLocaleString('en-US')} ดวง)`}
+              ? <Loader2 {...ICON_SM} className="animate-spin" />
+              : <Download {...ICON_SM} />}
+            <span className="min-w-0">
+              {generating
+                ? `กำลังสร้าง... ${progress ? `${progress.done.toLocaleString('en-US')}/${progress.total.toLocaleString('en-US')}` : ''}`
+                : `ดาวน์โหลด PDF (${totalLabels.toLocaleString('en-US')} ดวง)`}
+            </span>
           </button>
           {generating && progress && progress.total > 0 && (
-            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-              <div className="h-full bg-brand-500 transition-all"
+            <div className="h-2 bg-blush-hair rounded-full overflow-hidden">
+              {/* ไม่ใส่ transition ที่ความกว้าง (ขยับเป็นช่วงๆ ทุก 20 ดวงอยู่แล้ว) — ไม่ต้องวาดใหม่ทุกเฟรม */}
+              <div className="h-full bg-brand-600 rounded-full"
                 style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }} />
             </div>
           )}
-          <p className="text-xs text-gray-500">
-            สั่งพิมพ์แบบ &quot;ขนาดจริง / Actual size (100%)&quot; ไม่ใช่ &quot;พอดีหน้า&quot;
+          <p className="alert-info py-2 text-xs">
+            <Printer {...ICON_SM} />
+            <span className="min-w-0">
+              สั่งพิมพ์แบบ &quot;ขนาดจริง / Actual size (100%)&quot; ไม่ใช่ &quot;พอดีหน้า&quot;
+            </span>
           </p>
         </div>
 
         {notice && (
-          <p className={`text-sm rounded-lg border px-3 py-2 ${noticeClass(notice)}`}
+          <p className={noticeClass(notice)}
             role={notice.type === 'error' ? 'alert' : 'status'}>
-            {notice.text}
+            {noticeIcon(notice)}
+            <span className="min-w-0 break-words">{notice.text}</span>
           </p>
         )}
 
         {warnings.length > 0 && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm" role="alert">
-            <p className="font-semibold text-amber-800">มี {warnings.length} รายการที่มีปัญหา</p>
-            <ul className="mt-2 space-y-2 max-h-60 overflow-y-auto">
-              {warnings.map(w => (
-                <li key={w.id} className="text-amber-900">
-                  <p className="font-medium break-words">
-                    {w.label} <span className="text-xs font-normal text-amber-700 break-all">({w.code || 'ไม่มีรหัส'})</span>
-                  </p>
-                  <p className="text-xs">{w.message}</p>
-                </li>
-              ))}
-            </ul>
+          <div className="alert-warn" role="alert">
+            <AlertTriangle {...ICON_SM} />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-amber-800">มี {warnings.length} รายการที่มีปัญหา</p>
+              <ul className="mt-2 space-y-2 max-h-60 overflow-y-auto">
+                {warnings.map(w => (
+                  <li key={w.id} className="text-amber-900">
+                    <p className="font-medium break-words">
+                      {w.label} <span className="text-xs font-normal text-amber-700 break-all">({w.code || 'ไม่มีรหัส'})</span>
+                    </p>
+                    <p className="text-xs">{w.message}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         )}
 
         <button type="button" onClick={clearAll} disabled={rows.length === 0 || generating}
-          className="btn-secondary w-full text-sm">
+          className="btn-secondary w-full">
+          <Eraser {...ICON_SM} />
           ล้างรายการ
         </button>
       </div>

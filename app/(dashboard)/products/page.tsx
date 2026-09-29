@@ -3,6 +3,8 @@ import { requirePermission } from '@/lib/auth/permissions'
 import { thaiError } from '@/lib/format'
 import { fetchAllRows } from '@/lib/fetchAllRows'
 import Link from 'next/link'
+import { Plus } from 'lucide-react'
+import { ICON } from '@/components/theme/icons'
 import ProductsClient, { type ProductRow, type CategoryOption } from './ProductsClient'
 
 export default async function ProductsPage() {
@@ -22,18 +24,18 @@ export default async function ProductsPage() {
   if (categoriesRes.error) throw new Error(thaiError(categoriesRes.error))
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">สินค้า</h1>
-          <p className="text-gray-500 text-sm mt-1">จัดการข้อมูลสินค้าทั้งหมด</p>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="page-header">
+        <div className="min-w-0">
+          <h1 className="page-title">สินค้า</h1>
+          <p className="page-subtitle">จัดการข้อมูลสินค้าทั้งหมด</p>
         </div>
-        <Link
-          href="/products/new"
-          className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-0"
-        >
-          <span>➕</span> เพิ่มสินค้า
-        </Link>
+        <div className="page-actions">
+          <Link href="/products/new" className="btn-primary w-full sm:w-auto">
+            <Plus {...ICON} />
+            เพิ่มสินค้า
+          </Link>
+        </div>
       </div>
       <ProductsClient
         initialProducts={products}

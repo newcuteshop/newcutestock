@@ -2,8 +2,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { CheckCircle2, ChevronLeft, ChevronRight, Pencil, Search, SearchX, X, XCircle } from 'lucide-react'
 import { baht, productLabel, thaiError, variantText } from '@/lib/format'
 import { codeCandidates, sameCode } from '@/lib/barcode'
+import { ICON, ICON_SM } from '@/components/theme/icons'
 
 export interface ProductRow {
   id: string
@@ -94,7 +96,7 @@ export default function ProductsClient({
       if (error) throw error
       // RLS ไม่ให้แก้ = ไม่มี error แต่ไม่มีแถวถูกแก้
       if (!data || data.length === 0) throw new Error('ไม่มีสิทธิ์ทำรายการนี้')
-      showMsg({ ok: true, text: `${next ? '✅ เปิดใช้งาน' : '⏸ ปิดใช้งาน'} "${productLabel(p)}" แล้ว` })
+      showMsg({ ok: true, text: `${next ? 'เปิดใช้งาน' : 'ปิดใช้งาน'} "${productLabel(p)}" แล้ว` })
     } catch (err: unknown) {
       setProducts(ps => ps.map(x => x.id === p.id ? { ...x, is_active: p.is_active } : x))
       showMsg({ ok: false, text: `เปลี่ยนสถานะ "${productLabel(p)}" ไม่สำเร็จ: ${thaiError(err)}` })
@@ -104,9 +106,10 @@ export default function ProductsClient({
   }
 
   function stockClass(p: ProductRow) {
-    return p.stock_qty <= p.min_stock ? 'text-red-500 font-bold' : 'text-gray-900'
+    return p.stock_qty <= p.min_stock ? 'text-red-600 font-bold' : 'text-gray-900 font-semibold'
   }
 
+  // ปุ่มสถานะแบบสวิตช์แคปซูล: รางเขียว = ใช้งาน / รางเทา = ปิดใช้ (มีข้อความบอกสถานะเสมอ ไม่พึ่งสีอย่างเดียว)
   function statusButton(p: ProductRow, extra = '') {
     return (
       <button
@@ -114,10 +117,14 @@ export default function ProductsClient({
         onClick={() => toggleActive(p)}
         disabled={busyId !== null}
         title={p.is_active ? 'กดเพื่อปิดใช้งาน' : 'กดเพื่อเปิดใช้งาน'}
-        className={`rounded-full text-xs font-medium transition-colors disabled:opacity-60 ${
-          p.is_active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+        className={`inline-flex items-center justify-center gap-2 min-h-[44px] rounded-full border-2 text-sm font-semibold leading-tight select-none transition-[transform,background-color,border-color,color] duration-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 ${
+          p.is_active ? 'border-green-200 bg-green-50 text-green-800' : 'border-blush-line bg-white text-gray-600'
         } ${extra}`}
       >
+        {/* ราง + ปุ่มกลม (.switch ใน globals.css) — เปิด = เขียว, ปิด = รางเทาอ่อน */}
+        <span aria-hidden="true" className={`switch switch-sm switch-leaf ${p.is_active ? 'switch-on' : 'bg-gray-100'}`}>
+          <span className="switch-knob" />
+        </span>
         {busyId === p.id ? 'กำลังบันทึก...' : p.is_active ? 'ใช้งาน' : 'ปิดใช้'}
       </button>
     )
@@ -127,14 +134,17 @@ export default function ProductsClient({
     <div className="space-y-4">
       {/* Filters */}
       <div className="card p-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:flex-nowrap lg:gap-4">
-        <input
-          className="input w-full sm:flex-1 sm:min-w-48"
-          type="search"
-          enterKeyHint="search"
-          autoCapitalize="none" autoCorrect="off" spellCheck={false}
-          placeholder="🔍 ค้นหาชื่อสินค้า, SKU, บาร์โค้ด..."
-          value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
-        />
+        <div className="input-icon w-full sm:flex-1 sm:min-w-48">
+          <Search {...ICON_SM} />
+          <input
+            className="input pl-11"
+            type="search"
+            enterKeyHint="search"
+            autoCapitalize="none" autoCorrect="off" spellCheck={false}
+            placeholder="ค้นหาชื่อสินค้า, SKU, บาร์โค้ด..."
+            value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+          />
+        </div>
         <select
           className="input w-full sm:w-48 lg:w-60 xl:w-72"
           value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setPage(1) }}
@@ -142,7 +152,7 @@ export default function ProductsClient({
           <option value="">ทุกหมวดหมู่</option>
           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <span className="text-sm text-gray-400 lg:whitespace-nowrap">
+        <span className="text-sm text-gray-500 tabular-nums lg:whitespace-nowrap">
           แสดง {pageItems.length} / {filtered.length} รายการ
         </span>
       </div>
@@ -150,48 +160,50 @@ export default function ProductsClient({
       {msg && (
         <div
           role={msg.ok ? 'status' : 'alert'}
-          className={`flex items-start justify-between gap-3 rounded-lg px-3 py-2 text-sm ${
-            msg.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'
-          }`}
+          className={msg.ok ? 'alert-ok' : 'alert-err'}
         >
-          <span>{msg.text}</span>
-          <button onClick={() => setMsg(null)} className="shrink-0 -my-2 -mr-2 min-h-[40px] min-w-[40px] inline-flex items-center justify-center opacity-60 hover:opacity-100" aria-label="ปิดข้อความ">✕</button>
+          {msg.ok ? <CheckCircle2 {...ICON_SM} /> : <XCircle {...ICON_SM} />}
+          <span className="flex-1 min-w-0 break-words">{msg.text}</span>
+          <button onClick={() => setMsg(null)} className="btn-icon btn-icon-plain -my-2 -mr-2 text-current" aria-label="ปิดข้อความ">
+            <X {...ICON_SM} />
+          </button>
         </div>
       )}
 
-      {/* มือถือ: การ์ดเรียงลงมา */}
-      <div className="sm:hidden space-y-2">
+      {/* มือถือ/iPad แนวตั้ง (มีเมนูข้างแล้วเหลือที่แคบ): การ์ดเรียงลงมา — มือถือแนวนอนวาง 2 คอลัมน์ */}
+      <div className="lg:hidden grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-1">
         {pageItems.length === 0 && (
-          <div className="card text-center py-10 text-gray-400 text-sm">ไม่พบสินค้า</div>
+          <div className="card empty-state sm:col-span-2 md:col-span-1">
+            <span className="icon-bubble icon-bubble-lg"><SearchX size={30} strokeWidth={1.8} aria-hidden="true" /></span>
+            <p className="empty-state-title">ไม่พบสินค้า</p>
+          </div>
         )}
         {pageItems.map(p => {
           const variant = variantText(p)
           return (
-            <div key={p.id} className={`card p-3 ${p.is_active ? '' : 'opacity-70'}`}>
+            <div key={p.id} className={`card p-4 ${p.is_active ? '' : 'card-milk border-dashed border-gray-300'}`}>
               <div className="flex gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 break-words">{p.name}</p>
-                  {variant && <p className="text-xs text-brand-700 font-medium">{variant}</p>}
+                <div className="flex-1 min-w-0 space-y-1">
+                  <p className="font-display font-semibold text-gray-900 leading-snug break-words">{p.name}</p>
+                  {variant && <span className="chip max-w-full"><span className="truncate">{variant}</span></span>}
                   <p className="text-xs text-gray-400 break-all">
                     SKU: {p.sku}{p.barcode ? ` · ${p.barcode}` : ''}
                   </p>
                   <p className="text-xs text-gray-500">{p.categories?.name ?? 'ไม่มีหมวดหมู่'}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="font-semibold text-gray-900">{baht(p.sell_price)}</p>
-                  <p className="text-sm">
+                  <p className="money text-lg leading-tight text-brand-600">{baht(p.sell_price)}</p>
+                  <p className="text-sm mt-1 tabular-nums">
                     <span className={stockClass(p)}>{p.stock_qty}</span>
                     <span className="text-gray-400 text-xs"> ชิ้น</span>
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2 mt-3">
-                {statusButton(p, 'flex-1 min-h-[40px] px-3')}
-                <Link
-                  href={`/products/${p.id}`}
-                  className="flex-1 min-h-[40px] inline-flex items-center justify-center rounded-lg border border-brand-200 text-brand-700 text-sm font-medium hover:bg-brand-50"
-                >
-                  ✏️ แก้ไข
+              <div className="flex gap-2 mt-3 pt-3 border-t border-brand-100">
+                {statusButton(p, 'flex-1 min-w-0 px-3')}
+                <Link href={`/products/${p.id}`} className="btn-secondary flex-1 min-w-0 px-3">
+                  <Pencil {...ICON_SM} />
+                  แก้ไข
                 </Link>
               </div>
             </div>
@@ -199,31 +211,38 @@ export default function ProductsClient({
         })}
       </div>
 
-      {/* แท็บเล็ต/คอม: ตาราง */}
-      <div className="card overflow-hidden hidden sm:block">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
+      {/* คอม/iPad แนวนอน: ตาราง */}
+      <div className="card overflow-hidden hidden lg:block">
+        <div className="table-wrap">
+          <table className="table-soft min-w-[640px]">
+            <thead>
               <tr>
-                <th className="text-left px-4 xl:px-6 py-3 font-semibold text-gray-600">สินค้า</th>
+                <th className="px-4 xl:px-6">สินค้า</th>
                 {/* จอกว้างมาก (2xl+): แยกคอลัมน์รหัส และโชว์จำนวนขั้นต่ำ */}
-                <th className="hidden 2xl:table-cell text-left px-4 xl:px-6 py-3 font-semibold text-gray-600">SKU / บาร์โค้ด</th>
-                <th className="text-left px-4 xl:px-6 py-3 font-semibold text-gray-600">หมวดหมู่</th>
-                <th className="text-right px-4 xl:px-6 py-3 font-semibold text-gray-600">ราคาขาย</th>
-                <th className="text-right px-4 xl:px-6 py-3 font-semibold text-gray-600">สต๊อก</th>
-                <th className="hidden 2xl:table-cell text-right px-4 xl:px-6 py-3 font-semibold text-gray-600 whitespace-nowrap">ขั้นต่ำ</th>
-                <th className="text-center px-4 xl:px-6 py-3 font-semibold text-gray-600">สถานะ</th>
-                <th className="px-4 xl:px-6 py-3"></th>
+                <th className="hidden 2xl:table-cell px-4 xl:px-6">SKU / บาร์โค้ด</th>
+                <th className="px-4 xl:px-6">หมวดหมู่</th>
+                <th className="text-right px-4 xl:px-6">ราคาขาย</th>
+                <th className="text-right px-4 xl:px-6">สต๊อก</th>
+                <th className="hidden 2xl:table-cell text-right px-4 xl:px-6 whitespace-nowrap">ขั้นต่ำ</th>
+                <th className="text-center px-4 xl:px-6">สถานะ</th>
+                <th className="px-4 xl:px-6"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody>
               {pageItems.length === 0 && (
-                <tr><td colSpan={8} className="text-center py-10 text-gray-400">ไม่พบสินค้า</td></tr>
+                <tr>
+                  <td colSpan={8} className="p-0">
+                    <div className="empty-state">
+                      <span className="icon-bubble icon-bubble-lg"><SearchX size={30} strokeWidth={1.8} aria-hidden="true" /></span>
+                      <p className="empty-state-title">ไม่พบสินค้า</p>
+                    </div>
+                  </td>
+                </tr>
               )}
               {pageItems.map(p => {
                 const variant = variantText(p)
                 return (
-                  <tr key={p.id} className={`hover:bg-gray-50 transition-colors ${p.is_active ? '' : 'text-gray-400'}`}>
+                  <tr key={p.id} className={p.is_active ? '' : 'text-gray-400'}>
                     <td className="px-4 xl:px-6 py-3">
                       <p className="font-medium text-gray-900">
                         {p.name}
@@ -238,20 +257,18 @@ export default function ProductsClient({
                       {p.barcode && <p className="font-mono text-gray-400 break-words">{p.barcode}</p>}
                     </td>
                     <td className="px-4 xl:px-6 py-3 text-gray-600">{p.categories?.name ?? '-'}</td>
-                    <td className="px-4 xl:px-6 py-3 text-right font-medium whitespace-nowrap">{baht(p.sell_price)}</td>
-                    <td className="px-4 xl:px-6 py-3 text-right whitespace-nowrap">
+                    <td className="px-4 xl:px-6 py-3 text-right font-display font-semibold text-brand-600 tabular-nums whitespace-nowrap">{baht(p.sell_price)}</td>
+                    <td className="px-4 xl:px-6 py-3 text-right tabular-nums whitespace-nowrap">
                       <span className={stockClass(p)}>{p.stock_qty}</span>
                       <span className="text-gray-400 text-xs"> ชิ้น</span>
                     </td>
-                    <td className="hidden 2xl:table-cell px-4 xl:px-6 py-3 text-right text-gray-500 whitespace-nowrap">{p.min_stock}</td>
+                    <td className="hidden 2xl:table-cell px-4 xl:px-6 py-3 text-right text-gray-500 tabular-nums whitespace-nowrap">{p.min_stock}</td>
                     <td className="px-4 xl:px-6 py-3 text-center">
-                      {statusButton(p, 'px-3 min-h-[40px]')}
+                      {statusButton(p, 'px-3 whitespace-nowrap')}
                     </td>
                     <td className="px-4 xl:px-6 py-3 text-right">
-                      <Link
-                        href={`/products/${p.id}`}
-                        className="inline-flex items-center min-h-[40px] px-2 rounded-lg text-brand-600 hover:bg-brand-50 text-xs font-medium"
-                      >
+                      <Link href={`/products/${p.id}`} className="btn-ghost px-3 text-sm">
+                        <Pencil {...ICON_SM} />
                         แก้ไข
                       </Link>
                     </td>
@@ -265,24 +282,26 @@ export default function ProductsClient({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="card flex items-center justify-between gap-2 px-4 py-3">
-          <p className="text-xs text-gray-500">
+        <div className="card flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+          <p className="text-sm text-gray-500 tabular-nums">
             หน้า {currentPage} / {totalPages}
           </p>
           <div className="flex gap-2">
             <button
               onClick={() => setPage(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
-              className="min-h-[40px] px-3 text-sm rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40"
+              className="btn-secondary gap-1 px-3 sm:px-4"
             >
-              ← ก่อนหน้า
+              <ChevronLeft {...ICON} />
+              ก่อนหน้า
             </button>
             <button
               onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
-              className="min-h-[40px] px-3 text-sm rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40"
+              className="btn-secondary gap-1 px-3 sm:px-4"
             >
-              ถัดไป →
+              ถัดไป
+              <ChevronRight {...ICON} />
             </button>
           </div>
         </div>

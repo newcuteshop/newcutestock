@@ -3,8 +3,13 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
+import { LogOut, Menu, X } from 'lucide-react'
 import { displayLogin } from '@/lib/auth/credentials'
-import { isActivePath, roleLabel, useLogout, visibleNavItems, type NavProps } from './Sidebar'
+import BrandMark from '@/components/theme/BrandMark'
+import MotionToggle from '@/components/theme/MotionToggle'
+import { TopbarPetals } from '@/components/theme/PetalLayer'
+import { ICON, ICON_LG } from '@/components/theme/icons'
+import { isActivePath, useLogout, UserPill, visibleNavItems, type NavProps } from './Sidebar'
 
 const DRAWER_ID = 'mobile-nav-drawer'
 
@@ -86,9 +91,11 @@ export default function MobileNav({ email, fullName, role, permissions }: NavPro
 
   return (
     <>
-      {/* Top bar */}
-      <header className="md:hidden shrink-0 bg-white border-b border-gray-100 pt-safe pl-safe pr-safe">
-        <div className="h-14 flex items-center gap-2 px-2">
+      {/* Top bar — สีนมเดียวกับแถบเบราว์เซอร์ (themeColor) ขอบล่างหยักห้อยลงมา 11px วาดใน .surface-topbar (แตะทะลุได้) */}
+      <header className="surface-topbar md:hidden shrink-0 pt-safe pl-safe pr-safe">
+        <div className="relative h-14 flex items-center gap-1 px-2">
+          {/* กลีบกุหลาบลอยผ่านที่ว่างด้านขวาของแถบ (ตกแต่ง แตะทะลุ) — กล่องเริ่มหลัง 220px จากซ้าย จึงไม่ทับปุ่มเมนู/ชื่อร้าน */}
+          <TopbarPetals />
           <button
             ref={menuButtonRef}
             type="button"
@@ -96,17 +103,17 @@ export default function MobileNav({ email, fullName, role, permissions }: NavPro
             aria-label="เปิดเมนู"
             aria-expanded={open}
             aria-controls={DRAWER_ID}
-            className="h-11 w-11 shrink-0 inline-flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition-colors"
+            className="btn-icon btn-icon-plain"
           >
-            <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden="true">
-              <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            <Menu {...ICON_LG} />
           </button>
-          <Link href="/dashboard" className="flex items-center gap-2 min-w-0 min-h-[44px]">
-            <span className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center shrink-0" aria-hidden="true">
-              <span className="text-base">👕</span>
+          <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0 min-h-[44px] pr-3 rounded-full">
+            <BrandMark size="sm" />
+            {/* ชื่อร้าน 2 บรรทัด — จบก่อน 220px จากซ้าย (ที่กลีบกุหลาบเริ่มลอย) แม้จอ 320px */}
+            <span className="min-w-0">
+              <span className="block font-display text-lg font-bold leading-tight tracking-wide text-gray-900">NEWCUTE</span>
+              <span className="block truncate text-xs text-gray-500">ระบบสต๊อกสินค้าเสื้อผ้า</span>
             </span>
-            <span className="font-bold text-gray-900 truncate">Stock App</span>
           </Link>
         </div>
       </header>
@@ -117,7 +124,9 @@ export default function MobileNav({ email, fullName, role, permissions }: NavPro
         className={clsx(
           'md:hidden fixed inset-0 z-50',
           // เปิด: แสดงทันที (โฟกัสปุ่มปิดได้เลย) / ปิด: ค้าง visible 200ms ให้แอนิเมชันเลื่อนออกจบก่อนซ่อน
-          open ? 'visible' : 'invisible transition-[visibility] duration-200'
+          open ? 'visible' : 'invisible transition-[visibility] duration-200',
+          // ปิดอยู่: พักแสงวิ่งบนเมนูที่เลือกในลิ้นชักที่มองไม่เห็น (ประหยัดแบตมือถือ)
+          !open && '[&_*::before]:![animation-play-state:paused] [&_*::after]:![animation-play-state:paused]'
         )}
         aria-hidden={!open}
       >
@@ -128,32 +137,30 @@ export default function MobileNav({ email, fullName, role, permissions }: NavPro
           aria-label="ปิดเมนู"
           onClick={closeDrawer}
           className={clsx(
-            'absolute inset-0 w-full h-full bg-gray-900/40 transition-opacity duration-200 motion-reduce:transition-none',
+            'scrim absolute inset-0 w-full h-full transition-opacity duration-200 motion-reduce:transition-none',
             open ? 'opacity-100' : 'opacity-0'
           )}
         />
 
-        {/* Panel */}
+        {/* Panel — พื้นบลัช + ขอบขวาหยักแบบเดียวกับเมนูข้าง (ขอบขวาเว้น >= 24px ให้พ้นลอนหยัก) */}
         <div
           ref={panelRef}
           role="dialog"
           aria-modal="true"
           aria-label="เมนูหลัก"
           className={clsx(
-            'absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-white shadow-xl flex flex-col pt-safe pb-safe pl-safe',
+            'surface-sidebar absolute inset-y-0 left-0 w-72 max-w-[85vw] flex flex-col pt-safe pb-safe pl-safe',
             'transition-transform duration-200 ease-out motion-reduce:transition-none',
             open ? 'translate-x-0' : '-translate-x-full'
           )}
         >
           {/* Header */}
-          <div className="h-14 flex items-center justify-between gap-2 pl-4 pr-2 border-b border-gray-100 shrink-0">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center shrink-0" aria-hidden="true">
-                <span className="text-base">👕</span>
-              </span>
+          <div className="h-16 flex items-center justify-between gap-2 pl-4 pr-6 shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <BrandMark />
               <div className="min-w-0">
-                <p className="font-bold text-gray-900 text-sm leading-tight">Stock App</p>
-                <p className="text-xs text-gray-400">ระบบสต๊อกเสื้อผ้า</p>
+                <p className="font-display text-lg font-bold leading-tight tracking-wide text-gray-900">NEWCUTE</p>
+                <p className="truncate text-xs text-gray-500">ระบบสต๊อกสินค้าเสื้อผ้า</p>
               </div>
             </div>
             <button
@@ -161,54 +168,47 @@ export default function MobileNav({ email, fullName, role, permissions }: NavPro
               type="button"
               onClick={closeDrawer}
               aria-label="ปิดเมนู"
-              className="h-11 w-11 shrink-0 inline-flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 active:bg-gray-200 transition-colors"
+              className="btn-icon btn-icon-plain"
             >
-              <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden="true">
-                <path d="M6 6l12 12M18 6L6 18" />
-              </svg>
+              <X {...ICON_LG} />
             </button>
           </div>
 
           {/* User */}
-          <div className="px-4 py-3 border-b border-gray-100 min-w-0 shrink-0">
-            {fullName && <p className="text-sm font-medium text-gray-800 truncate">{fullName}</p>}
-            <p className="text-xs text-gray-500 truncate">{login}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{roleLabel(role)}</p>
+          <div className="pl-3 pr-6 pt-1 pb-3 shrink-0">
+            <UserPill fullName={fullName} login={login} role={role} />
           </div>
 
-          {/* Nav */}
-          <nav aria-label="เมนูหลัก" className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-1">
+          {/* Nav — เมนูที่เลือกอยู่ (aria-current) เป็นแคปซูลลูกกวาดเองจาก .nav-item */}
+          <nav aria-label="เมนูหลัก" className="flex-1 overflow-y-auto overscroll-contain pl-3 pr-6 py-1 space-y-1">
             {items.map(item => {
               const active = isActivePath(pathname, item.href)
+              const Icon = item.icon
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={() => setOpen(false)}
                   aria-current={active ? 'page' : undefined}
-                  className={clsx(
-                    'flex items-center gap-3 px-3 min-h-[44px] rounded-lg text-base font-medium transition-colors',
-                    active
-                      ? 'bg-brand-50 text-brand-700'
-                      : 'text-gray-700 hover:bg-gray-50 active:bg-gray-100'
-                  )}
+                  className="nav-item text-base"
                 >
-                  <span className="text-lg w-6 text-center" aria-hidden="true">{item.icon}</span>
-                  {item.label}
+                  <Icon {...ICON} />
+                  <span>{item.label}</span>
                 </Link>
               )
             })}
           </nav>
 
-          {/* Logout */}
-          <div className="p-3 border-t border-gray-100 shrink-0">
+          {/* สวิตช์เอฟเฟกต์ + ออกจากระบบ */}
+          <div className="pl-3 pr-6 pt-2 pb-4 space-y-1 shrink-0">
+            <MotionToggle />
             <button
               type="button"
               onClick={logout}
               disabled={loggingOut}
-              className="w-full flex items-center gap-3 px-3 min-h-[44px] rounded-lg text-base text-red-500 hover:bg-red-50 active:bg-red-100 transition-colors disabled:opacity-50"
+              className="nav-item w-full text-base text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span className="text-lg w-6 text-center" aria-hidden="true">🚪</span>
+              <LogOut {...ICON} />
               {loggingOut ? 'กำลังออกจากระบบ...' : 'ออกจากระบบ'}
             </button>
           </div>

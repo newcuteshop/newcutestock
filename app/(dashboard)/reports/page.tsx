@@ -51,9 +51,11 @@ export default async function ReportsPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">รายงาน</h1>
-        <p className="text-gray-500 text-sm mt-1">สรุปข้อมูลย้อนหลัง {RANGE_DAYS} วัน ({rangeLabel})</p>
+      <div className="page-header">
+        <div className="min-w-0">
+          <h1 className="page-title">รายงาน</h1>
+          <p className="page-subtitle">สรุปข้อมูลย้อนหลัง {RANGE_DAYS} วัน ({rangeLabel})</p>
+        </div>
       </div>
       <ReportsClient days={days} rangeDays={RANGE_DAYS} sales={sales} products={products} />
     </div>

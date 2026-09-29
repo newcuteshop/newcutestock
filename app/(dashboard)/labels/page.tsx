@@ -30,9 +30,11 @@ export default async function LabelsPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">พิมพ์สติกเกอร์บาร์โค้ด</h1>
-        <p className="text-gray-500 text-sm mt-1">สร้าง PDF สติกเกอร์ติดสินค้า (พิมพ์ชื่อภาษาไทยได้ครบ)</p>
+      <div className="page-header">
+        <div className="min-w-0">
+          <h1 className="page-title">พิมพ์สติกเกอร์บาร์โค้ด</h1>
+          <p className="page-subtitle">สร้าง PDF สติกเกอร์ติดสินค้า (พิมพ์ชื่อภาษาไทยได้ครบ)</p>
+        </div>
       </div>
       <LabelsClient products={products} />
     </div>

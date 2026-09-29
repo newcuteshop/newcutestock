@@ -36,10 +36,12 @@ export default async function StockPage({ searchParams }: {
   const movements = (movementsRes.data ?? []) as unknown as StockMovementRow[]
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">รับ-จ่ายสต๊อก</h1>
-        <p className="text-gray-500 text-sm mt-1">บันทึกการเคลื่อนไหวของสินค้า</p>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="page-header">
+        <div className="min-w-0">
+          <h1 className="page-title">รับ-จ่ายสต๊อก</h1>
+          <p className="page-subtitle">บันทึกการเคลื่อนไหวของสินค้า</p>
+        </div>
       </div>
       <StockClient products={products} movements={movements} initialType={initialType} />
     </div>

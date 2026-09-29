@@ -2,6 +2,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import {
+  AlertTriangle, CheckCircle2, Crown, Eye, EyeOff, Loader2, Lock, Pencil, PencilLine, Save, Trash2,
+  UserPlus, UserRound, Users, X, XCircle,
+} from 'lucide-react'
+import { ICON, ICON_SM } from '@/components/theme/icons'
+import {
   type Permissions,
   type UserProfile,
   DEFAULT_PERMISSIONS,
@@ -104,7 +109,7 @@ export default function UsersClient({
   }
 
   function lockedReason(u: UserProfile): string {
-    return u.role === 'admin' || storedPermissions(u).users ? '🔒 เฉพาะ Admin' : '🔒 มีสิทธิ์ที่คุณไม่มี'
+    return u.role === 'admin' || storedPermissions(u).users ? 'เฉพาะ Admin' : 'มีสิทธิ์ที่คุณไม่มี'
   }
 
   function openCreate() {
@@ -166,7 +171,7 @@ export default function UsersClient({
     if (editing.id === currentUserId) {
       const losingAdmin = editing.role !== 'admin' && !editing.permissions.users
       if (losingAdmin) {
-        if (!confirm('⚠️ คุณกำลังปิดสิทธิ์จัดการผู้ใช้ของตัวเอง\nหลังบันทึก คุณจะเข้าหน้านี้ไม่ได้อีก\n\nยืนยัน?')) return
+        if (!confirm('คุณกำลังปิดสิทธิ์จัดการผู้ใช้ของตัวเอง\nหลังบันทึก คุณจะเข้าหน้านี้ไม่ได้อีก\n\nยืนยัน?')) return
       }
     }
 
@@ -200,13 +205,13 @@ export default function UsersClient({
     const saved = loginToEmail(editing.login)
     const label = 'email' in saved ? displayLogin(saved.email) : editing.login.trim()
     const wasCreate = !editing.id
-    setSuccess('✅ บันทึกเรียบร้อย')
+    setSuccess('บันทึกเรียบร้อย')
     setLoading(false)
     closeTimer.current = setTimeout(() => {
       closeTimer.current = null
       setEditing(null)
       setSuccess('')
-      setPageMsg({ ok: true, text: wasCreate ? `✅ เพิ่มผู้ใช้ ${label} แล้ว` : `✅ บันทึกข้อมูล ${label} แล้ว` })
+      setPageMsg({ ok: true, text: wasCreate ? `เพิ่มผู้ใช้ ${label} แล้ว` : `บันทึกข้อมูล ${label} แล้ว` })
       router.refresh()
     }, 700)
   }
@@ -221,7 +226,7 @@ export default function UsersClient({
       if (result.error) {
         setPageMsg({ ok: false, text: result.error })
       } else {
-        setPageMsg({ ok: true, text: `🗑 ลบผู้ใช้ ${displayLogin(u.email)} แล้ว` })
+        setPageMsg({ ok: true, text: `ลบผู้ใช้ ${displayLogin(u.email)} แล้ว` })
         router.refresh()
       }
     } catch (err: unknown) {
@@ -268,85 +273,179 @@ export default function UsersClient({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sm:space-y-6">
       {/* หัวข้อ + ปุ่มเพิ่มผู้ใช้: คอมอยู่แถวเดียวกัน (คำเตือนอยู่แถวถัดไป)
           มือถือเรียงเหมือนเดิม: หัวข้อ → คำเตือน → ปุ่ม ห่างกัน 24px */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:gap-4">
         {header && <div className="order-1 min-w-0">{header}</div>}
         {children && <div className="order-2 sm:order-3 sm:col-span-2">{children}</div>}
-        <button onClick={openCreate} className="order-3 sm:order-2 sm:justify-self-end btn-primary flex items-center justify-center gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-0">
-          <span>➕</span> เพิ่มผู้ใช้
+        <button onClick={openCreate} className="order-3 sm:order-2 sm:justify-self-end btn-primary w-full sm:w-auto">
+          <UserPlus {...ICON_SM} />
+          เพิ่มผู้ใช้
         </button>
       </div>
 
       {pageMsg && (
         <div
           role={pageMsg.ok ? 'status' : 'alert'}
-          className={`flex items-start justify-between gap-3 rounded-lg px-3 py-2 text-sm ${
-            pageMsg.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'
-          }`}
+          className={pageMsg.ok ? 'alert-ok' : 'alert-err'}
         >
-          <span>{pageMsg.text}</span>
-          <button onClick={() => setPageMsg(null)} className="shrink-0 -my-2 -mr-2 min-h-[40px] min-w-[40px] inline-flex items-center justify-center text-current opacity-60 hover:opacity-100" aria-label="ปิดข้อความ">✕</button>
+          {pageMsg.ok ? <CheckCircle2 {...ICON_SM} /> : <XCircle {...ICON_SM} />}
+          <span className="flex-1 min-w-0 break-words">{pageMsg.text}</span>
+          <button onClick={() => setPageMsg(null)} className="btn-icon btn-icon-plain -my-2 -mr-2 text-current" aria-label="ปิดข้อความ">
+            <X {...ICON_SM} />
+          </button>
         </div>
       )}
 
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr>
-                <th className="text-left px-4 xl:px-6 py-3 font-semibold text-gray-600">ชื่อผู้ใช้</th>
-                <th className="text-left px-4 xl:px-6 py-3 font-semibold text-gray-600">ชื่อ</th>
-                <th className="text-left px-4 xl:px-6 py-3 font-semibold text-gray-600">สิทธิ์</th>
-                <th className="text-left px-4 xl:px-6 py-3 font-semibold text-gray-600 whitespace-nowrap">สร้างเมื่อ</th>
-                <th className="px-4 xl:px-6 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {users.length === 0 && (
-                <tr><td colSpan={5} className="text-center py-10 text-gray-400">ไม่มีผู้ใช้</td></tr>
-              )}
-              {users.map(u => (
-                <tr key={u.id} className="hover:bg-gray-50">
-                  <td className="px-4 xl:px-6 py-3 font-medium text-gray-900 break-all">
-                    {displayLogin(u.email) || '-'}
-                    {u.id === currentUserId && <span className="ml-2 text-xs text-brand-600 whitespace-nowrap">(คุณ)</span>}
-                    {/* บัญชีอีเมลโดเมนอื่น: ชื่อที่ใช้ login คืออีเมลเต็ม (บัญชี @newcute.com ไม่ต้องโชว์โดเมน) */}
+      {/* มือถือ / iPad แนวตั้ง (ต่ำกว่า lg): การ์ดรายคน — ปุ่มแก้ไข/ลบเห็นทันที ไม่ต้องเลื่อนตารางไปทางขวา */}
+      <div className="lg:hidden">
+        {users.length === 0 ? (
+          <div className="card empty-state">
+            <span className="icon-bubble icon-bubble-lg">
+              <Users size={30} strokeWidth={1.8} aria-hidden="true" />
+            </span>
+            <p className="empty-state-title">ไม่มีผู้ใช้</p>
+          </div>
+        ) : (
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {users.map(u => (
+              <li key={u.id} className="card p-4 flex flex-col">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 break-all">
+                      {displayLogin(u.email) || '-'}
+                      {u.id === currentUserId && <span className="ml-2 text-xs font-semibold text-brand-700 whitespace-nowrap">(คุณ)</span>}
+                    </p>
                     {isExternalEmail(u.email) && (
-                      <p className="text-xs font-normal text-gray-400 mt-0.5">ใช้อีเมลเต็มเข้าสู่ระบบ</p>
+                      <p className="text-xs text-gray-500 mt-0.5">ใช้อีเมลเต็มเข้าสู่ระบบ</p>
                     )}
-                  </td>
-                  <td className="px-4 xl:px-6 py-3 text-gray-600">{u.full_name || '-'}</td>
-                  <td className="px-4 xl:px-6 py-3">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
-                      u.role === 'admin'
-                        ? 'bg-purple-100 text-purple-700'
-                        : 'bg-gray-100 text-gray-700'
-                    }`}>
-                      {u.role === 'admin' ? '👑 Admin' : '👤 Staff'}
+                    <p className="text-sm text-gray-700 mt-0.5 break-words">{u.full_name || '-'}</p>
+                  </div>
+                  {u.role === 'admin' ? (
+                    <span className="chip shrink-0">
+                      <Crown size={14} strokeWidth={2} aria-hidden="true" />
+                      Admin
                     </span>
-                    <p className="text-xs text-gray-400 mt-1 max-w-[220px] xl:max-w-md">{permSummary(u)}</p>
-                  </td>
-                  <td className="px-4 xl:px-6 py-3 text-xs text-gray-400 whitespace-nowrap">
-                    {formatThaiDateTime(u.created_at)}
-                  </td>
-                  <td className="px-4 xl:px-6 py-3 text-right whitespace-nowrap">
+                  ) : (
+                    <span className="chip chip-outline shrink-0">
+                      <UserRound size={14} strokeWidth={2} aria-hidden="true" />
+                      Staff
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-600 mt-2">{permSummary(u)}</p>
+                <p className="text-xs text-gray-500 mt-1 tabular-nums">สร้างเมื่อ {formatThaiDateTime(u.created_at)}</p>
+                {/* ปุ่มชิดล่างการ์ด (การ์ดสองคอลัมน์สูงไม่เท่ากันก็ยังตรงแนว) */}
+                <div className="mt-auto pt-3">
+                  <div className="flex gap-2 pt-3 border-t border-brand-100">
                     {canManage(u) ? (
-                      <div className="inline-flex gap-1">
-                        <button onClick={() => openEdit(u)}
-                          className="min-h-[40px] px-3 rounded-lg text-brand-600 hover:bg-brand-50 text-xs font-medium">
+                      <>
+                        <button onClick={() => openEdit(u)} className="btn-secondary flex-1 min-w-0 px-3 text-sm">
+                          <Pencil {...ICON_SM} />
                           แก้ไข
                         </button>
                         {u.id !== currentUserId && (
                           <button onClick={() => handleDelete(u)} disabled={deletingId !== null}
-                            className="min-h-[40px] px-3 rounded-lg text-red-500 hover:bg-red-50 text-xs font-medium disabled:opacity-50">
+                            className="btn-danger-soft flex-1 min-w-0 px-3 text-sm">
+                            {deletingId === u.id
+                              ? <Loader2 {...ICON_SM} className="animate-spin" />
+                              : <Trash2 {...ICON_SM} />}
+                            {deletingId === u.id ? 'กำลังลบ...' : 'ลบ'}
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 min-h-[44px] text-xs text-gray-500">
+                        <Lock {...ICON_SM} />
+                        {lockedReason(u)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* คอม / iPad แนวนอน (lg+): ตาราง */}
+      <div className="card overflow-hidden hidden lg:block">
+        <div className="table-wrap">
+          <table className="table-soft min-w-[640px]">
+            <thead>
+              <tr>
+                <th className="px-4 xl:px-6">ชื่อผู้ใช้</th>
+                <th className="px-4 xl:px-6">ชื่อ</th>
+                <th className="px-4 xl:px-6">สิทธิ์</th>
+                <th className="px-4 xl:px-6">สร้างเมื่อ</th>
+                <th className="px-4 xl:px-6"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.length === 0 && (
+                <tr>
+                  <td colSpan={5}>
+                    <div className="empty-state">
+                      <span className="icon-bubble icon-bubble-lg">
+                        <Users size={30} strokeWidth={1.8} aria-hidden="true" />
+                      </span>
+                      <p className="empty-state-title">ไม่มีผู้ใช้</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {users.map(u => (
+                <tr key={u.id}>
+                  <td className="px-4 xl:px-6 font-semibold text-gray-900 break-all">
+                    {displayLogin(u.email) || '-'}
+                    {u.id === currentUserId && <span className="ml-2 text-xs font-semibold text-brand-700 whitespace-nowrap">(คุณ)</span>}
+                    {/* บัญชีอีเมลโดเมนอื่น: ชื่อที่ใช้ login คืออีเมลเต็ม (บัญชี @newcute.com ไม่ต้องโชว์โดเมน) */}
+                    {isExternalEmail(u.email) && (
+                      <p className="text-xs font-normal text-gray-500 mt-0.5">ใช้อีเมลเต็มเข้าสู่ระบบ</p>
+                    )}
+                  </td>
+                  <td className="px-4 xl:px-6 text-gray-700">{u.full_name || '-'}</td>
+                  <td className="px-4 xl:px-6">
+                    {/* Admin = ชิปบลัช + มงกุฎ / Staff = ชิปขอบ + รูปคน */}
+                    {u.role === 'admin' ? (
+                      <span className="chip">
+                        <Crown size={14} strokeWidth={2} aria-hidden="true" />
+                        Admin
+                      </span>
+                    ) : (
+                      <span className="chip chip-outline">
+                        <UserRound size={14} strokeWidth={2} aria-hidden="true" />
+                        Staff
+                      </span>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1.5 max-w-[220px] xl:max-w-md">{permSummary(u)}</p>
+                  </td>
+                  <td className="px-4 xl:px-6 text-xs text-gray-500 whitespace-nowrap tabular-nums">
+                    {formatThaiDateTime(u.created_at)}
+                  </td>
+                  <td className="px-4 xl:px-6 text-right whitespace-nowrap">
+                    {canManage(u) ? (
+                      <div className="inline-flex items-center gap-2">
+                        <button onClick={() => openEdit(u)} className="btn-ghost px-3 text-sm">
+                          <Pencil {...ICON_SM} />
+                          แก้ไข
+                        </button>
+                        {u.id !== currentUserId && (
+                          <button onClick={() => handleDelete(u)} disabled={deletingId !== null}
+                            className="btn-danger-soft px-3 text-sm">
+                            {deletingId === u.id
+                              ? <Loader2 {...ICON_SM} className="animate-spin" />
+                              : <Trash2 {...ICON_SM} />}
                             {deletingId === u.id ? 'กำลังลบ...' : 'ลบ'}
                           </button>
                         )}
                       </div>
                     ) : (
-                      <span className="text-xs text-gray-400">{lockedReason(u)}</span>
+                      <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                        <Lock {...ICON_SM} />
+                        {lockedReason(u)}
+                      </span>
                     )}
                   </td>
                 </tr>
@@ -356,30 +455,38 @@ export default function UsersClient({
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Modal — มือถือเป็นชีตล่างมุมบนโค้ง / คอมเป็นป็อปอัปกลางจอ */}
       {editing && (
         <div
-          className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 sm:p-4"
+          className="fixed inset-0 z-50 !mt-0 flex items-end sm:items-center justify-center scrim sm:p-4"
           role="dialog" aria-modal="true" aria-labelledby="user-modal-title"
         >
-          <div className="bg-white w-full max-w-lg lg:max-w-2xl max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-2xl shadow-xl">
+          <div className="sheet w-full max-w-lg lg:max-w-2xl max-h-[90dvh] overflow-y-auto overscroll-contain rounded-b-none border-b-0 sm:rounded-4xl sm:border-b-2 animate-fade-up">
             {/* Header (ติดด้านบนเวลาเลื่อน) */}
-            <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-5 py-3 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <h3 id="user-modal-title" className="font-bold text-gray-900 text-lg">
-                  {editing.id ? 'แก้ไขผู้ใช้' : 'เพิ่มผู้ใช้ใหม่'}
-                </h3>
-                {isSelf && (
-                  <p className="text-xs text-brand-600 mt-0.5">📝 คุณกำลังแก้ไขบัญชีตัวเอง</p>
-                )}
+            <div className="sticky top-0 z-10 bg-white border-b border-blush-hair px-5 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="icon-bubble icon-bubble-strong">
+                  {editing.id ? <Pencil {...ICON} /> : <UserPlus {...ICON} />}
+                </span>
+                <div className="min-w-0">
+                  <h3 id="user-modal-title" className="font-bold text-gray-900 text-lg leading-snug">
+                    {editing.id ? 'แก้ไขผู้ใช้' : 'เพิ่มผู้ใช้ใหม่'}
+                  </h3>
+                  {isSelf && (
+                    <p className="flex items-center gap-1.5 text-xs font-medium text-brand-700 mt-0.5">
+                      <PencilLine {...ICON_SM} />
+                      <span className="min-w-0">คุณกำลังแก้ไขบัญชีตัวเอง</span>
+                    </p>
+                  )}
+                </div>
               </div>
               <button onClick={close} disabled={loading}
-                className="shrink-0 w-10 h-10 -mr-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 text-xl"
-                aria-label="ปิด">✕</button>
+                className="btn-icon btn-icon-plain -mr-2"
+                aria-label="ปิด"><X {...ICON} /></button>
             </div>
 
             {/* Body */}
-            <div className="px-5 py-4 space-y-3">
+            <div className="px-5 py-4 space-y-4">
               {/* คอม (lg+): ช่องกรอกวาง 2 คอลัมน์ / มือถือ: เรียงลงมา */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-x-4">
                 <div>
@@ -389,9 +496,12 @@ export default function UsersClient({
                     placeholder="เช่น max" aria-describedby="user-login-hint"
                     value={editing.login}
                     onChange={e => setEditing({ ...editing, login: e.target.value })} />
-                  <p id="user-login-hint" className="text-xs text-gray-400 mt-1">a-z, 0-9, จุด, ขีด — หรือใส่อีเมลก็ได้</p>
+                  <p id="user-login-hint" className="text-xs text-gray-500 mt-1">a-z, 0-9, จุด, ขีด — หรือใส่อีเมลก็ได้</p>
                   {loginChanged && (
-                    <p className="text-xs text-amber-600 mt-1">⚠️ เปลี่ยนชื่อผู้ใช้แล้ว ครั้งหน้าต้อง login ด้วยชื่อใหม่</p>
+                    <p className="flex items-start gap-1.5 text-xs font-medium text-amber-700 mt-1">
+                      <AlertTriangle {...ICON_SM} />
+                      <span className="min-w-0">เปลี่ยนชื่อผู้ใช้แล้ว ครั้งหน้าต้อง login ด้วยชื่อใหม่</span>
+                    </p>
                   )}
                 </div>
                 <div>
@@ -405,15 +515,16 @@ export default function UsersClient({
                     รหัสผ่าน {!editing.id && <span>*</span>}
                   </label>
                   <div className="relative">
-                    <input id="user-password" className="input pr-16"
+                    <input id="user-password" className="input pr-20"
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                       placeholder={editing.id ? 'เว้นว่างถ้าไม่เปลี่ยน' : 'ตั้งรหัสผ่าน'}
                       value={editing.password}
                       onChange={e => setEditing({ ...editing, password: e.target.value })} />
                     <button type="button" onClick={() => setShowPassword(s => !s)}
-                      className="absolute inset-y-0 right-0 px-3 min-w-[44px] text-xs font-medium text-gray-500 hover:text-gray-700"
+                      className="absolute inset-y-0 right-0 inline-flex items-center gap-1 rounded-full px-3 min-w-[44px] text-xs font-semibold text-brand-700 [@media(hover:hover)]:hover:text-brand-900 active:opacity-70"
                       aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}>
+                      {showPassword ? <EyeOff {...ICON_SM} /> : <Eye {...ICON_SM} />}
                       {showPassword ? 'ซ่อน' : 'แสดง'}
                     </button>
                   </div>
@@ -421,75 +532,107 @@ export default function UsersClient({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">บทบาท</label>
-                  <div className="flex gap-2">
+                  {/* ตัวเลือกบทบาท: ที่เลือกอยู่ = แคปซูลสตรอว์เบอร์รี (ถ้ากดไม่ได้ก็ยังเห็นชัดว่าเป็นบทบาทไหน) */}
+                  <div className="grid grid-cols-2 gap-2">
                     <button type="button" onClick={() => setRole('staff')} disabled={rolePermsLocked}
-                      className={`flex-1 min-h-[44px] py-2 rounded-lg text-sm font-medium border disabled:cursor-not-allowed ${
-                        editing.role === 'staff'
-                          ? 'bg-brand-50 text-brand-700 border-brand-300'
-                          : 'bg-white text-gray-600 border-gray-200'
-                      }`}>👤 Staff</button>
+                      aria-pressed={editing.role === 'staff'}
+                      className="choice aria-pressed:disabled:opacity-100">
+                      <UserRound {...ICON} />
+                      Staff
+                    </button>
                     <button type="button" onClick={() => setRole('admin')} disabled={rolePermsLocked || !callerIsAdmin}
-                      className={`flex-1 min-h-[44px] py-2 rounded-lg text-sm font-medium border disabled:cursor-not-allowed disabled:opacity-50 ${
-                        editing.role === 'admin'
-                          ? 'bg-purple-50 text-purple-700 border-purple-300'
-                          : 'bg-white text-gray-600 border-gray-200'
-                      }`}>👑 Admin</button>
+                      aria-pressed={editing.role === 'admin'}
+                      className="choice aria-pressed:disabled:opacity-100">
+                      <Crown {...ICON} />
+                      Admin
+                    </button>
                   </div>
                   {rolePermsLocked ? (
-                    <p className="text-xs text-gray-400 mt-1">🔒 แก้บทบาทและสิทธิ์ของตัวเองไม่ได้ — แก้ได้เฉพาะชื่อ ชื่อผู้ใช้ และรหัสผ่าน</p>
+                    <p className="flex items-start gap-1.5 text-xs text-gray-500 mt-1.5">
+                      <Lock {...ICON_SM} />
+                      <span className="min-w-0">แก้บทบาทและสิทธิ์ของตัวเองไม่ได้ — แก้ได้เฉพาะชื่อ ชื่อผู้ใช้ และรหัสผ่าน</span>
+                    </p>
                   ) : !callerIsAdmin ? (
-                    <p className="text-xs text-gray-400 mt-1">เฉพาะ Admin เท่านั้นที่ตั้งผู้ใช้เป็น Admin ได้</p>
+                    <p className="text-xs text-gray-500 mt-1.5">เฉพาะ Admin เท่านั้นที่ตั้งผู้ใช้เป็น Admin ได้</p>
                   ) : null}
                 </div>
               </div>
 
-              <div className="border-t border-gray-100 pt-3">
-                <label className="block text-sm font-medium text-gray-700 mb-2">สิทธิ์การใช้งาน</label>
-                {editing.role === 'admin' && (
-                  <p className="text-xs text-purple-600 mb-2">👑 Admin ได้ทุกสิทธิ์โดยอัตโนมัติ</p>
-                )}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                  {PERM_KEYS.map(key => {
-                    const disabled = permDisabled(key)
-                    return (
-                      <label key={key}
-                        className={`flex items-center justify-between gap-3 bg-gray-50 rounded-lg px-3 min-h-[44px] lg:py-2 ${
-                          disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
-                        }`}>
-                        <span className="text-sm text-gray-700">
-                          {PERMISSION_LABELS[key]}
-                          {!callerIsAdmin && !rolePermsLocked && editing.role !== 'admin' && disabled && (
-                            <span className="text-xs text-gray-400">
-                              {key === 'users' ? ' (เฉพาะ Admin ให้ได้)' : ' (คุณไม่มีสิทธิ์นี้ จึงให้คนอื่นไม่ได้)'}
-                            </span>
-                          )}
-                        </span>
-                        <input
-                          type="checkbox"
-                          checked={editing.permissions[key]}
-                          disabled={disabled}
-                          onChange={() => togglePerm(key)}
-                          className="w-5 h-5 accent-brand-600"
-                        />
-                      </label>
-                    )
-                  })}
+              <div className="space-y-3">
+                <div className="wave-divider decor" aria-hidden="true" />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">สิทธิ์การใช้งาน</label>
+                  {editing.role === 'admin' && (
+                    <p className="flex items-center gap-1.5 text-xs font-medium text-brand-700 mb-2">
+                      <Crown {...ICON_SM} />
+                      <span className="min-w-0">Admin ได้ทุกสิทธิ์โดยอัตโนมัติ</span>
+                    </p>
+                  )}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                    {PERM_KEYS.map(key => {
+                      const disabled = permDisabled(key)
+                      return (
+                        <label key={key}
+                          className={`panel flex items-center justify-between gap-3 px-4 py-2 min-h-[52px] ${
+                            disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                          }`}>
+                          <span className="min-w-0 text-sm font-medium text-gray-700">
+                            {PERMISSION_LABELS[key]}
+                            {!callerIsAdmin && !rolePermsLocked && editing.role !== 'admin' && disabled && (
+                              <span className="block text-xs font-normal text-gray-500">
+                                {key === 'users' ? ' (เฉพาะ Admin ให้ได้)' : ' (คุณไม่มีสิทธิ์นี้ จึงให้คนอื่นไม่ได้)'}
+                              </span>
+                            )}
+                          </span>
+                          {/* สวิตช์เปิด/ปิด: ตัวจริงยังเป็น checkbox (โปรแกรมอ่านจอ/คีย์บอร์ดใช้ได้เหมือนเดิม) ลายสวิตช์เป็นแค่หน้าตา */}
+                          <span className="relative inline-flex shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={editing.permissions[key]}
+                              disabled={disabled}
+                              onChange={() => togglePerm(key)}
+                              className="peer sr-only"
+                            />
+                            <span aria-hidden="true"
+                              className="block h-7 w-12 rounded-full border-2 border-blush-line bg-blush transition-colors peer-checked:border-brand-600 peer-checked:bg-brand-600 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-berry" />
+                            <span aria-hidden="true"
+                              className="pointer-events-none absolute left-1 top-1 h-5 w-5 rounded-full border border-blush-deep bg-white shadow-sm transition-transform peer-checked:translate-x-5 peer-checked:border-white" />
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Footer (ติดด้านล่างเวลาเลื่อน — ปุ่มบันทึกและข้อความผิดพลาดมองเห็นเสมอ) */}
             <div
-              className="sticky bottom-0 z-10 bg-white border-t border-gray-100 px-5 pt-3 space-y-2"
+              className="sticky bottom-0 z-10 bg-white border-t border-blush-hair px-5 pt-3 space-y-2"
               style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
             >
-              {error && <p role="alert" className="text-red-600 text-sm bg-red-50 rounded-lg p-2">{error}</p>}
-              {success && <p role="status" className="text-green-600 text-sm bg-green-50 rounded-lg p-2 font-medium">{success}</p>}
+              {error && (
+                <p role="alert" className="alert-err">
+                  <XCircle {...ICON_SM} />
+                  <span className="min-w-0 break-words">{error}</span>
+                </p>
+              )}
+              {success && (
+                <p role="status" className="alert-ok font-medium">
+                  <CheckCircle2 {...ICON_SM} />
+                  <span className="min-w-0">{success}</span>
+                </p>
+              )}
               <div className="flex gap-2">
-                <button onClick={handleSave} disabled={loading || !!success} className="btn-primary flex-1 min-h-[44px]">
-                  {loading ? 'กำลังบันทึก...' : success ? '✅ สำเร็จ' : (editing.id ? 'บันทึก' : 'เพิ่มผู้ใช้')}
+                <button onClick={handleSave} disabled={loading || !!success} className="btn-primary flex-1">
+                  {loading
+                    ? <Loader2 {...ICON_SM} className="animate-spin" />
+                    : success
+                      ? <CheckCircle2 {...ICON_SM} />
+                      : editing.id ? <Save {...ICON_SM} /> : <UserPlus {...ICON_SM} />}
+                  {loading ? 'กำลังบันทึก...' : success ? 'สำเร็จ' : (editing.id ? 'บันทึก' : 'เพิ่มผู้ใช้')}
                 </button>
-                <button onClick={close} disabled={loading} className="btn-secondary min-h-[44px]">ยกเลิก</button>
+                <button onClick={close} disabled={loading} className="btn-secondary">ยกเลิก</button>
               </div>
             </div>
           </div>

@@ -28,10 +28,12 @@ export default async function SalesPage() {
   if (salesRes.error) throw new Error(thaiError(salesRes.error))
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900">บันทึกการขาย</h1>
-        <p className="text-gray-500 text-sm mt-1">POS — แตะสินค้า สแกน หรือพิมพ์รหัสเพื่อเพิ่มลงตะกร้า</p>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="page-header">
+        <div className="min-w-0">
+          <h1 className="page-title">บันทึกการขาย</h1>
+          <p className="page-subtitle">POS — แตะสินค้า สแกน หรือพิมพ์รหัสเพื่อเพิ่มลงตะกร้า</p>
+        </div>
       </div>
       <SalesClient products={products} recentSales={salesRes.data ?? []} />
     </div>
