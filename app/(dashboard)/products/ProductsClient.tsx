@@ -1,78 +1,201 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
+import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
+import { Camera, Check, ChevronDown, RotateCcw, Search, SearchX, Shirt, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { CheckCircle2, ChevronLeft, ChevronRight, Pencil, Search, SearchX, X, XCircle } from 'lucide-react'
-import { baht, productLabel, thaiError, variantText } from '@/lib/format'
-import { codeCandidates, sameCode } from '@/lib/barcode'
+import { thaiError } from '@/lib/format'
+import { codeCandidates, findByCode, sameCode } from '@/lib/barcode'
+import { sortVariantsBySize, type ProductGroupCard, type ProductVariant } from '@/lib/products'
 import { ICON, ICON_SM } from '@/components/theme/icons'
+import CategoryBar, { NO_CATEGORY, type CategoryCounts, type CategoryOption } from '@/components/products/CategoryBar'
+import ProductCard from '@/components/products/ProductCard'
+import type { ScanFeedback } from '@/components/BarcodeScanner'
 
-export interface ProductRow {
-  id: string
-  name: string
-  sku: string
-  barcode: string | null
-  category_id: string | null
-  size: string | null
-  color: string | null
-  stock_qty: number
-  min_stock: number
-  sell_price: number
-  cost_price: number
-  is_active: boolean
-  categories: { name: string } | null
-}
-export interface CategoryOption { id: string; name: string }
+// กล้องสแกนโหลดเฉพาะตอนกดปุ่ม (ไลบรารีกล้องใหญ่ ไม่ให้หน้ารายการช้า)
+const BarcodeScanner = dynamic(() => import('@/components/BarcodeScanner'), { ssr: false })
 
 type Msg = { ok: boolean; text: string }
 
-const PAGE_SIZE = 20
+// แสดงทีละ 60 แบบ (หารลงตัวทั้ง 2/3/4/5/6 คอลัมน์ แถวสุดท้ายเต็มเสมอ) แล้วกด "แสดงเพิ่ม"
+const PAGE_STEP = 60
+// จำตัวกรองไว้ระหว่างเปิดแท็บนี้ (กดเข้าไปแก้สินค้าแล้วย้อนกลับมา ยังอยู่หมวดเดิม/คำค้นเดิม)
+const STORE_KEY = 'newcute:products-list'
+
+// ผลจาก RPC set_product_group_active (ProductGroupJson ใน CONTRACT §2 — ใช้เฉพาะช่องที่การ์ดต้องใช้)
+type VariantJson = {
+  id: string; size: string | null; sku: string; barcode: string | null
+  cost_price: number | string | null; sell_price: number | string | null
+  min_stock: number | string | null; stock_qty: number | string | null
+  is_active: boolean | null; has_history?: boolean
+}
+type GroupJson = {
+  name?: string; category_id?: string | null; color?: string | null
+  has_sizes?: boolean; is_active?: boolean; updated_at?: string
+  variants?: VariantJson[]; images?: { path: string }[]
+}
+
+function num(v: unknown): number {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
+function variantFromJson(v: VariantJson): ProductVariant {
+  return {
+    id: v.id,
+    size: v.size,
+    sku: v.sku,
+    barcode: v.barcode,
+    cost_price: num(v.cost_price),
+    sell_price: num(v.sell_price),
+    min_stock: num(v.min_stock),
+    stock_qty: num(v.stock_qty),
+    is_active: v.is_active === true,
+    has_history: v.has_history === true,
+  }
+}
+
+// อัปเดตการ์ดจากผลของ RPC (ค่าล่าสุดจากฐานข้อมูล รวม updated_at ใหม่ และสถานะทุกไซส์)
+function mergeGroupJson(card: ProductGroupCard, json: GroupJson, active: boolean): ProductGroupCard {
+  return {
+    ...card,
+    name: typeof json.name === 'string' ? json.name : card.name,
+    category_id: json.category_id !== undefined ? json.category_id : card.category_id,
+    color: json.color !== undefined ? json.color : card.color,
+    has_sizes: typeof json.has_sizes === 'boolean' ? json.has_sizes : card.has_sizes,
+    is_active: typeof json.is_active === 'boolean' ? json.is_active : active,
+    updated_at: typeof json.updated_at === 'string' ? json.updated_at : card.updated_at,
+    variants: Array.isArray(json.variants) ? sortVariantsBySize(json.variants.map(variantFromJson)) : card.variants,
+    cover_path: Array.isArray(json.images) ? (json.images[0]?.path ?? null) : card.cover_path,
+  }
+}
 
 export default function ProductsClient({
-  initialProducts, categories
-}: { initialProducts: ProductRow[]; categories: CategoryOption[] }) {
-  const [products, setProducts] = useState<ProductRow[]>(initialProducts)
+  initialGroups, categories, canManage,
+}: { initialGroups: ProductGroupCard[]; categories: CategoryOption[]; canManage: boolean }) {
+  const [groups, setGroups] = useState<ProductGroupCard[]>(initialGroups)
+  const [cats, setCats] = useState<CategoryOption[]>(categories)
   const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('')
-  const [page, setPage] = useState(1)
-  const [busyId, setBusyId] = useState<string | null>(null)
+  const [catFilter, setCatFilter] = useState('')
+  const [shown, setShown] = useState(PAGE_STEP)
+  const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(() => new Set())
   const [msg, setMsg] = useState<Msg | null>(null)
+  const [scanOpen, setScanOpen] = useState(false)
+  const [restored, setRestored] = useState(false)
+  const busyRef = useRef<Set<string>>(new Set())
   const msgTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const supabase = useMemo(() => createClient(), [])
+  const router = useRouter()
 
   // ข้อมูลจาก server เปลี่ยน (router.refresh) → ใช้ชุดใหม่
-  useEffect(() => { setProducts(initialProducts) }, [initialProducts])
+  useEffect(() => { setGroups(initialGroups) }, [initialGroups])
+  useEffect(() => { setCats(categories) }, [categories])
   useEffect(() => () => { if (msgTimer.current) clearTimeout(msgTimer.current) }, [])
 
-  const filtered = useMemo(() => {
+  // คืนค่าตัวกรองที่จำไว้ (อ่านหลัง mount เท่านั้น — ตอน render ฝั่งเซิร์ฟเวอร์ไม่มี sessionStorage)
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(STORE_KEY)
+      if (raw) {
+        const saved = JSON.parse(raw) as { q?: unknown; cat?: unknown }
+        if (typeof saved.q === 'string') setSearch(saved.q)
+        if (typeof saved.cat === 'string') setCatFilter(saved.cat)
+      }
+    } catch {
+      // โหมดส่วนตัว / ปิดการเก็บข้อมูล → เริ่มใหม่ทุกครั้ง
+    }
+    setRestored(true)
+  }, [])
+
+  useEffect(() => {
+    if (!restored) return
+    try {
+      sessionStorage.setItem(STORE_KEY, JSON.stringify({ q: search, cat: catFilter }))
+    } catch {
+      // เก็บไม่ได้ก็ไม่เป็นไร
+    }
+  }, [restored, search, catFilter])
+
+  const catNames = useMemo(() => new Map(cats.map(c => [c.id, c.name])), [cats])
+
+  // ตัวกรองที่จำไว้แต่หมวดนั้นถูกลบไปแล้ว → กลับไป "ทั้งหมด"
+  const activeCat = catFilter === '' || catFilter === NO_CATEGORY || catNames.has(catFilter) ? catFilter : ''
+
+  // หมวดหมู่ที่ถูกลบจากเครื่องอื่น (ไม่อยู่ในรายการแล้ว) นับเป็น "ไม่มีหมวดหมู่" เหมือนที่ฐานข้อมูลทำ
+  const counts = useMemo<CategoryCounts>(() => {
+    const byId: Record<string, number> = {}
+    let none = 0
+    for (const g of groups) {
+      const c = g.category_id && catNames.has(g.category_id) ? g.category_id : null
+      if (c) byId[c] = (byId[c] ?? 0) + 1
+      else none++
+    }
+    return { all: groups.length, none, byId }
+  }, [groups, catNames])
+
+  // ดัชนีค้นหา: ชื่อ + สี ของแบบ, SKU/บาร์โค้ดของทุกไซส์ (ตัวพิมพ์เล็ก)
+  const index = useMemo(() => groups.map(g => ({
+    g,
+    text: `${g.name} ${g.color ?? ''}`.toLowerCase(),
+    codes: g.variants.map(v => ({ id: v.id, sku: v.sku.toLowerCase(), barcode: (v.barcode ?? '').toLowerCase() })),
+  })), [groups])
+
+  const { filtered, hits } = useMemo(() => {
     const raw = search.trim()
     const q = raw.toLowerCase()
     // รหัสที่แปลงจากแป้นพิมพ์ไทย (สแกนเนอร์ USB ตอนคีย์บอร์ดเป็นภาษาไทย) — ไม่รวมคำค้นเดิม
     const converted = raw
       ? codeCandidates(raw).map(c => c.toLowerCase()).filter(c => c && c !== q)
       : []
+    const out: ProductGroupCard[] = []
+    const hitMap = new Map<string, Set<string>>()
 
-    return products.filter(p => {
-      const sku = p.sku.toLowerCase()
-      const barcode = (p.barcode ?? '').toLowerCase()
-      const matchSearch = !q ||
-        p.name.toLowerCase().includes(q) ||
-        variantText(p).toLowerCase().includes(q) ||
-        sku.includes(q) ||
-        barcode.includes(q) ||
+    for (const item of index) {
+      const g = item.g
+      const cat = g.category_id && catNames.has(g.category_id) ? g.category_id : null
+      if (activeCat === NO_CATEGORY ? cat !== null : activeCat !== '' && cat !== activeCat) continue
+      if (!q) {
+        out.push(g)
+        continue
+      }
+      const nameHit = item.text.includes(q)
+      const codeHits = new Set<string>()
+      for (const c of item.codes) {
+        const direct = c.sku.includes(q) || (c.barcode !== '' && c.barcode.includes(q))
         // รหัสที่แปลงแล้ว: ตรงทั้งรหัส หรือ (ยาว ≥ 4 ตัว) เป็นส่วนหนึ่งของรหัส — กันผลมั่วตอนพิมพ์ชื่อภาษาไทยสั้นๆ
-        converted.some(c =>
-          sameCode(c, p.sku) || sameCode(c, p.barcode) ||
-          (c.length >= 4 && (sku.includes(c) || barcode.includes(c)))
+        const viaConverted = converted.some(k =>
+          sameCode(k, c.sku) || sameCode(k, c.barcode) ||
+          (k.length >= 4 && (c.sku.includes(k) || (c.barcode !== '' && c.barcode.includes(k))))
         )
-      const matchCat = !categoryFilter || p.category_id === categoryFilter
-      return matchSearch && matchCat
-    })
-  }, [products, search, categoryFilter])
+        if (direct || viaConverted) codeHits.add(c.id)
+      }
+      if (nameHit || codeHits.size > 0) {
+        out.push(g)
+        // ขีดกรอบไซส์ที่รหัสตรง (คำค้นสั้นกว่า 3 ตัวตรงเกือบทุกไซส์ ไม่ขีด)
+        if (codeHits.size > 0 && (q.length >= 3 || converted.length > 0)) hitMap.set(g.id, codeHits)
+      }
+    }
+    return { filtered: out, hits: hitMap }
+  }, [index, search, activeCat, catNames])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const currentPage = Math.min(page, totalPages)
-  const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+  const visible = filtered.slice(0, shown)
+  const hasFilter = search.trim() !== '' || activeCat !== ''
+
+  function changeSearch(value: string) {
+    setSearch(value)
+    setShown(PAGE_STEP)
+  }
+
+  function changeCategory(value: string) {
+    setCatFilter(value)
+    setShown(PAGE_STEP)
+  }
+
+  function clearFilters() {
+    setSearch('')
+    setCatFilter('')
+    setShown(PAGE_STEP)
+  }
 
   function showMsg(next: Msg) {
     if (msgTimer.current) clearTimeout(msgTimer.current)
@@ -81,230 +204,215 @@ export default function ProductsClient({
     if (next.ok) msgTimer.current = setTimeout(() => setMsg(null), 3000)
   }
 
-  async function toggleActive(p: ProductRow) {
-    if (busyId) return
-    const next = !p.is_active
-    setBusyId(p.id)
+  function markBusy(id: string, on: boolean) {
+    if (on) busyRef.current.add(id)
+    else busyRef.current.delete(id)
+    setBusyIds(new Set(busyRef.current))
+  }
+
+  // เปิด/ปิดขายทั้งแบบ (ทุกไซส์) — CONTRACT §3.2 / §8: เขียนตรงตาราง products ไม่ได้แล้ว ต้องผ่าน RPC
+  async function toggleActive(g: ProductGroupCard) {
+    if (busyRef.current.has(g.id)) return
+    const next = !g.is_active
+
+    // ปิดทั้งแบบแล้วเปิดใหม่ = ทุกไซส์กลับมาเปิดขาย รวมไซส์ที่ปิดแยกไว้ → บอกก่อน (ปิดแล้วระบบจำไม่ได้ว่าไซส์ไหนเคยปิดไว้)
+    if (!next && g.has_sizes) {
+      const offSizes = g.variants.filter(v => !v.is_active).map(v => v.size ?? '-')
+      if (offSizes.length > 0) {
+        const list = offSizes.join(', ')
+        const ok = window.confirm(
+          `ปิดใช้งาน "${g.name}" ทุกไซส์?\n\nตอนนี้ไซส์ ${list} ปิดขายแยกไว้อยู่ — ถ้าภายหลังกดเปิดขายแบบนี้อีกครั้ง ทุกไซส์จะกลับมาเปิดขายพร้อมกัน รวมไซส์ ${list} ด้วย`
+        )
+        if (!ok) return
+      }
+    }
+
+    markBusy(g.id, true)
     // optimistic: เปลี่ยนบนจอก่อน ถ้าบันทึกไม่ผ่านค่อยย้อนกลับ
-    setProducts(ps => ps.map(x => x.id === p.id ? { ...x, is_active: next } : x))
+    setGroups(gs => gs.map(x => x.id === g.id ? { ...x, is_active: next } : x))
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .update({ is_active: next })
-        .eq('id', p.id)
-        .select('id')
+      const { data, error } = await supabase.rpc('set_product_group_active', { p_group_id: g.id, p_active: next })
       if (error) throw error
-      // RLS ไม่ให้แก้ = ไม่มี error แต่ไม่มีแถวถูกแก้
-      if (!data || data.length === 0) throw new Error('ไม่มีสิทธิ์ทำรายการนี้')
-      showMsg({ ok: true, text: `${next ? 'เปิดใช้งาน' : 'ปิดใช้งาน'} "${productLabel(p)}" แล้ว` })
+      if (!data || typeof data !== 'object') throw new Error('ไม่พบสินค้านี้ (อาจถูกลบไปแล้ว) กรุณาโหลดหน้าใหม่')
+      const json = data as GroupJson
+      setGroups(gs => gs.map(x => x.id === g.id ? mergeGroupJson(x, json, next) : x))
+      const scope = g.has_sizes ? ' (ทุกไซส์)' : ''
+      showMsg({ ok: true, text: `${next ? 'เปิดขาย' : 'ปิดใช้งาน'} "${g.name}" แล้ว${scope}` })
+      // updated_at ของแบบนี้เปลี่ยนแล้ว → ล้างหน้าที่ Next จำไว้ (หน้าแก้ไขที่เพิ่งเปิดดู)
+      // ไม่งั้นกดเข้าไปแก้ภายใน 30 วิ จะได้ฟอร์มเก่า แล้วบันทึกไม่ผ่านว่า "ถูกแก้ไขจากเครื่องอื่น"
+      router.refresh()
     } catch (err: unknown) {
-      setProducts(ps => ps.map(x => x.id === p.id ? { ...x, is_active: p.is_active } : x))
-      showMsg({ ok: false, text: `เปลี่ยนสถานะ "${productLabel(p)}" ไม่สำเร็จ: ${thaiError(err)}` })
+      setGroups(gs => gs.map(x => x.id === g.id ? { ...x, is_active: g.is_active } : x))
+      showMsg({ ok: false, text: `เปลี่ยนสถานะ "${g.name}" ไม่สำเร็จ: ${thaiError(err)}` })
     } finally {
-      setBusyId(null)
+      markBusy(g.id, false)
     }
   }
 
-  function stockClass(p: ProductRow) {
-    return p.stock_qty <= p.min_stock ? 'text-red-600 font-bold' : 'text-gray-900 font-semibold'
+  // ลบหมวดหมู่แล้ว ฐานข้อมูลตั้ง category_id = null ให้สินค้าในหมวด → ทำบนจอให้ตรงกันทันที
+  // (ทุกแบบในหมวดนั้นได้ updated_at ใหม่ด้วย → ล้างหน้าที่จำไว้ กันบันทึกชนแบบหลอกๆ)
+  function handleCategoryDeleted(id: string) {
+    setGroups(gs => gs.map(g => g.category_id === id ? { ...g, category_id: null } : g))
+    router.refresh()
   }
 
-  // ปุ่มสถานะแบบสวิตช์แคปซูล: รางเขียว = ใช้งาน / รางเทา = ปิดใช้ (มีข้อความบอกสถานะเสมอ ไม่พึ่งสีอย่างเดียว)
-  function statusButton(p: ProductRow, extra = '') {
-    return (
-      <button
-        type="button"
-        onClick={() => toggleActive(p)}
-        disabled={busyId !== null}
-        title={p.is_active ? 'กดเพื่อปิดใช้งาน' : 'กดเพื่อเปิดใช้งาน'}
-        className={`inline-flex items-center justify-center gap-2 min-h-[44px] rounded-full border-2 text-sm font-semibold leading-tight select-none transition-[transform,background-color,border-color,color] duration-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 ${
-          p.is_active ? 'border-green-200 bg-green-50 text-green-800' : 'border-blush-line bg-white text-gray-600'
-        } ${extra}`}
-      >
-        {/* ราง + ปุ่มกลม (.switch ใน globals.css) — เปิด = เขียว, ปิด = รางเทาอ่อน */}
-        <span aria-hidden="true" className={`switch switch-sm switch-leaf ${p.is_active ? 'switch-on' : 'bg-gray-100'}`}>
-          <span className="switch-knob" />
-        </span>
-        {busyId === p.id ? 'กำลังบันทึก...' : p.is_active ? 'ใช้งาน' : 'ปิดใช้'}
-      </button>
-    )
+  // เพิ่ม/เปลี่ยนชื่อ/ลบหมวดหมู่ → ล้างหน้าที่จำไว้ด้วย (หน้าเพิ่ม/แก้ไขสินค้าจะได้รายการหมวดหมู่ล่าสุด)
+  function handleCategoriesChange(next: CategoryOption[]) {
+    setCats(next)
+    router.refresh()
+  }
+
+  // สแกนบาร์โค้ด/SKU → ค้นหาด้วยรหัสนั้น (ล้างตัวกรองหมวดหมู่ ไม่ให้ผลที่เจอถูกซ่อน)
+  function handleScan(code: string): ScanFeedback {
+    const all = groups.flatMap(g => g.variants.map(v => ({ sku: v.sku, barcode: v.barcode, name: g.name, size: v.size })))
+    const hit = findByCode(all, code)
+    if (!hit) return { ok: false, message: `ไม่พบสินค้ารหัส ${code}` }
+    setSearch(code)
+    setCatFilter('')
+    setShown(PAGE_STEP)
+    return { ok: true, message: `พบ "${hit.name}${hit.size ? ` · ${hit.size}` : ''}"` }
   }
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="card p-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:flex-nowrap lg:gap-4">
-        <div className="input-icon w-full sm:flex-1 sm:min-w-48">
-          <Search {...ICON_SM} />
-          <input
-            className="input pl-11"
-            type="search"
-            enterKeyHint="search"
-            autoCapitalize="none" autoCorrect="off" spellCheck={false}
-            placeholder="ค้นหาชื่อสินค้า, SKU, บาร์โค้ด..."
-            value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
-          />
+      {/* ค้นหา + หมวดหมู่ */}
+      <section className="card p-4 sm:p-5 space-y-4" aria-label="ค้นหาและกรองสินค้า">
+        <div className="flex gap-2">
+          <div className="input-icon flex-1 min-w-0">
+            <Search {...ICON_SM} />
+            <input
+              className="input pl-11"
+              type="search"
+              enterKeyHint="search"
+              autoCapitalize="none" autoCorrect="off" spellCheck={false}
+              aria-label="ค้นหาสินค้า"
+              placeholder="ค้นหาชื่อสินค้า, SKU, บาร์โค้ด..."
+              value={search}
+              onChange={e => changeSearch(e.target.value)}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setScanOpen(true)}
+            className="btn-icon"
+            aria-label="สแกนบาร์โค้ดเพื่อค้นหาสินค้า"
+            title="สแกนบาร์โค้ด"
+          >
+            <Camera {...ICON} />
+          </button>
         </div>
-        <select
-          className="input w-full sm:w-48 lg:w-60 xl:w-72"
-          value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setPage(1) }}
-        >
-          <option value="">ทุกหมวดหมู่</option>
-          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <span className="text-sm text-gray-500 tabular-nums lg:whitespace-nowrap">
-          แสดง {pageItems.length} / {filtered.length} รายการ
-        </span>
-      </div>
 
+        <CategoryBar
+          categories={cats}
+          counts={counts}
+          selected={activeCat}
+          onSelect={changeCategory}
+          canManage={canManage}
+          onCategoriesChange={handleCategoriesChange}
+          onCategoryDeleted={handleCategoryDeleted}
+        />
+
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-blush-hair pt-3">
+          <p className="text-sm text-gray-600 tabular-nums" aria-live="polite">
+            {hasFilter
+              ? `พบ ${filtered.length.toLocaleString('en-US')} แบบ จากทั้งหมด ${groups.length.toLocaleString('en-US')} แบบ`
+              : `ทั้งหมด ${groups.length.toLocaleString('en-US')} แบบ`}
+          </p>
+          {hasFilter && (
+            <button type="button" onClick={clearFilters} className="btn-ghost -mr-2 px-3 text-sm">
+              <RotateCcw {...ICON_SM} />
+              ล้างตัวกรอง
+            </button>
+          )}
+        </div>
+      </section>
+
+      {groups.length === 0 ? (
+        <div className="card empty-state">
+          <span className="icon-bubble icon-bubble-lg"><Shirt size={30} strokeWidth={1.8} aria-hidden="true" /></span>
+          <p className="empty-state-title">ยังไม่มีสินค้า</p>
+          {canManage && <p>กดปุ่ม &quot;เพิ่มสินค้า&quot; ด้านบนเพื่อเริ่มเพิ่มสินค้าแบบแรก</p>}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="card empty-state">
+          <span className="icon-bubble icon-bubble-lg"><SearchX size={30} strokeWidth={1.8} aria-hidden="true" /></span>
+          <p className="empty-state-title break-words">
+            {search.trim() ? `ไม่พบสินค้าที่ตรงกับ "${search.trim()}"` : 'ยังไม่มีสินค้าในหมวดนี้'}
+          </p>
+          <button type="button" onClick={clearFilters} className="btn-secondary mt-2">
+            <RotateCcw {...ICON_SM} />
+            ล้างตัวกรอง
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* การ์ด 1 ใบ = 1 แบบ: มือถือ 2 · จอเล็ก 3 · iPad แนวนอน 4 · คอม 5-6 คอลัมน์
+              (เมนูข้างกินที่ 240px ตั้งแต่ md → ใช้ 4 คอลัมน์ตั้งแต่ lg ไม่ใช่ md การ์ดจะได้ไม่แคบเกิน) */}
+          <ul
+            className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 min-[1152px]:grid-cols-5 xl:grid-cols-6"
+            aria-label="รายการสินค้า"
+          >
+            {visible.map(g => {
+              const catId = g.category_id && catNames.has(g.category_id) ? g.category_id : null
+              return (
+                <li key={g.id} className="flex min-w-0">
+                  <ProductCard
+                    group={g}
+                    categoryName={catId ? catNames.get(catId) ?? null : null}
+                    canManage={canManage}
+                    busy={busyIds.has(g.id)}
+                    onToggle={toggleActive}
+                    highlightIds={hits.get(g.id) ?? null}
+                  />
+                </li>
+              )
+            })}
+          </ul>
+
+          {filtered.length > visible.length && (
+            <div className="flex flex-col items-center gap-2 pt-1">
+              <p className="page-subtitle !mt-0 tabular-nums">
+                แสดง {visible.length.toLocaleString('en-US')} จาก {filtered.length.toLocaleString('en-US')} แบบ
+              </p>
+              <button type="button" onClick={() => setShown(s => s + PAGE_STEP)} className="btn-secondary w-full sm:w-auto">
+                <ChevronDown {...ICON} />
+                แสดงเพิ่มอีก {Math.min(PAGE_STEP, filtered.length - visible.length).toLocaleString('en-US')} แบบ
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ผลการเปิด/ปิดขาย: โทสต์ลอยล่างจอ (การ์ดที่กดอาจอยู่ไกลจากหัวหน้า — ข้อความบนสุดจะมองไม่เห็น)
+          สำเร็จ = หายเอง / ผิดพลาด = ค้างจนกดปิด */}
       {msg && (
         <div
           role={msg.ok ? 'status' : 'alert'}
-          className={msg.ok ? 'alert-ok' : 'alert-err'}
+          className="pointer-events-none fixed inset-x-4 z-40 flex justify-center bottom-[calc(1rem_+_env(safe-area-inset-bottom))] md:left-[calc(15rem_+_1rem)] lg:bottom-6"
         >
-          {msg.ok ? <CheckCircle2 {...ICON_SM} /> : <XCircle {...ICON_SM} />}
-          <span className="flex-1 min-w-0 break-words">{msg.text}</span>
-          <button onClick={() => setMsg(null)} className="btn-icon btn-icon-plain -my-2 -mr-2 text-current" aria-label="ปิดข้อความ">
-            <X {...ICON_SM} />
-          </button>
+          <div className={`${msg.ok ? 'toast-ok' : 'toast-err'} pointer-events-auto`}>
+            <span className="toast-icon">
+              {msg.ok
+                ? <Check size={18} strokeWidth={2.4} aria-hidden="true" />
+                : <X size={18} strokeWidth={2.4} aria-hidden="true" />}
+            </span>
+            <span className="min-w-0 break-words">{msg.text}</span>
+            {!msg.ok && (
+              <button type="button" onClick={() => setMsg(null)} className="btn-icon btn-icon-plain -my-1 -mr-3 text-current" aria-label="ปิดข้อความ">
+                <X {...ICON_SM} />
+              </button>
+            )}
+          </div>
         </div>
       )}
 
-      {/* มือถือ/iPad แนวตั้ง (มีเมนูข้างแล้วเหลือที่แคบ): การ์ดเรียงลงมา — มือถือแนวนอนวาง 2 คอลัมน์ */}
-      <div className="lg:hidden grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-1">
-        {pageItems.length === 0 && (
-          <div className="card empty-state sm:col-span-2 md:col-span-1">
-            <span className="icon-bubble icon-bubble-lg"><SearchX size={30} strokeWidth={1.8} aria-hidden="true" /></span>
-            <p className="empty-state-title">ไม่พบสินค้า</p>
-          </div>
-        )}
-        {pageItems.map(p => {
-          const variant = variantText(p)
-          return (
-            <div key={p.id} className={`card p-4 ${p.is_active ? '' : 'card-milk border-dashed border-gray-300'}`}>
-              <div className="flex gap-3">
-                <div className="flex-1 min-w-0 space-y-1">
-                  <p className="font-display font-semibold text-gray-900 leading-snug break-words">{p.name}</p>
-                  {variant && <span className="chip max-w-full"><span className="truncate">{variant}</span></span>}
-                  <p className="text-xs text-gray-400 break-all">
-                    SKU: {p.sku}{p.barcode ? ` · ${p.barcode}` : ''}
-                  </p>
-                  <p className="text-xs text-gray-500">{p.categories?.name ?? 'ไม่มีหมวดหมู่'}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="money text-lg leading-tight text-brand-600">{baht(p.sell_price)}</p>
-                  <p className="text-sm mt-1 tabular-nums">
-                    <span className={stockClass(p)}>{p.stock_qty}</span>
-                    <span className="text-gray-400 text-xs"> ชิ้น</span>
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2 mt-3 pt-3 border-t border-brand-100">
-                {statusButton(p, 'flex-1 min-w-0 px-3')}
-                <Link href={`/products/${p.id}`} className="btn-secondary flex-1 min-w-0 px-3">
-                  <Pencil {...ICON_SM} />
-                  แก้ไข
-                </Link>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* คอม/iPad แนวนอน: ตาราง */}
-      <div className="card overflow-hidden hidden lg:block">
-        <div className="table-wrap">
-          <table className="table-soft min-w-[640px]">
-            <thead>
-              <tr>
-                <th className="px-4 xl:px-6">สินค้า</th>
-                {/* จอกว้างมาก (2xl+): แยกคอลัมน์รหัส และโชว์จำนวนขั้นต่ำ */}
-                <th className="hidden 2xl:table-cell px-4 xl:px-6">SKU / บาร์โค้ด</th>
-                <th className="px-4 xl:px-6">หมวดหมู่</th>
-                <th className="text-right px-4 xl:px-6">ราคาขาย</th>
-                <th className="text-right px-4 xl:px-6">สต๊อก</th>
-                <th className="hidden 2xl:table-cell text-right px-4 xl:px-6 whitespace-nowrap">ขั้นต่ำ</th>
-                <th className="text-center px-4 xl:px-6">สถานะ</th>
-                <th className="px-4 xl:px-6"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageItems.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="p-0">
-                    <div className="empty-state">
-                      <span className="icon-bubble icon-bubble-lg"><SearchX size={30} strokeWidth={1.8} aria-hidden="true" /></span>
-                      <p className="empty-state-title">ไม่พบสินค้า</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-              {pageItems.map(p => {
-                const variant = variantText(p)
-                return (
-                  <tr key={p.id} className={p.is_active ? '' : 'text-gray-400'}>
-                    <td className="px-4 xl:px-6 py-3">
-                      <p className="font-medium text-gray-900">
-                        {p.name}
-                        {variant && <span className="ml-1 text-brand-700 font-normal">· {variant}</span>}
-                      </p>
-                      <p className="text-xs text-gray-400 2xl:hidden">
-                        SKU: {p.sku}{p.barcode ? ` · บาร์โค้ด: ${p.barcode}` : ''}
-                      </p>
-                    </td>
-                    <td className="hidden 2xl:table-cell px-4 xl:px-6 py-3 text-xs text-gray-500">
-                      <p className="font-mono break-words">{p.sku}</p>
-                      {p.barcode && <p className="font-mono text-gray-400 break-words">{p.barcode}</p>}
-                    </td>
-                    <td className="px-4 xl:px-6 py-3 text-gray-600">{p.categories?.name ?? '-'}</td>
-                    <td className="px-4 xl:px-6 py-3 text-right font-display font-semibold text-brand-600 tabular-nums whitespace-nowrap">{baht(p.sell_price)}</td>
-                    <td className="px-4 xl:px-6 py-3 text-right tabular-nums whitespace-nowrap">
-                      <span className={stockClass(p)}>{p.stock_qty}</span>
-                      <span className="text-gray-400 text-xs"> ชิ้น</span>
-                    </td>
-                    <td className="hidden 2xl:table-cell px-4 xl:px-6 py-3 text-right text-gray-500 tabular-nums whitespace-nowrap">{p.min_stock}</td>
-                    <td className="px-4 xl:px-6 py-3 text-center">
-                      {statusButton(p, 'px-3 whitespace-nowrap')}
-                    </td>
-                    <td className="px-4 xl:px-6 py-3 text-right">
-                      <Link href={`/products/${p.id}`} className="btn-ghost px-3 text-sm">
-                        <Pencil {...ICON_SM} />
-                        แก้ไข
-                      </Link>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="card flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-          <p className="text-sm text-gray-500 tabular-nums">
-            หน้า {currentPage} / {totalPages}
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-              className="btn-secondary gap-1 px-3 sm:px-4"
-            >
-              <ChevronLeft {...ICON} />
-              ก่อนหน้า
-            </button>
-            <button
-              onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
-              className="btn-secondary gap-1 px-3 sm:px-4"
-            >
-              ถัดไป
-              <ChevronRight {...ICON} />
-            </button>
-          </div>
-        </div>
+      {scanOpen && (
+        <BarcodeScanner
+          title="สแกนเพื่อค้นหาสินค้า"
+          closeOnSuccess
+          onScan={handleScan}
+          onClose={() => setScanOpen(false)}
+        />
       )}
     </div>
   )

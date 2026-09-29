@@ -1,7 +1,11 @@
 // ===== สินค้า =====
 // ตรงกับตาราง products ใน supabase-schema.sql (select('*') คืนทุกคอลัมน์ ค่าว่างเป็น null)
+// ตั้งแต่ supabase-fix-02.sql: 1 แถว = 1 SKU (1 ไซส์) ของ "แบบสินค้า" (product_groups)
+// name / color / category_id ถูกคัดลอกมาจากแบบสินค้าอัตโนมัติ — แก้ผ่าน RPC save_product_group เท่านั้น
 export interface Product {
   id: string
+  group_id: string      // แบบสินค้า (product_groups.id) ที่ SKU นี้สังกัด — ลิงก์หน้าแก้ไขใช้ /products/<group_id>
+  is_archived: boolean  // ไซส์ที่เลิกใช้ (เก็บไว้เพราะมีประวัติ) — ปิดขายเสมอ ไม่ต้องแสดงในตัวเลือกสินค้า
   name: string
   sku: string
   barcode: string | null
@@ -12,11 +16,17 @@ export interface Product {
   sell_price: number
   stock_qty: number
   min_stock: number     // จำนวนขั้นต่ำก่อนแจ้งเตือน
-  image_url: string | null
+  image_url: string | null   // คอลัมน์เก่า ไม่ใช้แล้ว — รูปอยู่ในตาราง product_images (ต่อแบบสินค้า)
   is_active: boolean
   created_at: string
   updated_at: string
 }
+
+// ชนิดข้อมูลของแบบสินค้า/ไซส์/รูป จาก RPC (CONTRACT §2) — ตัวจริงอยู่ที่ lib/products.ts
+export type {
+  ProductGroupJson, SaveResultJson, VariantJson, ProductImageJson, AddedImageJson, DeletedGroupJson,
+  GroupInput, VariantInput,
+} from '@/lib/products'
 
 // ===== การเคลื่อนไหวสต๊อก =====
 export type StockMovementType = 'in' | 'out' | 'adjust' | 'return'

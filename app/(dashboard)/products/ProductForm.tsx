@@ -1,506 +1,885 @@
 'use client'
-import { useMemo, useState } from 'react'
+// ===== ฟอร์มสินค้า (เพิ่ม / แก้ไข) — 1 แบบสินค้า = หลายไซส์ได้ แต่ละไซส์มี SKU ของตัวเอง + รูปไม่จำกัด =====
+// บันทึกผ่าน RPC save_product_group ครั้งเดียวทั้งแบบ (CONTRACT §3.1):
+// - แก้ไข: ส่ง updated_at ของข้อมูลที่โหลดมาเสมอ → เครื่องอื่นแก้ก่อน = บันทึกไม่ผ่าน ให้กด "โหลดข้อมูลล่าสุด"
+// - เพิ่มใหม่: ส่ง client_id (สุ่มครั้งเดียวต่อฟอร์ม) → กดซ้ำ/เน็ตหลุดแล้วลองใหม่ ไม่สร้างสินค้าซ้ำ
+// รูปสินค้า: เลือกได้ตั้งแต่ยังไม่บันทึก แล้วอัปโหลดให้ทันทีหลังบันทึกสินค้าใหม่สำเร็จ
+
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { baht, productLabel, thaiError, variantText } from '@/lib/format'
-import { isPrintableAscii, normalizeScannedCode } from '@/lib/barcode'
-import BarcodeScanner from '@/components/BarcodeScanner'
 import {
-  AlertTriangle, ArrowRight, Camera, Check, CheckCircle2, Coins, Eye, Info, Loader2, Package, PauseCircle,
-  Plus, Save, Shirt, Trash2, XCircle,
+  AlertTriangle, ArrowLeft, CheckCircle2, Coins, Info, Loader2, Lock, PauseCircle, PlayCircle, Plus,
+  RefreshCw, Ruler, Save, Shirt, Trash2, X, XCircle,
 } from 'lucide-react'
-import { ICON, ICON_SM } from '@/components/theme/icons'
+import { createClient } from '@/lib/supabase/client'
+import { productLabel, thaiError } from '@/lib/format'
+import { sameCode } from '@/lib/barcode'
+import {
+  type ProductGroupJson,
+  MAX_DESCRIPTION, MAX_SIZES, MAX_SIZE_LEN,
+  cleanText, hasInvisibleChars, isNetworkError, isPrintableCode, isVersionConflict, needsReload, newUuid,
+  parseGroupJson, parseSaveResult, removeProductImageFiles, sizeKey, suggestSku, wait,
+} from '@/lib/products'
+import BarcodeScanner from '@/components/BarcodeScanner'
+import { ICON_SM } from '@/components/theme/icons'
+import {
+  type FormState, type RowState, type SavePayload,
+  barcodeValue, emptyForm, formFromJson, formSignature, locateServerError, matchesPayload, mergeAfterConflict,
+  newRow, rebaseAfterActivation, rowForNewSize, rowFromVariant, setRowSize, sortRows, applyBaseSku,
+  validateForm, withActivation,
+} from '@/components/products/formModel'
+import { type FieldError, SingleVariantFields } from '@/components/products/VariantFields'
+import SizeEditor, { type SizeEditorActions, RemovedAndArchived } from '@/components/products/SizeEditor'
+import ProductGallery from '@/components/products/ProductGallery'
+import { useProductImages } from '@/components/products/useProductImages'
 
 interface Category { id: string; name: string }
+
 interface ProductFormProps {
   categories: Category[]
-  product?: {
-    id: string; name: string; sku: string; barcode?: string | null
-    category_id?: string | null; size?: string | null; color?: string | null
-    cost_price: number; sell_price: number; min_stock: number
-    stock_qty?: number | null
-    is_active?: boolean | null
+  canStock: boolean                       // มีสิทธิ์รับ-จ่ายสต๊อก → ใส่ยอดยกมาของไซส์ใหม่ได้
+  initial?: ProductGroupJson | null       // null = เพิ่มสินค้าใหม่
+  savedNotice?: 'new' | 'again' | null    // มาจากการบันทึกสินค้าใหม่ (หน้าเพิ่มสินค้า → หน้าแก้ไข)
+}
+
+type Msg = {
+  kind: 'ok' | 'err' | 'warn' | 'info'
+  text: string
+  details?: string[]
+  validation?: boolean   // ข้อผิดพลาดจากการตรวจในเครื่อง (หายเองเมื่อแก้ช่อง)
+  afterCreate?: boolean  // แสดงลิงก์ "เพิ่มสินค้าอีก / กลับไปรายการสินค้า"
+  goToId?: string        // บันทึกสินค้าใหม่แล้วแต่อัปโหลดรูปไม่ครบ → ลิงก์ไปหน้าแก้ไข
+}
+
+const ALERT_CLASS: Record<Msg['kind'], string> = {
+  ok: 'alert-ok',
+  err: 'alert-err',
+  warn: 'alert-warn',
+  info: 'alert-info',
+}
+
+function MsgIcon({ kind }: { kind: Msg['kind'] }) {
+  if (kind === 'ok') return <CheckCircle2 {...ICON_SM} />
+  if (kind === 'err') return <XCircle {...ICON_SM} />
+  if (kind === 'warn') return <AlertTriangle {...ICON_SM} />
+  return <Info {...ICON_SM} />
+}
+
+function prefersReducedMotion(): boolean {
+  try {
+    if (document.documentElement.dataset.motion === 'off') return true
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  } catch {
+    return false
   }
 }
 
-type FormState = {
-  name: string; sku: string; barcode: string; category_id: string
-  size: string; color: string
-  cost_price: string; sell_price: string; min_stock: string
-}
-
-// ห้ามมี stock_qty — สต๊อกเปลี่ยนได้ผ่าน RPC move_stock / record_sale เท่านั้น
-type ProductPayload = {
-  name: string; sku: string; barcode: string | null; category_id: string | null
-  size: string | null; color: string | null
-  cost_price: number; sell_price: number; min_stock: number
-}
-
-const MAX_MONEY = 99999999.99 // numeric(10,2)
-const MAX_MIN_STOCK = 1000000
-
-// '' = ไม่ได้กรอก, NaN = ไม่ใช่ตัวเลข
-function parseMoney(raw: string): number | null {
-  const s = raw.trim().replace(/,/g, '')
-  if (!s) return null
-  const n = Number(s)
-  return Number.isFinite(n) ? Math.round(n * 100) / 100 : NaN
-}
-
-function errorCode(err: unknown): string {
-  if (err && typeof err === 'object' && 'code' in err) return String((err as { code: unknown }).code ?? '')
-  return ''
-}
-
-function validate(form: FormState): { payload: ProductPayload } | { error: string } {
-  const name = form.name.trim()
-  if (!name) return { error: 'กรุณากรอกชื่อสินค้า' }
-  if (name.length > 200) return { error: 'ชื่อสินค้ายาวเกินไป (สูงสุด 200 ตัวอักษร)' }
-
-  const sku = form.sku.trim()
-  if (!sku) return { error: 'กรุณากรอก SKU' }
-  if (!isPrintableAscii(sku)) return { error: 'SKU ต้องเป็นตัวอักษรอังกฤษ ตัวเลข หรือสัญลักษณ์ เท่านั้น' }
-
-  // สแกนเข้าช่องนี้ตอนคีย์บอร์ดเป็นภาษาไทย → แปลงกลับเป็นรหัสภาษาอังกฤษให้
-  const barcode = normalizeScannedCode(form.barcode)
-  if (barcode && !isPrintableAscii(barcode)) {
-    return { error: 'บาร์โค้ดต้องเป็นตัวอักษรอังกฤษ ตัวเลข หรือสัญลักษณ์ เท่านั้น' }
-  }
-
-  const sell = parseMoney(form.sell_price)
-  if (sell === null) return { error: 'กรุณากรอกราคาขาย' }
-  if (Number.isNaN(sell) || sell < 0) return { error: 'ราคาขายต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป' }
-  if (sell > MAX_MONEY) return { error: 'ราคาขายสูงเกินไป' }
-
-  const cost = parseMoney(form.cost_price) ?? 0
-  if (Number.isNaN(cost) || cost < 0) return { error: 'ราคาทุนต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป' }
-  if (cost > MAX_MONEY) return { error: 'ราคาทุนสูงเกินไป' }
-
-  const minRaw = form.min_stock.trim()
-  if (minRaw && !/^\d+$/.test(minRaw)) return { error: 'จำนวนขั้นต่ำต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป' }
-  const minStock = minRaw ? Number(minRaw) : 0
-  if (minStock > MAX_MIN_STOCK) return { error: 'จำนวนขั้นต่ำสูงเกินไป' }
-
-  return {
-    payload: {
-      name,
-      sku,
-      barcode: barcode || null,
-      category_id: form.category_id || null,
-      size: form.size.trim() || null,
-      color: form.color.trim() || null,
-      cost_price: cost,
-      sell_price: sell,
-      min_stock: minStock,
-    },
-  }
-}
-
-export default function ProductForm({ categories, product }: ProductFormProps) {
+export default function ProductForm({ categories: initialCategories, canStock, initial = null, savedNotice = null }: ProductFormProps) {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
-  const [loading, setLoading] = useState(false)
-  const [saved, setSaved] = useState(false)
+  // รหัสคำขอของฟอร์มเพิ่มสินค้าใหม่: สุ่มครั้งเดียวตอนเปิดฟอร์ม ใช้ซ้ำทุกครั้งที่กดบันทึก (กันสร้างสินค้าซ้ำ)
+  const [clientId] = useState(() => newUuid())
+  const [categories, setCategories] = useState<Category[]>(initialCategories)
+  const [loaded, setLoaded] = useState<ProductGroupJson | null>(initial)
+  const [form, setForm] = useState<FormState>(() => (initial ? formFromJson(initial) : emptyForm()))
+  const [toggleStash, setToggleStash] = useState<RowState[]>([])
+  const [chooser, setChooser] = useState(false)
+  const [rowHints, setRowHints] = useState<Record<string, string>>({})
+  const [fieldError, setFieldError] = useState<FieldError>(null)
+  const [focusReq, setFocusReq] = useState<{ id: string; n: number } | null>(null)
+  const [scanKey, setScanKey] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [toggling, setToggling] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [deactivating, setDeactivating] = useState(false)
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [canDeactivate, setCanDeactivate] = useState(false)
-  const [isActive, setIsActive] = useState(product?.is_active !== false)
-  const [showScanner, setShowScanner] = useState(false)
+  const [reloading, setReloading] = useState(false)
+  const [finishing, setFinishing] = useState(false)
+  const [conflict, setConflict] = useState(false)
+  const [gone, setGone] = useState(false)
+  const [msg, setMsg] = useState<Msg | null>(() => {
+    if (!initial || !savedNotice) return null
+    return savedNotice === 'again'
+      ? { kind: 'info', text: 'บันทึกสินค้านี้ไปแล้ว — แสดงข้อมูลที่บันทึกไว้', afterCreate: true }
+      : { kind: 'ok', text: `เพิ่มสินค้า "${productLabel({ name: initial.name, color: initial.color })}" เรียบร้อย`, afterCreate: true }
+  })
+  const msgTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const [form, setForm] = useState<FormState>(() => ({
-    name: product?.name ?? '',
-    sku: product?.sku ?? '',
-    barcode: product?.barcode ?? '',
-    category_id: product?.category_id ?? '',
-    size: product?.size ?? '',
-    color: product?.color ?? '',
-    cost_price: product ? String(product.cost_price ?? 0) : '',
-    sell_price: product ? String(product.sell_price ?? '') : '',
-    min_stock: String(product?.min_stock ?? 5),
-  }))
+  const gallery = useProductImages({ groupId: loaded?.id ?? null, initialImages: initial?.images ?? [] })
 
-  function set<K extends keyof FormState>(field: K, value: FormState[K]) {
-    setForm(f => ({ ...f, [field]: value }))
+  const busy = saving || toggling || deleting || reloading || finishing
+  const groupActive = loaded ? loaded.is_active : true
+  const baseSignature = useMemo(() => formSignature(loaded ? formFromJson(loaded) : emptyForm()), [loaded])
+  const dirty = formSignature(form) !== baseSignature
+
+  const rowIds = new Set(form.rows.map(r => r.id).filter((x): x is string => !!x))
+  const pendingRemovals = loaded ? loaded.variants.filter(v => !rowIds.has(v.id)) : []
+  const archived = loaded ? loaded.archived_variants.filter(v => !rowIds.has(v.id)) : []
+  const allVariants = loaded ? [...loaded.variants, ...loaded.archived_variants] : []
+  const canDelete = !!loaded && !loaded.has_sales && allVariants.every(v => v.stock_qty === 0)
+  const categoryKnown = !form.categoryId || categories.some(c => c.id === form.categoryId)
+
+  // ----- ข้อความแจ้งผล -----
+  function showMsg(next: Msg | null, autoHideMs = 0) {
+    if (msgTimer.current) clearTimeout(msgTimer.current)
+    msgTimer.current = null
+    setMsg(next)
+    if (next && autoHideMs > 0) msgTimer.current = setTimeout(() => setMsg(m => (m === next ? null : m)), autoHideMs)
+  }
+  useEffect(() => () => { if (msgTimer.current) clearTimeout(msgTimer.current) }, [])
+
+  // มาจากหน้าเพิ่มสินค้า (?saved=new) → เอาพารามิเตอร์ออกจากลิงก์ (รีเฟรชแล้วไม่ขึ้นข้อความซ้ำ)
+  // ใช้ router.replace ให้ตัวนำทางของ Next รู้ลิงก์ใหม่ด้วย (ฟอร์มไม่ถูกสร้างใหม่ ข้อมูลที่พิมพ์ไม่หาย)
+  const strippedRef = useRef(false)
+  useEffect(() => {
+    if (!savedNotice || !initial || strippedRef.current) return
+    strippedRef.current = true
+    router.replace(`/products/${initial.id}`, { scroll: false })
+  }, [savedNotice, initial, router])
+
+  // ปิด/รีเฟรชแท็บระหว่างมีข้อมูลที่ยังไม่บันทึก หรือรูปกำลังอัปโหลด → ถามก่อน
+  const pendingNewImages = !loaded && gallery.queue.length > 0
+  const guardLeave = dirty || gallery.processing || pendingNewImages || finishing
+  useEffect(() => {
+    if (!guardLeave) return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [guardLeave])
+
+  // เลื่อนไปที่ช่องที่ผิด + โฟกัส
+  useEffect(() => {
+    if (!focusReq) return
+    const el = document.getElementById(focusReq.id)
+    if (!el) return
+    el.scrollIntoView({ block: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+    try { el.focus({ preventScroll: true }) } catch { /* ignore */ }
+  }, [focusReq])
+
+  function showFieldError(id: string, message: string) {
+    setFieldError({ id, message })
+    setFocusReq({ id, n: Date.now() })
   }
 
-  const busy = loading || deleting || deactivating
-  const normalizedBarcode = normalizeScannedCode(form.barcode)
-  const barcodeConverted = !!normalizedBarcode && normalizedBarcode !== form.barcode.trim()
-  const sellN = parseMoney(form.sell_price)
-  const costN = parseMoney(form.cost_price)
-  const sellBelowCost = sellN !== null && costN !== null && !Number.isNaN(sellN) && !Number.isNaN(costN) && sellN < costN
-
-  // ตัวอย่างการ์ดสินค้าในหน้าขาย (แสดงเฉพาะคอมจอกว้าง) — คำนวณจากค่าในฟอร์มล้วน ไม่ดึงข้อมูลเพิ่ม
-  const previewName = form.name.trim()
-  const previewVariant = variantText(form)
-  const previewSku = form.sku.trim()
-  const previewSellOk = sellN !== null && !Number.isNaN(sellN) && sellN >= 0
-  const previewCost = costN ?? 0 // ช่องทุนว่าง = บันทึกเป็น 0 เหมือน validate()
-  const previewStock = typeof product?.stock_qty === 'number' ? product.stock_qty : 0
-  const previewCategory = categories.find(c => c.id === form.category_id)?.name ?? ''
-  const previewCode = normalizedBarcode || previewSku // สติกเกอร์ใช้บาร์โค้ดก่อน ไม่มีค่อยใช้ SKU
-  const previewProfit = previewSellOk && !Number.isNaN(previewCost) && previewCost >= 0
-    ? Math.round(((sellN ?? 0) - previewCost) * 100) / 100
-    : null
-  const previewMargin = previewProfit !== null && sellN !== null && sellN > 0
-    ? Math.round((previewProfit / sellN) * 100)
-    : null
-
-  function normalizeBarcodeField() {
-    setForm(f => ({ ...f, barcode: normalizeScannedCode(f.barcode) }))
+  // ทุกการแก้ฟอร์มผ่านตรงนี้: ข้อผิดพลาดจากการตรวจในเครื่องหายเมื่อเริ่มแก้
+  function update(fn: (f: FormState) => FormState) {
+    setForm(fn)
+    if (fieldError) setFieldError(null)
+    if (msg?.validation) showMsg(null)
   }
 
+  function setField<K extends 'name' | 'categoryId' | 'color' | 'description'>(k: K, v: string) {
+    update(f => ({ ...f, [k]: v }))
+  }
+
+  function clearHint(key: string) {
+    if (rowHints[key]) setRowHints(h => { const n = { ...h }; delete n[key]; return n })
+  }
+
+  // ----- ไซส์ -----
+  function changeRow(key: string, patch: Partial<RowState>) {
+    update(f => ({ ...f, rows: f.rows.map(r => (r.key === key ? { ...r, ...patch } : r)) }))
+    clearHint(key)
+  }
+
+  function addSize(raw: string): { ok: boolean; message: string } {
+    const size = cleanText(raw)
+    if (!size) return { ok: false, message: 'พิมพ์ไซส์ก่อน แล้วกดเพิ่ม' }
+    if (size.length > MAX_SIZE_LEN) return { ok: false, message: `ไซส์ยาวเกินไป (สูงสุด ${MAX_SIZE_LEN} ตัวอักษร)` }
+    if (hasInvisibleChars(size)) return { ok: false, message: 'ไซส์มีอักขระพิเศษที่มองไม่เห็นปนอยู่ (มักติดมาตอนก๊อปวาง) — ลบแล้วพิมพ์ใหม่' }
+    const k = sizeKey(size)
+    const same = form.rows.find(r => sizeKey(r.size) === k)
+    if (same) {
+      setFocusReq({ id: `pf-${same.key}-sku`, n: Date.now() })
+      return { ok: true, message: `มีไซส์ ${cleanText(same.size)} อยู่แล้ว` }
+    }
+    // เพิ่งกดเอาไซส์นี้ออก → เอากลับ (ไม่เพิ่มซ้ำ)
+    const removed = pendingRemovals.find(v => sizeKey(v.size) === k)
+    if (removed) {
+      undoRemove(removed.id)
+      return { ok: true, message: `เอาไซส์ ${cleanText(removed.size)} กลับมาแล้ว` }
+    }
+    // เคยมีแล้วแต่เลิกใช้ → นำไซส์เดิมกลับมา (ประวัติขาย/สต๊อกอยู่ครบ)
+    const arch = archived.find(v => sizeKey(v.size) === k)
+    if (arch) {
+      restoreArchived(arch.id)
+      return { ok: true, message: `ไซส์ ${cleanText(arch.size)} เคยมีอยู่แล้ว — นำไซส์เดิมกลับมาใช้ (SKU ${arch.sku} ประวัติยังอยู่ครบ)` }
+    }
+    if (form.rows.length >= MAX_SIZES) return { ok: false, message: 'สินค้าหนึ่งแบบมีได้ไม่เกิน 50 ไซส์' }
+    // แถวที่ยังไม่มีไซส์ (เช่น รายการเดิมตอนเพิ่งติ๊ก "มีไซส์") → ใส่ไซส์ให้แถวนั้นก่อน
+    const blank = form.rows.find(r => !cleanText(r.size))
+    if (blank) {
+      update(f => {
+        const next = setRowSize(f, blank.key, size)
+        return { ...next, rows: sortRows(next.rows) }
+      })
+      clearHint(blank.key)
+      return { ok: true, message: blank.id ? `กำหนดไซส์ ${size} ให้รายการเดิม (SKU ${cleanText(blank.sku)}) แล้ว` : '' }
+    }
+    update(f => ({ ...f, rows: sortRows([...f.rows, rowForNewSize(f, size)]) }))
+    return { ok: true, message: '' }
+  }
+
+  function removeRow(key: string) {
+    const row = form.rows.find(r => r.key === key)
+    if (!row) return
+    if (row.id && row.stock !== 0) {
+      setRowHints(h => ({ ...h, [key]: `ยังมีสต๊อก ${row.stock} ชิ้น — ปรับยอดเป็น 0 ที่เมนูรับ-จ่ายสต๊อกก่อน หรือปิดขายเฉพาะไซส์นี้` }))
+      return
+    }
+    // รายการเดิมที่ไม่มีไซส์และมีประวัติ (ตอนเปลี่ยนเป็นแบบมีไซส์) ต้องกำหนดไซส์ให้ เอาออกไม่ได้
+    const old = row.id ? loaded?.variants.find(v => v.id === row.id) : undefined
+    if (old && old.size === null && old.has_history && form.hasSizes) {
+      setRowHints(h => ({ ...h, [key]: `รายการเดิม (SKU ${old.sku}) เคยขายหรือรับ-จ่ายสต๊อกแล้ว — กำหนดไซส์ให้รายการนี้แทนการเอาออก` }))
+      return
+    }
+    update(f => ({ ...f, rows: f.rows.filter(r => r.key !== key) }))
+    clearHint(key)
+  }
+
+  function undoRemove(id: string) {
+    const v = loaded?.variants.find(x => x.id === id)
+    if (!v || rowIds.has(id)) return
+    const stashed = toggleStash.find(r => r.id === id)
+    update(f => ({ ...f, rows: sortRows([...f.rows, stashed ?? rowFromVariant(v)]) }))
+    if (stashed) setToggleStash(s => s.filter(r => r.id !== id))
+  }
+
+  function restoreArchived(id: string) {
+    const v = loaded?.archived_variants.find(x => x.id === id)
+    if (!v || rowIds.has(id) || !form.hasSizes) return
+    update(f => ({ ...f, rows: sortRows([...f.rows, rowFromVariant(v, true)]) }))
+  }
+
+  const sizeActions: SizeEditorActions = {
+    changeRow,
+    changeSize: (key, size) => { update(f => setRowSize(f, key, size)); clearHint(key) },
+    blurSize: key => {
+      const row = form.rows.find(r => r.key === key)
+      if (!row) return
+      const c = cleanText(row.size)
+      if (c !== row.size) update(f => setRowSize(f, key, c))
+    },
+    changeBaseSku: base => update(f => applyBaseSku(f, base)),
+    addSize,
+    removeRow,
+    undoRemove,
+    restoreArchived,
+    applyAll: v => update(f => ({
+      ...f,
+      rows: f.rows.map(r => ({
+        ...r,
+        cost: v.cost.trim() ? v.cost.trim() : r.cost,
+        sell: v.sell.trim() ? v.sell.trim() : r.sell,
+        min: v.min.trim() ? v.min.trim() : r.min,
+      })),
+    })),
+    scan: key => setScanKey(key),
+  }
+
+  // ----- ติ๊ก / เอาติ๊ก "สินค้านี้มีไซส์" (รายการเดิมไม่หาย: id เดิมไปต่อเสมอ) -----
+  function switchToSizes() {
+    update(f => {
+      const kept = f.rows[0] ?? newRow()
+      const base = cleanText(f.baseSku) ? f.baseSku : cleanText(kept.sku)
+      let keptRow = kept
+      if (kept.id === null) {
+        // สินค้าใหม่: SKU ที่พิมพ์ไว้กลายเป็น SKU ตั้งต้น แล้ว SKU ของแถวนี้ = ตั้งต้น-ไซส์ เมื่อเลือกไซส์
+        const auto = kept.skuAuto || cleanText(kept.sku) === cleanText(base)
+        keptRow = { ...kept, skuAuto: auto, sku: auto && cleanText(kept.size) ? suggestSku(base, kept.size) : kept.sku }
+      }
+      const rest = toggleStash.filter(r => r.key !== kept.key)
+      return { ...f, hasSizes: true, baseSku: base, rows: sortRows([keptRow, ...rest]) }
+    })
+    setToggleStash([])
+    setChooser(false)
+  }
+
+  // รายการที่เลือกเก็บไว้ตอนเปลี่ยนเป็นไม่มีไซส์ (ไซส์อื่นที่ยังมีสต๊อก = เปลี่ยนไม่ได้)
+  const chooserCandidates: RowState[] = form.rows.length > 0 ? form.rows : pendingRemovals.map(v => rowFromVariant(v))
+  const stockRows = chooserCandidates.filter(r => r.id && r.stock !== 0)
+
+  function keepAsSingle(key: string | null) {
+    const candidates = chooserCandidates
+    const kept = candidates.find(c => c.key === key) ?? candidates[0] ?? newRow({ sku: cleanText(form.baseSku) })
+    const others = candidates.filter(c => c.key !== kept.key)
+    if (others.some(o => o.id && o.stock !== 0)) return
+    const base = cleanText(form.baseSku)
+    const keptRow = kept.id === null && kept.skuAuto && base ? { ...kept, sku: base } : kept
+    update(f => ({ ...f, hasSizes: false, rows: [keptRow] }))
+    setToggleStash(others)
+    setChooser(false)
+  }
+
+  function onToggleSizes(checked: boolean) {
+    if (checked) { switchToSizes(); return }
+    if (chooserCandidates.length <= 1) { keepAsSingle(chooserCandidates[0]?.key ?? null); return }
+    setChooser(true)
+  }
+
+  // ----- สแกนบาร์โค้ดใส่แถว -----
   function handleScan(code: string) {
     if (!code) return { ok: false, message: 'อ่านบาร์โค้ดไม่ได้ ลองใหม่อีกครั้ง' }
-    if (!isPrintableAscii(code)) return { ok: false, message: 'บาร์โค้ดนี้มีตัวอักษรที่ใช้ไม่ได้' }
-    set('barcode', code)
+    if (!isPrintableCode(code)) return { ok: false, message: 'บาร์โค้ดนี้มีตัวอักษรที่ใช้ไม่ได้' }
+    const key = scanKey
+    if (!key) return { ok: false, message: 'ไม่พบช่องบาร์โค้ด' }
+    const clash = form.rows.find(r => r.key !== key && (sameCode(barcodeValue(r.barcode), code) || sameCode(cleanText(r.sku), code)))
+    if (clash) {
+      return { ok: false, message: form.hasSizes ? `รหัสนี้ใช้กับไซส์ ${cleanText(clash.size) || '-'} แล้ว` : 'รหัสนี้ใช้แล้ว' }
+    }
+    changeRow(key, { barcode: code })
     return { ok: true, message: `ได้บาร์โค้ด ${code}` }
+  }
+
+  // ----- โหลดข้อมูลจากฐานข้อมูล -----
+  async function fetchGroup(id: string): Promise<ProductGroupJson | null> {
+    const { data, error } = await supabase.rpc('get_product_group', { p_group_id: id })
+    if (error) throw error
+    if (data === null || data === undefined) return null
+    const g = parseGroupJson(data)
+    if (!g) throw new Error('ข้อมูลสินค้าไม่ถูกต้อง กรุณาโหลดหน้าใหม่')
+    return g
+  }
+
+  function categoryName(id: string | null, list: Category[] = categories): string {
+    if (!id) return 'ไม่มีหมวดหมู่'
+    return list.find(c => c.id === id)?.name ?? 'หมวดหมู่ที่ถูกลบ'
+  }
+
+  // ----- บันทึก -----
+  async function saveWithRetry(payload: SavePayload) {
+    let lastErr: unknown = null
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await wait(attempt === 1 ? 800 : 2000)
+      const { data, error } = await supabase.rpc('save_product_group', payload)
+      if (!error) {
+        const result = parseSaveResult(data)
+        if (!result) throw new Error('ข้อมูลที่ได้กลับมาไม่ถูกต้อง กรุณาโหลดหน้าใหม่')
+        return result
+      }
+      lastErr = error
+      // บันทึกชน: ครั้งก่อนอาจสำเร็จแล้วแต่คำตอบหายระหว่างทาง (เน็ตหลุด/เบราว์เซอร์ส่งซ้ำเอง)
+      // → ข้อมูลล่าสุดในฐานข้อมูลตรงกับที่ส่งไปทุกช่อง = ถือว่าบันทึกสำเร็จ
+      if (payload.p_group.id && isVersionConflict(thaiError(error))) {
+        try {
+          const fresh = await fetchGroup(payload.p_group.id)
+          if (fresh && matchesPayload(fresh, payload)) return { ...fresh, already_saved: false }
+        } catch { /* ใช้ข้อผิดพลาดเดิม */ }
+      }
+      // สร้างใหม่: client_id เดิมทุกครั้ง → ลองซ้ำได้ปลอดภัย · ลองซ้ำเฉพาะตอนเน็ตหลุด
+      if (!isNetworkError(error)) break
+    }
+    throw lastErr
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     // กัน submit ที่ bubble มาจากฟอร์มอื่น (เช่น ช่องพิมพ์รหัสในหน้าต่างสแกน)
     if (e.target !== e.currentTarget) return
-    if (busy || saved) return
-    setError('')
-    setNotice('')
-    setCanDeactivate(false)
+    if (busy || gone) return
+    if (chooser) {
+      showMsg({ kind: 'warn', text: 'เลือกก่อนว่าจะเก็บไซส์ไหนไว้ (หรือกด "คงแบบมีไซส์")', validation: true })
+      setFocusReq({ id: 'pf-chooser', n: Date.now() })
+      return
+    }
+    setConflict(false)
+    setFieldError(null)
 
-    const result = validate(form)
-    if ('error' in result) { setError(result.error); return }
-    const payload = result.payload
-    // แสดงบาร์โค้ดที่แปลงแล้วในช่องด้วย ให้เห็นว่าจะบันทึกค่าอะไร
-    setForm(f => ({ ...f, barcode: payload.barcode ?? '' }))
-
-    setLoading(true)
+    const res = validateForm(form, { loaded, clientId, canStock, archived })
+    if (!res.ok) {
+      showFieldError(res.fieldId, res.message)
+      showMsg({ kind: 'err', text: res.message, validation: true })
+      return
+    }
+    showMsg(null)
+    setSaving(true)
+    const wasNew = !loaded
+    let result: Awaited<ReturnType<typeof saveWithRetry>>
     try {
-      if (product?.id) {
-        const { data, error } = await supabase
-          .from('products')
-          .update(payload)
-          .eq('id', product.id)
-          .select('id')
-        if (error) throw error
-        // RLS ไม่ให้แก้ = ไม่มี error แต่ไม่มีแถวถูกแก้
-        if (!data || data.length === 0) throw new Error('ไม่มีสิทธิ์ทำรายการนี้ หรือสินค้านี้ถูกลบไปแล้ว')
-      } else {
-        const { error } = await supabase.from('products').insert(payload)
-        if (error) throw error
-      }
-      setSaved(true)
-      router.push('/products')
-      router.refresh()
+      result = await saveWithRetry(res.payload)
     } catch (err: unknown) {
-      setError(thaiError(err))
-      setLoading(false)
+      const text = thaiError(err)
+      if (needsReload(text)) setConflict(true)
+      const fid = locateServerError(text, form)
+      if (fid) showFieldError(fid, text)
+      showMsg({ kind: 'err', text })
+      setSaving(false)
+      return
+    }
+
+    // สำเร็จ: ใช้ข้อมูลที่ฐานข้อมูลคืนมาทั้งหมด (updated_at ใหม่, id ของไซส์ใหม่, ค่าที่ทำความสะอาดแล้ว)
+    setLoaded(result)
+    setForm(formFromJson(result))
+    setToggleStash([])
+    setChooser(false)
+    setRowHints({})
+    setSaving(false)
+
+    if (!wasNew) {
+      showMsg({ kind: 'ok', text: 'บันทึกการแก้ไขเรียบร้อย' }, 5000)
+      router.refresh()
+      return
+    }
+
+    // สินค้าใหม่: อัปโหลดรูปที่เลือกรอไว้ก่อน แล้วค่อยไปหน้าแก้ไขสินค้านี้
+    // already_saved = ครั้งก่อนบันทึกไปแล้ว (คำตอบหาย) — ถ้าข้อมูลที่บันทึกไว้ตรงกับที่เพิ่งส่งทุกช่อง ถือเป็นการบันทึกปกติ
+    const again = result.already_saved && !matchesPayload(result, res.payload)
+    setFinishing(true)
+    if (gallery.queue.length > 0) {
+      showMsg({ kind: 'info', text: 'บันทึกสินค้าแล้ว — กำลังอัปโหลดรูป อย่าเพิ่งปิดหน้านี้' })
+    }
+    // เรียกเสมอ (รูปที่เลือกเพิ่มระหว่างรอบันทึกก็อัปโหลดด้วย) — ไม่มีรูปรอ = จบทันที
+    const failed = (await gallery.uploadPending(result.id)).failed
+    if (failed > 0) {
+      setFinishing(false)
+      showMsg({
+        kind: 'warn',
+        text: `บันทึกสินค้าแล้ว แต่อัปโหลดรูปไม่สำเร็จ ${failed} รูป — กด "ลองอัปโหลดใหม่" ที่รูปนั้น หรือเพิ่มรูปภายหลังในหน้าแก้ไขสินค้า`,
+        goToId: result.id,
+      })
+      router.refresh()
+      return
+    }
+    router.replace(`/products/${result.id}?saved=${again ? 'again' : 'new'}`)
+    router.refresh()
+  }
+
+  // ----- บันทึกชนกับเครื่องอื่น: โหลดข้อมูลล่าสุด แล้วรวมกับที่ผู้ใช้พิมพ์ไว้ -----
+  async function reloadLatest() {
+    if (reloading) return
+    setReloading(true)
+    try {
+      let cats = categories
+      const catRes = await supabase.from('categories').select('id, name').order('name')
+      if (!catRes.error && Array.isArray(catRes.data)) {
+        cats = catRes.data as Category[]
+        setCategories(cats)
+      }
+      if (!loaded) {
+        const lost = !!form.categoryId && !cats.some(c => c.id === form.categoryId)
+        if (lost) update(f => ({ ...f, categoryId: '' }))
+        setConflict(false)
+        showMsg({
+          kind: 'info',
+          text: lost ? 'หมวดหมู่ที่เลือกไว้ถูกลบแล้ว — เลือกหมวดหมู่ใหม่แล้วกดบันทึกอีกครั้ง' : 'โหลดหมวดหมู่ล่าสุดแล้ว — ตรวจสอบแล้วกดบันทึกอีกครั้ง',
+        })
+        return
+      }
+      const fresh = await fetchGroup(loaded.id)
+      if (!fresh) {
+        setGone(true)
+        setConflict(false)
+        showMsg({ kind: 'err', text: 'สินค้านี้ถูกลบไปแล้วจากเครื่องอื่น' })
+        return
+      }
+      const { form: merged, changes } = mergeAfterConflict(loaded, fresh, form, { categoryName: id => categoryName(id, cats) })
+      if (merged.categoryId && !cats.some(c => c.id === merged.categoryId)) {
+        merged.categoryId = ''
+        changes.push('หมวดหมู่ที่เลือกไว้ถูกลบแล้ว — เปลี่ยนเป็นไม่มีหมวดหมู่ (เลือกใหม่ได้)')
+      }
+      setLoaded(fresh)
+      setForm(merged)
+      setToggleStash([])
+      setChooser(false)
+      setRowHints({})
+      setFieldError(null)
+      gallery.replaceImages(fresh.images)
+      setConflict(false)
+      showMsg({
+        kind: 'warn',
+        text: 'โหลดข้อมูลล่าสุดแล้ว — ตรวจสอบแล้วกดบันทึกอีกครั้ง (สิ่งที่คุณแก้ไว้ยังอยู่ในฟอร์ม)',
+        details: changes.length > 0 ? changes.slice(0, 15) : ['ไม่พบความแตกต่างของข้อมูลสินค้า'],
+      })
+    } catch (e: unknown) {
+      showMsg({ kind: 'err', text: thaiError(e) })
+    } finally {
+      setReloading(false)
     }
   }
 
+  // ----- เปิดขาย / ปิดใช้งานทั้งสินค้า -----
+  async function toggleActive() {
+    if (!loaded || busy || gone) return
+    const next = !loaded.is_active
+    setToggling(true)
+    showMsg(null)
+    try {
+      const { data, error } = await supabase.rpc('set_product_group_active', { p_group_id: loaded.id, p_active: next })
+      if (error) throw error
+      const fresh = parseGroupJson(data)
+      if (!fresh) throw new Error('ข้อมูลที่ได้กลับมาไม่ถูกต้อง กรุณาโหลดหน้าใหม่')
+      // เวอร์ชันใหม่ (updated_at) ต้องเข้าฟอร์มทันที ไม่งั้นบันทึกครั้งถัดไปจะถูกปฏิเสธ
+      // + ถ้าระหว่างนี้เครื่องอื่นแก้อย่างอื่นด้วย ให้รวมเข้าฟอร์มแล้วบอกผู้ใช้
+      const { form: merged, changes } = mergeAfterConflict(
+        withActivation(loaded, fresh), fresh, rebaseAfterActivation(form, fresh), { categoryName: id => categoryName(id) },
+      )
+      setLoaded(fresh)
+      setForm(merged)
+      gallery.replaceImages(fresh.images)
+      const text = next ? 'เปิดขายสินค้านี้แล้ว (ทุกไซส์ที่ยังใช้อยู่)' : 'ปิดใช้งานสินค้านี้แล้ว — ไม่แสดงในหน้าขาย ประวัติยังอยู่ครบ'
+      if (changes.length > 0) {
+        showMsg({ kind: 'warn', text: `${text} · ระหว่างนี้มีการแก้ไขจากเครื่องอื่น ตรวจสอบก่อนบันทึก`, details: changes.slice(0, 15) })
+      } else {
+        showMsg({ kind: 'ok', text }, 5000)
+      }
+      router.refresh()
+    } catch (e: unknown) {
+      showMsg({ kind: 'err', text: thaiError(e) })
+    } finally {
+      setToggling(false)
+    }
+  }
+
+  // ----- ลบทั้งสินค้า (เฉพาะที่ไม่เคยขายและไม่มีสต๊อกเหลือ) -----
   async function handleDelete() {
-    if (!product?.id || busy) return
-    const label = productLabel(product)
+    if (!loaded || busy || !canDelete) return
+    const label = productLabel({ name: loaded.name, color: loaded.color })
+    const skuCount = allVariants.length
+    const imgCount = gallery.images.length
     if (!confirm(
       `ยืนยันลบสินค้า "${label}"?\n\n` +
-      '* ประวัติรับ-จ่ายสต๊อกของสินค้านี้จะถูกลบด้วย\n' +
-      '* ถ้าเคยขายไปแล้วจะลบไม่ได้ — ให้ปิดใช้งานแทน'
+      `* ลบทุกไซส์ (${skuCount} SKU) และรูปทั้งหมด (${imgCount} รูป) ถาวร กู้คืนไม่ได้\n` +
+      '* ลบได้เพราะยังไม่เคยขายและไม่มีสต๊อกเหลือ',
     )) return
-
     setDeleting(true)
-    setError('')
-    setNotice('')
-    setCanDeactivate(false)
+    showMsg(null)
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', product.id)
-        .select('id')
+      const { data, error } = await supabase.rpc('delete_product_group', { p_group_id: loaded.id })
       if (error) throw error
-      if (!data || data.length === 0) throw new Error('ไม่มีสิทธิ์ทำรายการนี้ หรือสินค้านี้ถูกลบไปแล้ว')
+      const raw = data && typeof data === 'object' ? (data as { image_paths?: unknown }).image_paths : null
+      const paths = Array.isArray(raw) ? raw.filter((p): p is string => typeof p === 'string') : []
+      // ลบไฟล์รูปหลังลบข้อมูลสำเร็จ (ไม่สำเร็จก็แค่มีไฟล์ค้าง)
+      void removeProductImageFiles(supabase, paths)
       router.push('/products')
       router.refresh()
-    } catch (err: unknown) {
-      setError(thaiError(err))
-      // มีประวัติการขายอ้างอิง → เสนอปุ่มปิดใช้งานแทน
-      if (errorCode(err) === '23503' && isActive) setCanDeactivate(true)
+    } catch (e: unknown) {
+      showMsg({ kind: 'err', text: thaiError(e) })
       setDeleting(false)
     }
   }
 
-  async function handleDeactivate() {
-    if (!product?.id || busy) return
-    setDeactivating(true)
-    setError('')
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .update({ is_active: false })
-        .eq('id', product.id)
-        .select('id')
-      if (error) throw error
-      if (!data || data.length === 0) throw new Error('ไม่มีสิทธิ์ทำรายการนี้ หรือสินค้านี้ถูกลบไปแล้ว')
-      setIsActive(false)
-      setCanDeactivate(false)
-      setNotice('ปิดใช้งานสินค้านี้แล้ว (ประวัติการขายยังอยู่ครบ)')
-      router.refresh()
-    } catch (err: unknown) {
-      setError(thaiError(err))
-    } finally {
-      setDeactivating(false)
-    }
-  }
+  const title = loaded ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่'
+  const subtitle = loaded
+    ? productLabel({ name: loaded.name, color: loaded.color })
+    : 'กรอกข้อมูลสินค้า เพิ่มรูป และกำหนดไซส์'
+  const single = form.rows[0]
 
   return (
-    <>
-      {/* คอมจอกว้าง (xl+): ฟอร์มเต็มความกว้าง + แผงตัวอย่างด้านขวา / มือถือ-iPad: ฟอร์มอย่างเดียวเหมือนเดิม */}
-      <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:grid-cols-[minmax(0,1fr)_20rem] xl:gap-6 xl:items-start">
-        <form onSubmit={handleSubmit} noValidate className="card p-4 sm:p-6 space-y-5 min-w-0">
-          {/* ส่วนที่ 1: ข้อมูลสินค้า (ลำดับช่องเหมือนเดิม — กด Tab ไล่ตามเดิม) */}
-          <div role="group" aria-labelledby="pf-sec-info" className="space-y-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="page-header">
+        <div className="min-w-0">
+          <Link href="/products" className="link text-sm">
+            <ArrowLeft {...ICON_SM} />
+            กลับไปรายการสินค้า
+          </Link>
+          <h1 className="page-title">{title}</h1>
+          <p className="page-subtitle break-words">{subtitle}</p>
+        </div>
+        {loaded && !groupActive && (
+          <div className="page-actions">
+            <span className="chip-outline">
+              <PauseCircle size={14} strokeWidth={2} aria-hidden="true" />
+              ปิดใช้งานอยู่
+            </span>
+          </div>
+        )}
+      </div>
+
+      <form onSubmit={handleSubmit} noValidate className="space-y-4 sm:space-y-6">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2 lg:items-start">
+          {/* ระหว่างบันทึก/ก่อนพาไปหน้าแก้ไข ห้ามเลือกรูปเพิ่ม (กันรูปที่เลือกช่วงรอยต่อหายไปตอนเปลี่ยนหน้า) */}
+          <ProductGallery
+            api={gallery}
+            groupId={loaded?.id ?? null}
+            productName={form.name}
+            disabled={deleting || gone || saving || finishing}
+          />
+
+          {/* ข้อมูลสินค้า */}
+          <section className="card p-4 sm:p-6 space-y-4 min-w-0" aria-labelledby="pf-sec-info">
             <h2 id="pf-sec-info" className="section-title">
               <span className="icon-bubble icon-bubble-sm"><Shirt {...ICON_SM} /></span>
               ข้อมูลสินค้า
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4">
-              <div className="sm:col-span-2">
-                <label htmlFor="pf-name" className="block text-sm font-medium text-gray-700 mb-1">ชื่อสินค้า *</label>
-                <input id="pf-name" className="input" maxLength={200} value={form.name}
-                  onChange={e => set('name', e.target.value)} />
-              </div>
-              <div>
-                <label htmlFor="pf-sku" className="block text-sm font-medium text-gray-700 mb-1">SKU *</label>
-                <input id="pf-sku" className="input" value={form.sku}
-                  autoCapitalize="characters" autoCorrect="off" spellCheck={false}
-                  onChange={e => set('sku', e.target.value)} placeholder="เช่น SHIRT-001" />
-                <p className="text-xs text-gray-500 mt-1">ภาษาอังกฤษ ตัวเลข หรือสัญลักษณ์ (เช่น - _ /)</p>
-              </div>
-              <div>
-                <label htmlFor="pf-barcode" className="block text-sm font-medium text-gray-700 mb-1">บาร์โค้ด</label>
-                <div className="flex gap-2">
-                  <input id="pf-barcode" className="input flex-1 min-w-0" value={form.barcode}
-                    autoCapitalize="none" autoCorrect="off" spellCheck={false}
-                    placeholder="สแกนหรือพิมพ์ (ไม่บังคับ)"
-                    onChange={e => set('barcode', e.target.value)}
-                    onBlur={normalizeBarcodeField}
-                    onKeyDown={e => {
-                      // เครื่องสแกนกด Enter ท้ายรหัส — ไม่ให้ส่งฟอร์มทันที
-                      if (e.key === 'Enter') { e.preventDefault(); normalizeBarcodeField() }
-                    }} />
-                  <button type="button" onClick={() => setShowScanner(true)}
-                    className="btn-icon" aria-label="สแกนบาร์โค้ดด้วยกล้อง">
-                    <Camera {...ICON} />
-                  </button>
-                </div>
-                {barcodeConverted && (
-                  <p className="text-xs text-amber-700 mt-1 break-all">จะบันทึกเป็น: <span className="font-mono">{normalizedBarcode}</span></p>
-                )}
-              </div>
-              <div className="sm:col-span-2">
+            <div>
+              <label htmlFor="pf-name" className="block text-sm font-medium text-gray-700 mb-1">ชื่อสินค้า *</label>
+              <input
+                id="pf-name" className="input" maxLength={220} value={form.name} disabled={busy || gone}
+                autoComplete="off" enterKeyHint="next"
+                placeholder="เช่น เสื้อยืดคอกลม ลายดอกไม้"
+                onChange={e => setField('name', e.target.value)}
+                aria-invalid={fieldError?.id === 'pf-name' ? true : undefined}
+                aria-describedby={fieldError?.id === 'pf-name' ? 'pf-name-err' : undefined}
+              />
+              {fieldError?.id === 'pf-name' && <p id="pf-name-err" className="mt-1 text-xs font-medium text-red-700">{fieldError.message}</p>}
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="min-w-0">
                 <label htmlFor="pf-category" className="block text-sm font-medium text-gray-700 mb-1">หมวดหมู่</label>
-                <select id="pf-category" className="input" value={form.category_id} onChange={e => set('category_id', e.target.value)}>
-                  <option value="">-- เลือกหมวดหมู่ --</option>
+                <select
+                  id="pf-category" className="input" value={form.categoryId} disabled={busy || gone}
+                  onChange={e => setField('categoryId', e.target.value)}
+                  aria-invalid={fieldError?.id === 'pf-category' ? true : undefined}
+                >
+                  <option value="">-- ไม่มีหมวดหมู่ --</option>
                   {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {!categoryKnown && <option value={form.categoryId}>(หมวดหมู่ที่ถูกลบแล้ว)</option>}
                 </select>
+                <p className="mt-1 text-xs text-gray-500">เพิ่ม/แก้ชื่อหมวดหมู่ได้ที่หน้ารายการสินค้า</p>
               </div>
-              <div>
-                <label htmlFor="pf-size" className="block text-sm font-medium text-gray-700 mb-1">ไซส์</label>
-                <input id="pf-size" className="input" value={form.size} onChange={e => set('size', e.target.value)} placeholder="S, M, L, XL..." />
-              </div>
-              <div>
+              <div className="min-w-0">
                 <label htmlFor="pf-color" className="block text-sm font-medium text-gray-700 mb-1">สี</label>
-                <input id="pf-color" className="input" value={form.color} onChange={e => set('color', e.target.value)} placeholder="ขาว, ดำ, แดง..." />
+                <input
+                  id="pf-color" className="input" maxLength={120} value={form.color} autoComplete="off" disabled={busy || gone}
+                  placeholder="ขาว, ดำ, ชมพู..."
+                  onChange={e => setField('color', e.target.value)}
+                  aria-invalid={fieldError?.id === 'pf-color' ? true : undefined}
+                />
+                <p className="mt-1 text-xs text-gray-500">คนละสี = เพิ่มเป็นสินค้าใหม่อีกการ์ด</p>
               </div>
             </div>
-          </div>
-
-          <div className="divider-dotted" aria-hidden="true" />
-
-          {/* ส่วนที่ 2: ราคาและสต๊อก */}
-          <div role="group" aria-labelledby="pf-sec-price" className="space-y-4">
-            <h2 id="pf-sec-price" className="section-title">
-              <span className="icon-bubble icon-bubble-sm"><Coins {...ICON_SM} /></span>
-              ราคาและสต๊อก
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <label htmlFor="pf-cost" className="block text-sm font-medium text-gray-700 mb-1">ราคาทุน (฿)</label>
-                <input id="pf-cost" className="input tabular-nums" type="number" inputMode="decimal" min="0" step="0.01"
-                  placeholder="0" value={form.cost_price} onChange={e => set('cost_price', e.target.value)} />
-              </div>
-              <div>
-                <label htmlFor="pf-sell" className="block text-sm font-medium text-gray-700 mb-1">ราคาขาย (฿) *</label>
-                <input id="pf-sell" className="input tabular-nums" type="number" inputMode="decimal" min="0" step="0.01"
-                  value={form.sell_price} onChange={e => set('sell_price', e.target.value)} />
-                {sellBelowCost && (
-                  <p className="mt-1 flex items-center gap-1 text-xs font-medium text-amber-700">
-                    <AlertTriangle size={14} strokeWidth={2} aria-hidden="true" />
-                    ราคาขายต่ำกว่าราคาทุน
-                  </p>
-                )}
-              </div>
-              <div className="sm:col-span-2 lg:col-span-1">
-                <label htmlFor="pf-min" className="block text-sm font-medium text-gray-700 mb-1">จำนวนขั้นต่ำ (แจ้งเตือน)</label>
-                <input id="pf-min" className="input tabular-nums" type="number" inputMode="numeric" min="0" step="1"
-                  value={form.min_stock} onChange={e => set('min_stock', e.target.value)} />
-              </div>
+            <div>
+              <label htmlFor="pf-desc" className="block text-sm font-medium text-gray-700 mb-1">รายละเอียด (ไม่บังคับ)</label>
+              <textarea
+                id="pf-desc" className="input" rows={3} maxLength={MAX_DESCRIPTION + 50} value={form.description} disabled={busy || gone}
+                placeholder="เนื้อผ้า ขนาดอก/ยาว วิธีดูแล ฯลฯ"
+                onChange={e => setField('description', e.target.value)}
+                aria-invalid={fieldError?.id === 'pf-desc' ? true : undefined}
+              />
+              <p className={`mt-1 text-right text-xs tabular-nums ${form.description.length > MAX_DESCRIPTION ? 'text-red-700 font-medium' : 'text-gray-500'}`}>
+                {form.description.length.toLocaleString('th-TH')}/{MAX_DESCRIPTION.toLocaleString('th-TH')}
+              </p>
             </div>
+          </section>
+        </div>
 
-            {/* สต๊อกแก้ในหน้านี้ไม่ได้ — ต้องผ่านหน้า รับ-จ่ายสต๊อก */}
-            {!product?.id ? (
-              <div className="alert-info">
-                <Info {...ICON_SM} />
-                <div className="min-w-0">
-                  <p>สต๊อกเริ่มต้นเป็น 0 — รับสินค้าเข้าได้ที่หน้า รับ-จ่ายสต๊อก</p>
-                  <Link href="/stock?action=in" className="link text-sm">
-                    ไปหน้ารับสินค้าเข้า
-                    <ArrowRight {...ICON_SM} />
-                  </Link>
-                  <span className="block text-xs text-brand-700">(บันทึกสินค้านี้ก่อน แล้วค่อยรับเข้า)</span>
-                </div>
-              </div>
-            ) : typeof product.stock_qty === 'number' ? (
-              <div className="panel flex items-start gap-2.5 px-3.5 py-2.5 text-sm text-gray-600">
-                <Package {...ICON_SM} className="mt-0.5 text-brand-600" />
-                {/* ลิงก์แยกบรรทัด พื้นที่แตะ 44px (แบบเดียวกับกล่องตอนเพิ่มสินค้าใหม่) */}
-                <div className="min-w-0">
-                  <p>
-                    สต๊อกปัจจุบัน <span className="font-display font-bold tabular-nums text-gray-900">{product.stock_qty}</span> ชิ้น — ปรับยอดได้ที่หน้า
-                  </p>
-                  <Link href="/stock" className="link text-sm">
-                    รับ-จ่ายสต๊อก
-                    <ArrowRight {...ICON_SM} />
-                  </Link>
-                </div>
-              </div>
-            ) : null}
-          </div>
+        {/* ไซส์ ราคา สต๊อก */}
+        <section className="card p-4 sm:p-6 space-y-4 min-w-0" aria-labelledby="pf-sec-price">
+          <h2 id="pf-sec-price" className="section-title">
+            <span className="icon-bubble icon-bubble-sm">{form.hasSizes ? <Ruler {...ICON_SM} /> : <Coins {...ICON_SM} />}</span>
+            {form.hasSizes ? 'ไซส์ ราคา และสต๊อก' : 'ราคาและสต๊อก'}
+          </h2>
 
-          {!isActive && product?.id && (
-            <div className="panel flex items-start gap-2.5 px-3.5 py-2.5 text-sm text-gray-600">
-              <PauseCircle {...ICON_SM} className="mt-0.5 text-gray-500" />
-              <p className="min-w-0">สินค้านี้ปิดใช้งานอยู่ — เปิดใช้งานได้ที่หน้ารายการสินค้า</p>
+          <label htmlFor="pf-has-sizes" className="panel flex min-h-[52px] cursor-pointer items-start gap-3 px-3.5 py-3">
+            <input
+              id="pf-has-sizes"
+              type="checkbox"
+              className="mt-0.5 h-5 w-5 shrink-0 accent-brand-600"
+              checked={form.hasSizes || chooser}
+              disabled={busy}
+              onChange={e => onToggleSizes(e.target.checked)}
+            />
+            <span className="min-w-0">
+              <span className="block font-semibold text-gray-900">สินค้านี้มีไซส์</span>
+              <span className="block text-xs text-gray-500">
+                ติ๊กเมื่อมีหลายไซส์ (S, M, L …) — แต่ละไซส์มี SKU ราคา และสต๊อกแยกกัน · ไม่ติ๊ก = SKU และราคาชุดเดียว
+              </span>
+            </span>
+          </label>
+          {fieldError?.id === 'pf-has-sizes' && <p className="-mt-2 text-xs font-medium text-red-700">{fieldError.message}</p>}
+
+          {/* เปลี่ยนเป็นไม่มีไซส์: เลือกว่าจะเก็บรายการไหนไว้ */}
+          {chooser && (
+            <div id="pf-chooser" tabIndex={-1} className="alert-warn flex-col items-stretch gap-3" role="group" aria-labelledby="pf-chooser-title">
+              <div>
+                <p id="pf-chooser-title" className="font-semibold">เปลี่ยนเป็นสินค้าไม่มีไซส์: เลือกไซส์ที่จะใช้ต่อ</p>
+                <p className="text-xs">
+                  ไซส์ที่เลือกจะกลายเป็นสินค้าชิ้นเดียว (SKU เดิม) · ไซส์อื่นที่ยังไม่มีประวัติจะถูกลบ ส่วนที่มีประวัติจะเก็บไว้ใน &quot;ไซส์ที่เลิกใช้&quot;
+                </p>
+              </div>
+              {stockRows.length > 1 ? (
+                <p className="rounded-2xl bg-white/70 px-3 py-2 text-sm font-medium">
+                  ไซส์ {stockRows.map(r => cleanText(r.size) || '-').join(', ')} ยังมีสต๊อก — เปลี่ยนเป็นไม่มีไซส์ได้เมื่อเหลือสต๊อกไม่เกิน 1 ไซส์ (ปรับยอดที่เมนูรับ-จ่ายสต๊อกก่อน)
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {chooserCandidates.map(c => {
+                    const allowed = stockRows.length === 0 || stockRows[0].key === c.key
+                    return (
+                      <button
+                        key={c.key}
+                        type="button"
+                        className="btn-secondary px-4"
+                        disabled={!allowed || busy}
+                        onClick={() => keepAsSingle(c.key)}
+                      >
+                        {/* ไซส์ใช้ฟอนต์เนื้อหา: ตัว M ของฟอนต์หัวเรื่อง (Kodchasan) ดูเหมือน m ตัวเล็ก */}
+                        <span className="font-sans font-bold">{cleanText(c.size) || '-'}</span>
+                        <span className="font-mono text-xs">{cleanText(c.sku) || 'ไม่มี SKU'}</span>
+                        {c.id && c.stock !== 0 && <span className="text-xs">(สต๊อก {c.stock})</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              <button type="button" className="btn-ghost self-start px-4" onClick={() => setChooser(false)}>
+                คงแบบมีไซส์
+              </button>
             </div>
           )}
 
-          {error && (
-            <div role="alert" className="alert-err">
-              <XCircle {...ICON_SM} />
-              <div className="min-w-0 flex-1 space-y-2">
-                <p className="break-words">{error}</p>
-                {canDeactivate && (
-                  <button type="button" onClick={handleDeactivate} disabled={busy}
-                    className="btn-secondary w-full sm:w-auto">
-                    {deactivating
-                      ? <><Loader2 {...ICON_SM} className="animate-spin" />กำลังปิดใช้งาน...</>
-                      : <><PauseCircle {...ICON_SM} />ปิดใช้งานสินค้านี้แทน</>}
+          {form.hasSizes ? (
+            <SizeEditor
+              form={form}
+              canStock={canStock}
+              groupActive={groupActive}
+              disabled={busy || gone}
+              fieldError={fieldError}
+              rowHints={rowHints}
+              actions={sizeActions}
+            />
+          ) : single ? (
+            <SingleVariantFields
+              row={single}
+              isNew={single.id === null}
+              canStock={canStock}
+              disabled={busy || gone}
+              fieldError={fieldError}
+              onChange={patch => changeRow(single.key, patch)}
+              onScan={() => setScanKey(single.key)}
+            />
+          ) : null}
+
+          {!canStock && form.rows.some(r => r.id === null) && (
+            <div className="alert-info">
+              <Info {...ICON_SM} />
+              <p className="min-w-0">สต๊อกเริ่มต้นของ{form.hasSizes ? 'ไซส์ใหม่' : 'สินค้าใหม่'}เป็น 0 — ผู้มีสิทธิ์รับ-จ่ายสต๊อกรับสินค้าเข้าได้ที่หน้า รับ-จ่ายสต๊อก</p>
+            </div>
+          )}
+
+          <RemovedAndArchived
+            hasSizes={form.hasSizes}
+            disabled={busy || gone}
+            pendingRemovals={pendingRemovals}
+            archived={archived}
+            onUndo={undoRemove}
+            onRestore={restoreArchived}
+          />
+        </section>
+
+        {/* สถานะการขาย + ลบ (เฉพาะสินค้าที่บันทึกแล้ว) */}
+        {loaded && (
+          <section className="card p-4 sm:p-6 space-y-3 min-w-0" aria-labelledby="pf-sec-status">
+            <h2 id="pf-sec-status" className="section-title">
+              <span className={`icon-bubble icon-bubble-sm ${groupActive ? 'icon-bubble-ok' : ''}`}>
+                {groupActive ? <PlayCircle {...ICON_SM} /> : <PauseCircle {...ICON_SM} />}
+              </span>
+              สถานะการขาย
+            </h2>
+            <p className="text-sm text-gray-600">
+              {groupActive
+                ? `เปิดขายอยู่ — ขายได้ที่หน้าบันทึกการขาย${form.hasSizes ? ' (ปิดขายรายไซส์ได้ที่ตารางไซส์)' : ''}`
+                : 'ปิดใช้งานอยู่ — ไม่แสดงในหน้าขาย ประวัติการขายและสต๊อกยังอยู่ครบ'}
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <button type="button" onClick={toggleActive} disabled={busy || gone} className="btn-secondary w-full sm:w-auto">
+                {toggling
+                  ? <><Loader2 {...ICON_SM} className="animate-spin" />กำลังบันทึก...</>
+                  : groupActive
+                    ? <><PauseCircle {...ICON_SM} />ปิดใช้งานสินค้านี้</>
+                    : <><PlayCircle {...ICON_SM} />เปิดขายสินค้านี้</>}
+              </button>
+              {canDelete ? (
+                <button type="button" onClick={handleDelete} disabled={busy || gone} className="btn-danger-soft w-full sm:w-auto sm:ml-auto">
+                  {deleting
+                    ? <><Loader2 {...ICON_SM} className="animate-spin" />กำลังลบ...</>
+                    : <><Trash2 {...ICON_SM} />ลบสินค้านี้</>}
+                </button>
+              ) : (
+                <p className="flex items-center gap-1.5 text-xs text-gray-500 sm:ml-auto">
+                  <Lock size={14} strokeWidth={2} aria-hidden="true" />
+                  {loaded.has_sales ? 'เคยขายแล้ว ลบไม่ได้' : 'ยังมีสต๊อก ลบไม่ได้'} — ใช้ &quot;ปิดใช้งาน&quot; แทน
+                </p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* แถบบันทึก: ติดขอบล่างจอ กดบันทึกได้ตลอดไม่ต้องเลื่อนหา */}
+        <div className="sticky bottom-0 z-20 -mx-3 sm:-mx-4 md:mx-0 bottom-bar px-3 pt-3 pb-3 sm:px-5 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-[env(safe-area-inset-bottom)] after:bg-milk-soft">
+          {msg && (
+            <div className="mb-3 max-h-[40dvh] overflow-y-auto overscroll-contain">
+              <div role={msg.kind === 'err' ? 'alert' : 'status'} className={ALERT_CLASS[msg.kind]}>
+                <MsgIcon kind={msg.kind} />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <p className="break-words">{msg.text}</p>
+                  {msg.details && msg.details.length > 0 && (
+                    <ul className="list-disc space-y-0.5 pl-5 text-xs">
+                      {msg.details.map((d, i) => <li key={i} className="break-words">{d}</li>)}
+                    </ul>
+                  )}
+                  {conflict && (
+                    <button type="button" onClick={reloadLatest} disabled={reloading} className="btn-secondary w-full sm:w-auto">
+                      {reloading
+                        ? <><Loader2 {...ICON_SM} className="animate-spin" />กำลังโหลด...</>
+                        : <><RefreshCw {...ICON_SM} />โหลดข้อมูลล่าสุด</>}
+                    </button>
+                  )}
+                  {gone && (
+                    <Link href="/products" className="btn-secondary w-full sm:w-auto">
+                      <ArrowLeft {...ICON_SM} />
+                      กลับไปรายการสินค้า
+                    </Link>
+                  )}
+                  {msg.afterCreate && (
+                    <div className="flex flex-wrap gap-x-2 gap-y-1">
+                      <Link href="/products/new" className="btn-secondary px-4 text-sm">
+                        <Plus {...ICON_SM} />
+                        เพิ่มสินค้าอีก
+                      </Link>
+                      <Link href="/products" className="btn-ghost px-3 text-sm">
+                        กลับไปรายการสินค้า
+                      </Link>
+                    </div>
+                  )}
+                  {msg.goToId && (
+                    <Link href={`/products/${msg.goToId}`} className="btn-secondary w-full sm:w-auto">
+                      ไปหน้าแก้ไขสินค้านี้
+                    </Link>
+                  )}
+                </div>
+                {!conflict && !gone && (
+                  <button type="button" onClick={() => showMsg(null)} className="btn-icon btn-icon-plain -my-2 -mr-2" aria-label="ปิดข้อความ">
+                    <X {...ICON_SM} />
                   </button>
                 )}
               </div>
             </div>
           )}
-          {notice && (
-            <div role="status" className="alert-ok">
-              <CheckCircle2 {...ICON_SM} />
-              <p className="min-w-0">{notice}</p>
-            </div>
-          )}
-
-          <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-brand-100">
-            <button type="submit" disabled={busy || saved} className="btn-primary w-full sm:w-auto">
-              {saved
-                ? <><Check {...ICON_SM} />บันทึกแล้ว</>
-                : loading
-                  ? <><Loader2 {...ICON_SM} className="animate-spin" />กำลังบันทึก...</>
-                  : product
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button type="submit" disabled={busy || gone} className="btn-primary flex-1 sm:flex-none sm:min-w-[13rem]">
+              {saving
+                ? <><Loader2 {...ICON_SM} className="animate-spin" />กำลังบันทึก...</>
+                : finishing
+                  ? <><Loader2 {...ICON_SM} className="animate-spin" />กำลังอัปโหลดรูป...</>
+                  : loaded
                     ? <><Save {...ICON_SM} />บันทึกการแก้ไข</>
                     : <><Plus {...ICON_SM} />เพิ่มสินค้า</>}
             </button>
-            <Link href="/products" className="btn-secondary w-full sm:w-auto">
-              ยกเลิก
+            <Link href="/products" className="btn-secondary shrink-0 px-4">
+              {dirty ? 'ยกเลิก' : 'กลับ'}
             </Link>
-            {product?.id && (
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={busy || saved}
-                className="btn-danger-soft w-full sm:w-auto sm:ml-auto"
-              >
-                {deleting
-                  ? <><Loader2 {...ICON_SM} className="animate-spin" />กำลังลบ...</>
-                  : <><Trash2 {...ICON_SM} />ลบสินค้านี้</>}
-              </button>
+            {dirty && !busy && (
+              <span className="hidden md:inline-flex items-center gap-1.5 text-xs text-gray-500">
+                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-strawberry" />
+                มีการแก้ไขที่ยังไม่บันทึก
+              </span>
             )}
           </div>
-        </form>
-
-        {/* ตัวอย่างการ์ดในหน้าขาย — หน้าตาเดียวกับการ์ดสินค้าในหน้า บันทึกการขาย */}
-        <aside aria-label="ตัวอย่างสินค้า" className="hidden xl:block xl:sticky xl:top-0 card p-5 space-y-4 min-w-0">
-          <div>
-            <h2 className="section-title sm:text-base">
-              <Eye {...ICON_SM} className="text-brand-600" />
-              ตัวอย่างในหน้าขาย
-            </h2>
-            <p className="text-xs text-gray-400 mt-0.5">อัปเดตตามที่กรอกทันที</p>
-          </div>
-
-          {/* เวทีโชว์การ์ด: พื้นบลัชลายจุดนม ขอบล่างหยักแบบลูกไม้ (เหมือนการ์ดสินค้าในแบบธีม 16) */}
-          <div className="scallop-bottom rounded-t-3xl bg-blush-soft dots-bg px-4 pt-4 pb-6 flex justify-center">
-            <div className="card relative w-full max-w-[13rem] min-h-[72px] p-3 text-left">
-              <p className={`font-display font-semibold text-sm leading-snug line-clamp-2 break-words ${previewName ? 'text-gray-900' : 'text-gray-400'}`}>
-                {previewName || 'ชื่อสินค้า'}
-              </p>
-              {previewVariant && <span className="chip mt-1 max-w-full"><span className="truncate">{previewVariant}</span></span>}
-              <p className={`text-xs mt-1 truncate ${previewSku ? 'text-gray-500' : 'text-gray-400'}`}>{previewSku || 'SKU'}</p>
-              <div className="mt-2 flex items-end justify-between gap-1">
-                <span className={`money text-lg leading-tight ${previewSellOk ? 'text-brand-600' : 'text-gray-400'}`}>
-                  {previewSellOk ? baht(sellN) : '฿ —'}
-                </span>
-                <span className={`inline-flex items-center gap-1 text-xs ${previewStock <= 0 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                  <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${previewStock <= 0 ? 'bg-red-600' : 'bg-strawberry'}`} />
-                  คงเหลือ {previewStock}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <dl className="text-sm divide-y divide-brand-100">
-            <div className="flex items-start justify-between gap-3 py-2">
-              <dt className="text-gray-500 shrink-0">หมวดหมู่</dt>
-              <dd className="text-gray-900 text-right min-w-0 break-words">{previewCategory || '-'}</dd>
-            </div>
-            <div className="flex items-start justify-between gap-3 py-2">
-              <dt className="text-gray-500 shrink-0">รหัสบนสติกเกอร์</dt>
-              <dd className="text-gray-900 text-right min-w-0 font-mono break-all">{previewCode || '-'}</dd>
-            </div>
-            <div className="flex items-start justify-between gap-3 py-2">
-              <dt className="text-gray-500 shrink-0">กำไรต่อชิ้น</dt>
-              <dd className={`text-right min-w-0 font-display font-semibold tabular-nums ${
-                previewProfit === null ? 'text-gray-400' : previewProfit < 0 ? 'text-red-600' : 'text-green-700'
-              }`}>
-                {previewProfit === null ? '-' : baht(previewProfit)}
-                {previewMargin !== null && <span className="font-sans text-xs font-normal text-gray-400"> ({previewMargin}%)</span>}
-              </dd>
-            </div>
-            <div className="flex items-start justify-between gap-3 py-2">
-              <dt className="text-gray-500 shrink-0">แจ้งเตือนเมื่อเหลือ</dt>
-              <dd className="text-gray-900 text-right min-w-0 break-words">{form.min_stock.trim() || '0'} ชิ้น</dd>
-            </div>
-          </dl>
-        </aside>
-      </div>
+        </div>
+      </form>
 
       {/* อยู่นอก <form> — หน้าต่างสแกนมีฟอร์มของตัวเอง ห้ามซ้อนกัน */}
-      {showScanner && (
+      {scanKey && (
         <BarcodeScanner
           title="สแกนบาร์โค้ดสินค้า"
           onScan={handleScan}
-          onClose={() => setShowScanner(false)}
+          onClose={() => setScanKey(null)}
           closeOnSuccess
         />
       )}
-    </>
+    </div>
   )
 }

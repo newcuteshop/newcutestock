@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import {
-  AlertTriangle, ArrowDownToLine, ArrowRight, Coins, Lock, Package, Plus, ReceiptText, ShoppingBag,
+  AlertTriangle, ArrowDownToLine, ArrowRight, ChevronRight, Coins, Lock, Package, Plus, ReceiptText, ShoppingBag,
   type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
@@ -126,6 +126,19 @@ export default async function DashboardPage() {
     .filter(p => num(p.stock_qty) <= num(p.min_stock))
     .sort((a, b) => num(a.stock_qty) - num(b.stock_qty))
   const lowStockTop = lowStock.slice(0, 5)
+
+  // กดรายการสต๊อกใกล้หมด → หน้าแก้ไขสินค้า (ลิงก์ใช้รหัส "แบบ" = group_id ไม่ใช่รหัสไซส์)
+  // ดึงแยกเฉพาะ 5 รายการที่โชว์ และอ่านไม่ได้ก็แค่ไม่มีลิงก์ — หน้าภาพรวมต้องไม่พังเพราะส่วนนี้
+  const groupIdOf = new Map<string, string>()
+  if (permissions.products && lowStockTop.length > 0) {
+    const { data } = await supabase
+      .from('products')
+      .select('id, group_id')
+      .in('id', lowStockTop.map(p => p.id))
+    for (const row of (Array.isArray(data) ? data : []) as { id: string; group_id: string | null }[]) {
+      if (row.group_id) groupIdOf.set(row.id, row.group_id)
+    }
+  }
   const todayRevenue = round2(todaySales.reduce((s, x) => s + num(x.net_amount), 0))
   const todayBills = todaySales.length
 
@@ -226,9 +239,10 @@ export default async function DashboardPage() {
               <div className="divide-y divide-brand-100">
                 {lowStockTop.map(item => {
                   const qty = num(item.stock_qty)
-                  return (
-                    <div key={item.id} className="flex items-center justify-between gap-3 py-3">
-                      <div className="min-w-0">
+                  const groupId = groupIdOf.get(item.id)
+                  const body = (
+                    <>
+                      <div className="min-w-0 flex-1">
                         <p className="font-medium text-gray-900 text-sm break-words">{productLabel(item)}</p>
                         <p className="text-xs text-gray-400 truncate">SKU: {item.sku}</p>
                       </div>
@@ -236,6 +250,21 @@ export default async function DashboardPage() {
                         <p className="font-display font-bold tabular-nums text-red-600">{qty <= 0 ? 'หมด' : `${qty.toLocaleString('en-US')} ชิ้น`}</p>
                         <p className="text-xs text-gray-400">ขั้นต่ำ: {num(item.min_stock).toLocaleString('en-US')}</p>
                       </div>
+                    </>
+                  )
+                  return groupId ? (
+                    <Link
+                      key={item.id}
+                      href={`/products/${groupId}`}
+                      prefetch={false}
+                      className="-mx-2 flex min-h-[44px] items-center justify-between gap-3 rounded-2xl px-2 py-3 transition-colors active:bg-blush-soft [@media(hover:hover)]:hover:bg-gray-50"
+                    >
+                      {body}
+                      <ChevronRight {...ICON_SM} className="text-brand-700" />
+                    </Link>
+                  ) : (
+                    <div key={item.id} className="flex items-center justify-between gap-3 py-3">
+                      {body}
                     </div>
                   )
                 })}
