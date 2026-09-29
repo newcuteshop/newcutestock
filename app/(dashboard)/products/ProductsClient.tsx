@@ -126,7 +126,7 @@ export default function ProductsClient({
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="card p-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="card p-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:flex-nowrap lg:gap-4">
         <input
           className="input w-full sm:flex-1 sm:min-w-48"
           type="search"
@@ -136,13 +136,13 @@ export default function ProductsClient({
           value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
         />
         <select
-          className="input w-full sm:w-48"
+          className="input w-full sm:w-48 lg:w-60 xl:w-72"
           value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setPage(1) }}
         >
           <option value="">ทุกหมวดหมู่</option>
           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <span className="text-sm text-gray-400">
+        <span className="text-sm text-gray-400 lg:whitespace-nowrap">
           แสดง {pageItems.length} / {filtered.length} รายการ
         </span>
       </div>
@@ -205,41 +205,49 @@ export default function ProductsClient({
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">สินค้า</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">หมวดหมู่</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-600">ราคาขาย</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-600">สต๊อก</th>
-                <th className="text-center px-4 py-3 font-semibold text-gray-600">สถานะ</th>
-                <th className="px-4 py-3"></th>
+                <th className="text-left px-4 xl:px-6 py-3 font-semibold text-gray-600">สินค้า</th>
+                {/* จอกว้างมาก (2xl+): แยกคอลัมน์รหัส และโชว์จำนวนขั้นต่ำ */}
+                <th className="hidden 2xl:table-cell text-left px-4 xl:px-6 py-3 font-semibold text-gray-600">SKU / บาร์โค้ด</th>
+                <th className="text-left px-4 xl:px-6 py-3 font-semibold text-gray-600">หมวดหมู่</th>
+                <th className="text-right px-4 xl:px-6 py-3 font-semibold text-gray-600">ราคาขาย</th>
+                <th className="text-right px-4 xl:px-6 py-3 font-semibold text-gray-600">สต๊อก</th>
+                <th className="hidden 2xl:table-cell text-right px-4 xl:px-6 py-3 font-semibold text-gray-600 whitespace-nowrap">ขั้นต่ำ</th>
+                <th className="text-center px-4 xl:px-6 py-3 font-semibold text-gray-600">สถานะ</th>
+                <th className="px-4 xl:px-6 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {pageItems.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-10 text-gray-400">ไม่พบสินค้า</td></tr>
+                <tr><td colSpan={8} className="text-center py-10 text-gray-400">ไม่พบสินค้า</td></tr>
               )}
               {pageItems.map(p => {
                 const variant = variantText(p)
                 return (
                   <tr key={p.id} className={`hover:bg-gray-50 transition-colors ${p.is_active ? '' : 'text-gray-400'}`}>
-                    <td className="px-4 py-3">
+                    <td className="px-4 xl:px-6 py-3">
                       <p className="font-medium text-gray-900">
                         {p.name}
                         {variant && <span className="ml-1 text-brand-700 font-normal">· {variant}</span>}
                       </p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-gray-400 2xl:hidden">
                         SKU: {p.sku}{p.barcode ? ` · บาร์โค้ด: ${p.barcode}` : ''}
                       </p>
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{p.categories?.name ?? '-'}</td>
-                    <td className="px-4 py-3 text-right font-medium whitespace-nowrap">{baht(p.sell_price)}</td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <td className="hidden 2xl:table-cell px-4 xl:px-6 py-3 text-xs text-gray-500">
+                      <p className="font-mono break-words">{p.sku}</p>
+                      {p.barcode && <p className="font-mono text-gray-400 break-words">{p.barcode}</p>}
+                    </td>
+                    <td className="px-4 xl:px-6 py-3 text-gray-600">{p.categories?.name ?? '-'}</td>
+                    <td className="px-4 xl:px-6 py-3 text-right font-medium whitespace-nowrap">{baht(p.sell_price)}</td>
+                    <td className="px-4 xl:px-6 py-3 text-right whitespace-nowrap">
                       <span className={stockClass(p)}>{p.stock_qty}</span>
                       <span className="text-gray-400 text-xs"> ชิ้น</span>
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="hidden 2xl:table-cell px-4 xl:px-6 py-3 text-right text-gray-500 whitespace-nowrap">{p.min_stock}</td>
+                    <td className="px-4 xl:px-6 py-3 text-center">
                       {statusButton(p, 'px-3 min-h-[40px]')}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 xl:px-6 py-3 text-right">
                       <Link
                         href={`/products/${p.id}`}
                         className="inline-flex items-center min-h-[40px] px-2 rounded-lg text-brand-600 hover:bg-brand-50 text-xs font-medium"

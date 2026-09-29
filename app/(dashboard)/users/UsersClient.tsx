@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   type Permissions,
@@ -52,9 +52,13 @@ function isExternalEmail(email: string | null | undefined): boolean {
   return displayLogin(email).includes('@')
 }
 
+// header = หัวข้อหน้า (แสดงแถวเดียวกับปุ่ม "เพิ่มผู้ใช้" บนคอม), children = ข้อความแจ้งเตือนใต้หัวข้อ
 export default function UsersClient({
-  users, currentUserId, currentRole = 'staff', currentPermissions = NO_PERMISSIONS
-}: { users: UserProfile[]; currentUserId: string; currentRole?: Role; currentPermissions?: Permissions }) {
+  users, currentUserId, currentRole = 'staff', currentPermissions = NO_PERMISSIONS, header, children,
+}: {
+  users: UserProfile[]; currentUserId: string; currentRole?: Role; currentPermissions?: Permissions
+  header?: ReactNode; children?: ReactNode
+}) {
   const [editing, setEditing] = useState<UserForm | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -265,8 +269,12 @@ export default function UsersClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <button onClick={openCreate} className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-0">
+      {/* หัวข้อ + ปุ่มเพิ่มผู้ใช้: คอมอยู่แถวเดียวกัน (คำเตือนอยู่แถวถัดไป)
+          มือถือเรียงเหมือนเดิม: หัวข้อ → คำเตือน → ปุ่ม ห่างกัน 24px */}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4">
+        {header && <div className="order-1 min-w-0">{header}</div>}
+        {children && <div className="order-2 sm:order-3 sm:col-span-2">{children}</div>}
+        <button onClick={openCreate} className="order-3 sm:order-2 sm:justify-self-end btn-primary flex items-center justify-center gap-2 w-full sm:w-auto min-h-[44px] sm:min-h-0">
           <span>➕</span> เพิ่มผู้ใช้
         </button>
       </div>
@@ -288,11 +296,11 @@ export default function UsersClient({
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">ชื่อผู้ใช้</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">ชื่อ</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">สิทธิ์</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600 whitespace-nowrap">สร้างเมื่อ</th>
-                <th className="px-4 py-3"></th>
+                <th className="text-left px-4 xl:px-6 py-3 font-semibold text-gray-600">ชื่อผู้ใช้</th>
+                <th className="text-left px-4 xl:px-6 py-3 font-semibold text-gray-600">ชื่อ</th>
+                <th className="text-left px-4 xl:px-6 py-3 font-semibold text-gray-600">สิทธิ์</th>
+                <th className="text-left px-4 xl:px-6 py-3 font-semibold text-gray-600 whitespace-nowrap">สร้างเมื่อ</th>
+                <th className="px-4 xl:px-6 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -301,7 +309,7 @@ export default function UsersClient({
               )}
               {users.map(u => (
                 <tr key={u.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900 break-all">
+                  <td className="px-4 xl:px-6 py-3 font-medium text-gray-900 break-all">
                     {displayLogin(u.email) || '-'}
                     {u.id === currentUserId && <span className="ml-2 text-xs text-brand-600 whitespace-nowrap">(คุณ)</span>}
                     {/* บัญชีอีเมลโดเมนอื่น: ชื่อที่ใช้ login คืออีเมลเต็ม (บัญชี @newcute.com ไม่ต้องโชว์โดเมน) */}
@@ -309,8 +317,8 @@ export default function UsersClient({
                       <p className="text-xs font-normal text-gray-400 mt-0.5">ใช้อีเมลเต็มเข้าสู่ระบบ</p>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{u.full_name || '-'}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 xl:px-6 py-3 text-gray-600">{u.full_name || '-'}</td>
+                  <td className="px-4 xl:px-6 py-3">
                     <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
                       u.role === 'admin'
                         ? 'bg-purple-100 text-purple-700'
@@ -318,12 +326,12 @@ export default function UsersClient({
                     }`}>
                       {u.role === 'admin' ? '👑 Admin' : '👤 Staff'}
                     </span>
-                    <p className="text-xs text-gray-400 mt-1 max-w-[220px]">{permSummary(u)}</p>
+                    <p className="text-xs text-gray-400 mt-1 max-w-[220px] xl:max-w-md">{permSummary(u)}</p>
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
+                  <td className="px-4 xl:px-6 py-3 text-xs text-gray-400 whitespace-nowrap">
                     {formatThaiDateTime(u.created_at)}
                   </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                  <td className="px-4 xl:px-6 py-3 text-right whitespace-nowrap">
                     {canManage(u) ? (
                       <div className="inline-flex gap-1">
                         <button onClick={() => openEdit(u)}
@@ -354,7 +362,7 @@ export default function UsersClient({
           className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 sm:p-4"
           role="dialog" aria-modal="true" aria-labelledby="user-modal-title"
         >
-          <div className="bg-white w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-2xl shadow-xl">
+          <div className="bg-white w-full max-w-lg lg:max-w-2xl max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-2xl shadow-xl">
             {/* Header (ติดด้านบนเวลาเลื่อน) */}
             <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-5 py-3 flex items-center justify-between gap-3">
               <div className="min-w-0">
@@ -372,64 +380,67 @@ export default function UsersClient({
 
             {/* Body */}
             <div className="px-5 py-4 space-y-3">
-              <div>
-                <label htmlFor="user-login" className="block text-sm font-medium text-gray-700 mb-1">ชื่อผู้ใช้ *</label>
-                <input id="user-login" className="input" type="text" maxLength={254}
-                  autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-                  placeholder="เช่น max" aria-describedby="user-login-hint"
-                  value={editing.login}
-                  onChange={e => setEditing({ ...editing, login: e.target.value })} />
-                <p id="user-login-hint" className="text-xs text-gray-400 mt-1">a-z, 0-9, จุด, ขีด — หรือใส่อีเมลก็ได้</p>
-                {loginChanged && (
-                  <p className="text-xs text-amber-600 mt-1">⚠️ เปลี่ยนชื่อผู้ใช้แล้ว ครั้งหน้าต้อง login ด้วยชื่อใหม่</p>
-                )}
-              </div>
-              <div>
-                <label htmlFor="user-name" className="block text-sm font-medium text-gray-700 mb-1">ชื่อ-นามสกุล</label>
-                <input id="user-name" className="input" maxLength={100} autoComplete="off"
-                  value={editing.fullName}
-                  onChange={e => setEditing({ ...editing, fullName: e.target.value })} />
-              </div>
-              <div>
-                <label htmlFor="user-password" className="block text-sm font-medium text-gray-700 mb-1">
-                  รหัสผ่าน {!editing.id && <span>*</span>}
-                </label>
-                <div className="relative">
-                  <input id="user-password" className="input pr-16"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-                    placeholder={editing.id ? 'เว้นว่างถ้าไม่เปลี่ยน' : 'ตั้งรหัสผ่าน'}
-                    value={editing.password}
-                    onChange={e => setEditing({ ...editing, password: e.target.value })} />
-                  <button type="button" onClick={() => setShowPassword(s => !s)}
-                    className="absolute inset-y-0 right-0 px-3 min-w-[44px] text-xs font-medium text-gray-500 hover:text-gray-700"
-                    aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}>
-                    {showPassword ? 'ซ่อน' : 'แสดง'}
-                  </button>
+              {/* คอม (lg+): ช่องกรอกวาง 2 คอลัมน์ / มือถือ: เรียงลงมา */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-x-4">
+                <div>
+                  <label htmlFor="user-login" className="block text-sm font-medium text-gray-700 mb-1">ชื่อผู้ใช้ *</label>
+                  <input id="user-login" className="input" type="text" maxLength={254}
+                    autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                    placeholder="เช่น max" aria-describedby="user-login-hint"
+                    value={editing.login}
+                    onChange={e => setEditing({ ...editing, login: e.target.value })} />
+                  <p id="user-login-hint" className="text-xs text-gray-400 mt-1">a-z, 0-9, จุด, ขีด — หรือใส่อีเมลก็ได้</p>
+                  {loginChanged && (
+                    <p className="text-xs text-amber-600 mt-1">⚠️ เปลี่ยนชื่อผู้ใช้แล้ว ครั้งหน้าต้อง login ด้วยชื่อใหม่</p>
+                  )}
                 </div>
-              </div>
+                <div>
+                  <label htmlFor="user-name" className="block text-sm font-medium text-gray-700 mb-1">ชื่อ-นามสกุล</label>
+                  <input id="user-name" className="input" maxLength={100} autoComplete="off"
+                    value={editing.fullName}
+                    onChange={e => setEditing({ ...editing, fullName: e.target.value })} />
+                </div>
+                <div>
+                  <label htmlFor="user-password" className="block text-sm font-medium text-gray-700 mb-1">
+                    รหัสผ่าน {!editing.id && <span>*</span>}
+                  </label>
+                  <div className="relative">
+                    <input id="user-password" className="input pr-16"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                      placeholder={editing.id ? 'เว้นว่างถ้าไม่เปลี่ยน' : 'ตั้งรหัสผ่าน'}
+                      value={editing.password}
+                      onChange={e => setEditing({ ...editing, password: e.target.value })} />
+                    <button type="button" onClick={() => setShowPassword(s => !s)}
+                      className="absolute inset-y-0 right-0 px-3 min-w-[44px] text-xs font-medium text-gray-500 hover:text-gray-700"
+                      aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}>
+                      {showPassword ? 'ซ่อน' : 'แสดง'}
+                    </button>
+                  </div>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">บทบาท</label>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setRole('staff')} disabled={rolePermsLocked}
-                    className={`flex-1 min-h-[44px] py-2 rounded-lg text-sm font-medium border disabled:cursor-not-allowed ${
-                      editing.role === 'staff'
-                        ? 'bg-brand-50 text-brand-700 border-brand-300'
-                        : 'bg-white text-gray-600 border-gray-200'
-                    }`}>👤 Staff</button>
-                  <button type="button" onClick={() => setRole('admin')} disabled={rolePermsLocked || !callerIsAdmin}
-                    className={`flex-1 min-h-[44px] py-2 rounded-lg text-sm font-medium border disabled:cursor-not-allowed disabled:opacity-50 ${
-                      editing.role === 'admin'
-                        ? 'bg-purple-50 text-purple-700 border-purple-300'
-                        : 'bg-white text-gray-600 border-gray-200'
-                    }`}>👑 Admin</button>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">บทบาท</label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setRole('staff')} disabled={rolePermsLocked}
+                      className={`flex-1 min-h-[44px] py-2 rounded-lg text-sm font-medium border disabled:cursor-not-allowed ${
+                        editing.role === 'staff'
+                          ? 'bg-brand-50 text-brand-700 border-brand-300'
+                          : 'bg-white text-gray-600 border-gray-200'
+                      }`}>👤 Staff</button>
+                    <button type="button" onClick={() => setRole('admin')} disabled={rolePermsLocked || !callerIsAdmin}
+                      className={`flex-1 min-h-[44px] py-2 rounded-lg text-sm font-medium border disabled:cursor-not-allowed disabled:opacity-50 ${
+                        editing.role === 'admin'
+                          ? 'bg-purple-50 text-purple-700 border-purple-300'
+                          : 'bg-white text-gray-600 border-gray-200'
+                      }`}>👑 Admin</button>
+                  </div>
+                  {rolePermsLocked ? (
+                    <p className="text-xs text-gray-400 mt-1">🔒 แก้บทบาทและสิทธิ์ของตัวเองไม่ได้ — แก้ได้เฉพาะชื่อ ชื่อผู้ใช้ และรหัสผ่าน</p>
+                  ) : !callerIsAdmin ? (
+                    <p className="text-xs text-gray-400 mt-1">เฉพาะ Admin เท่านั้นที่ตั้งผู้ใช้เป็น Admin ได้</p>
+                  ) : null}
                 </div>
-                {rolePermsLocked ? (
-                  <p className="text-xs text-gray-400 mt-1">🔒 แก้บทบาทและสิทธิ์ของตัวเองไม่ได้ — แก้ได้เฉพาะชื่อ ชื่อผู้ใช้ และรหัสผ่าน</p>
-                ) : !callerIsAdmin ? (
-                  <p className="text-xs text-gray-400 mt-1">เฉพาะ Admin เท่านั้นที่ตั้งผู้ใช้เป็น Admin ได้</p>
-                ) : null}
               </div>
 
               <div className="border-t border-gray-100 pt-3">
@@ -437,12 +448,12 @@ export default function UsersClient({
                 {editing.role === 'admin' && (
                   <p className="text-xs text-purple-600 mb-2">👑 Admin ได้ทุกสิทธิ์โดยอัตโนมัติ</p>
                 )}
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
                   {PERM_KEYS.map(key => {
                     const disabled = permDisabled(key)
                     return (
                       <label key={key}
-                        className={`flex items-center justify-between gap-3 bg-gray-50 rounded-lg px-3 min-h-[44px] ${
+                        className={`flex items-center justify-between gap-3 bg-gray-50 rounded-lg px-3 min-h-[44px] lg:py-2 ${
                           disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
                         }`}>
                         <span className="text-sm text-gray-700">

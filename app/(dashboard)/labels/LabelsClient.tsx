@@ -566,9 +566,9 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
         : 'bg-gray-50 text-gray-700 border-gray-200'
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-      {/* รายการสินค้า */}
-      <div className="lg:col-span-2 space-y-3 min-w-0">
+    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 lg:items-start">
+      {/* รายการสินค้า — lg+: ยืดเต็มที่เหลือ (แผงรายการสติกเกอร์กว้างคงที่ด้านขวา) */}
+      <div className="lg:flex-1 space-y-3 min-w-0">
         <div className="card p-3 sm:p-4 space-y-2">
           <input
             ref={searchRef}
@@ -597,12 +597,13 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
         </div>
 
         <div className="card overflow-hidden">
-          <div className="max-h-[55vh] lg:max-h-[600px] overflow-y-auto divide-y divide-gray-50">
+          {/* จอกว้างมาก (2xl+): รายการสินค้า 2 คอลัมน์ */}
+          <div className="max-h-[55vh] lg:max-h-[600px] overflow-y-auto divide-y divide-gray-50 2xl:divide-y-0 2xl:grid 2xl:grid-cols-2 2xl:content-start">
             {shown.map(p => {
               const picked = selected[p.id]
               return (
                 <button key={p.id} type="button" onClick={() => addRow(p)}
-                  className="w-full text-left px-4 py-3 min-h-[56px] hover:bg-gray-50 active:bg-brand-50 transition-colors flex items-center gap-3">
+                  className="w-full text-left px-4 py-3 min-h-[56px] hover:bg-gray-50 active:bg-brand-50 transition-colors flex items-center gap-3 2xl:!border-b 2xl:border-gray-50 2xl:odd:border-r">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900 text-sm truncate">{productLabel(p)}</p>
                     <p className="text-xs text-gray-400 truncate">
@@ -619,12 +620,12 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
               )
             })}
             {filtered.length === 0 && (
-              <p className="text-center py-10 text-gray-400 text-sm">
+              <p className="text-center py-10 text-gray-400 text-sm 2xl:col-span-2">
                 {products.length === 0 ? 'ยังไม่มีสินค้าที่เปิดใช้งาน' : 'ไม่พบสินค้า'}
               </p>
             )}
             {filtered.length > shown.length && (
-              <p className="text-center py-3 text-xs text-gray-400">
+              <p className="text-center py-3 text-xs text-gray-400 2xl:col-span-2">
                 แสดง {shown.length} จาก {filtered.length} รายการ — พิมพ์ค้นหาเพื่อกรองให้แคบลง
               </p>
             )}
@@ -633,7 +634,7 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
       </div>
 
       {/* รายการที่เลือก + ตั้งค่า */}
-      <div className="card p-4 sm:p-5 space-y-4 h-fit min-w-0 lg:sticky lg:top-0">
+      <div className="card p-4 sm:p-5 space-y-4 h-fit min-w-0 lg:w-[380px] lg:shrink-0 lg:sticky lg:top-0">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-semibold text-gray-900">รายการสติกเกอร์</h2>
           <span className="text-sm text-gray-500">{totalLabels.toLocaleString('en-US')} ดวง · {pages} หน้า</span>

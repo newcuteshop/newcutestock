@@ -95,7 +95,7 @@ export default function ReportsClient({ days, rangeDays, sales, products }: {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 xl:gap-6">
         {summaryCards.map(c => (
           <div key={c.label} className={`card p-4 sm:p-5 ${c.wide ? 'col-span-2 sm:col-span-1' : ''}`}>
             <p className="text-xl sm:text-2xl mb-1" aria-hidden="true">{c.icon}</p>
@@ -108,51 +108,53 @@ export default function ReportsClient({ days, rangeDays, sales, products }: {
         ))}
       </div>
 
-      {/* Revenue Chart */}
-      <div className="card p-4 sm:p-5">
-        <h2 className="font-semibold text-gray-900 mb-3 sm:mb-4">ยอดขาย {days.length} วันล่าสุด</h2>
-        <div className="relative h-56 sm:h-72">
-          <Bar
-            data={{
-              labels: days.map(d => d.label),
-              datasets: [{
-                label: 'ยอดขาย (บาท)',
-                data: report.revenueByDay,
-                backgroundColor: 'rgba(14, 165, 233, 0.8)',
-                borderRadius: 6,
-              }],
-            }}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: { display: false },
-                tooltip: { callbacks: { label: ctx => ` ${baht(num(ctx.raw))}` } },
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  grid: { color: '#f3f4f6' },
-                  ticks: { callback: value => baht(num(value)) },
+      {/* lg: กราฟยอดขายเต็มแถว + ช่องทางชำระ/สต๊อกใกล้หมดคู่กัน
+          xl+: กราฟยอดขาย (2 ส่วน) + ช่องทางชำระ (1 ส่วน) แถวเดียวกัน แล้วสต๊อกใกล้หมดเต็มแถวด้านล่าง */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+        {/* Revenue Chart */}
+        <div className="card p-4 sm:p-5 lg:col-span-2">
+          <h2 className="font-semibold text-gray-900 mb-3 sm:mb-4">ยอดขาย {days.length} วันล่าสุด</h2>
+          <div className="relative h-56 sm:h-72">
+            <Bar
+              data={{
+                labels: days.map(d => d.label),
+                datasets: [{
+                  label: 'ยอดขาย (บาท)',
+                  data: report.revenueByDay,
+                  backgroundColor: 'rgba(14, 165, 233, 0.8)',
+                  borderRadius: 6,
+                }],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: { callbacks: { label: ctx => ` ${baht(num(ctx.raw))}` } },
                 },
-                x: {
-                  grid: { display: false },
-                  ticks: { maxRotation: 0, autoSkipPadding: 8 },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    grid: { color: '#f3f4f6' },
+                    ticks: { callback: value => baht(num(value)) },
+                  },
+                  x: {
+                    grid: { display: false },
+                    ticks: { maxRotation: 0, autoSkipPadding: 8 },
+                  },
                 },
-              },
-            }}
-          />
+              }}
+            />
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Payment Method — ยอดเงิน (บาท) แยกตามช่องทาง */}
         <div className="card p-4 sm:p-5">
           <h2 className="font-semibold text-gray-900 mb-3 sm:mb-4">ช่องทางชำระเงิน ({rangeDays} วัน)</h2>
           {paymentTotal <= 0
             ? <p className="text-center py-8 text-gray-400">ยังไม่มีการขายในช่วงนี้</p>
             : (
-              <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-center gap-4 sm:gap-6">
+              <div className="flex flex-col sm:flex-row lg:flex-col items-center gap-4 sm:gap-6">
                 <div className="relative w-40 h-40 sm:w-48 sm:h-48 shrink-0">
                   <Doughnut
                     data={{
@@ -206,7 +208,7 @@ export default function ReportsClient({ days, rangeDays, sales, products }: {
         </div>
 
         {/* Low Stock Table */}
-        <div className="card overflow-hidden">
+        <div className="card overflow-hidden xl:col-span-3">
           <div className="p-4 border-b border-gray-100 flex items-center justify-between gap-2">
             <h2 className="font-semibold text-gray-900">⚠️ สต๊อกใกล้หมด</h2>
             {lowStock.length > LOW_STOCK_LIMIT && (
@@ -220,9 +222,10 @@ export default function ReportsClient({ days, rangeDays, sales, products }: {
                 <table className="w-full min-w-[340px] text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="text-left px-4 py-2 font-semibold text-gray-600">สินค้า</th>
-                      <th className="text-right px-4 py-2 font-semibold text-gray-600 whitespace-nowrap">คงเหลือ</th>
-                      <th className="text-right px-4 py-2 font-semibold text-gray-600 whitespace-nowrap">ขั้นต่ำ</th>
+                      <th className="text-left px-4 xl:px-6 py-2 font-semibold text-gray-600">สินค้า</th>
+                      <th className="hidden xl:table-cell text-left px-4 xl:px-6 py-2 font-semibold text-gray-600">SKU</th>
+                      <th className="text-right px-4 xl:px-6 py-2 font-semibold text-gray-600 whitespace-nowrap">คงเหลือ</th>
+                      <th className="text-right px-4 xl:px-6 py-2 font-semibold text-gray-600 whitespace-nowrap">ขั้นต่ำ</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -230,14 +233,15 @@ export default function ReportsClient({ days, rangeDays, sales, products }: {
                       const qty = num(p.stock_qty)
                       return (
                         <tr key={p.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-2">
+                          <td className="px-4 xl:px-6 py-2">
                             <p className="text-gray-900 break-words">{productLabel(p)}</p>
-                            <p className="text-xs text-gray-400">SKU: {p.sku}</p>
+                            <p className="text-xs text-gray-400 xl:hidden">SKU: {p.sku}</p>
                           </td>
-                          <td className="px-4 py-2 text-right font-bold text-red-500 whitespace-nowrap">
+                          <td className="hidden xl:table-cell px-4 xl:px-6 py-2 text-xs text-gray-500 font-mono break-all">{p.sku}</td>
+                          <td className="px-4 xl:px-6 py-2 text-right font-bold text-red-500 whitespace-nowrap">
                             {qty <= 0 ? 'หมด' : qty.toLocaleString('en-US')}
                           </td>
-                          <td className="px-4 py-2 text-right text-gray-400">{num(p.min_stock).toLocaleString('en-US')}</td>
+                          <td className="px-4 xl:px-6 py-2 text-right text-gray-400">{num(p.min_stock).toLocaleString('en-US')}</td>
                         </tr>
                       )
                     })}

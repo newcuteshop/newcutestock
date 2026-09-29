@@ -330,7 +330,8 @@ export default function StockClient({ products, movements, initialType }: {
   const visible = matches.slice(0, MAX_RESULTS)
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+    <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
+      {/* lg+: ฟอร์มกว้างคงที่ด้านซ้าย + ประวัติยืดเต็มที่เหลือ / มือถือ-iPad แนวตั้ง: เรียงลงมาเหมือนเดิม */}
       {showScanner && (
         <BarcodeScanner
           title="สแกนเลือกสินค้า"
@@ -341,7 +342,7 @@ export default function StockClient({ products, movements, initialType }: {
       )}
 
       {/* ฟอร์มบันทึก */}
-      <section className="card p-4 sm:p-5 space-y-5">
+      <section className="lg:w-[420px] lg:shrink-0 min-w-0 card p-4 sm:p-5 space-y-5">
         <h2 className="font-semibold text-gray-900">บันทึกการเคลื่อนไหว</h2>
 
         {/* 1) เลือกสินค้า */}
@@ -518,7 +519,7 @@ export default function StockClient({ products, movements, initialType }: {
       </section>
 
       {/* ประวัติ */}
-      <section className="lg:col-span-2 card overflow-hidden">
+      <section className="lg:flex-1 min-w-0 card overflow-hidden">
         <div className="p-4 border-b border-gray-100 flex items-baseline justify-between gap-2">
           <h2 className="font-semibold text-gray-900">ประวัติการเคลื่อนไหว</h2>
           <span className="text-xs text-gray-400">ล่าสุด {num(movements.length)} รายการ</span>
@@ -526,37 +527,84 @@ export default function StockClient({ products, movements, initialType }: {
         {movements.length === 0 ? (
           <p className="text-center py-10 text-gray-400">ยังไม่มีรายการ</p>
         ) : (
-          <ul className="divide-y divide-gray-50 lg:max-h-[640px] lg:overflow-y-auto">
-            {movements.map(m => {
-              const qb = toNum(m.qty_before)
-              const qa = toNum(m.qty_after)
-              const change = qb !== null && qa !== null ? qa - qb : null
-              return (
-                <li key={m.id} className={`px-4 py-3 ${m.id === lastSavedId ? 'bg-green-50' : ''}`}>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={TYPE_BADGE[m.type] ?? 'badge-adjust'}>{TYPE_LABELS[m.type] ?? m.type}</span>
-                        <span className="text-xs text-gray-400">{formatThaiDateTime(m.created_at)}</span>
+          <>
+            {/* มือถือ / iPad / คอมทั่วไป: รายการเรียงลงมา */}
+            <ul className="2xl:hidden divide-y divide-gray-50 lg:max-h-[640px] lg:overflow-y-auto">
+              {movements.map(m => {
+                const qb = toNum(m.qty_before)
+                const qa = toNum(m.qty_after)
+                const change = qb !== null && qa !== null ? qa - qb : null
+                return (
+                  <li key={m.id} className={`px-4 py-3 ${m.id === lastSavedId ? 'bg-green-50' : ''}`}>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={TYPE_BADGE[m.type] ?? 'badge-adjust'}>{TYPE_LABELS[m.type] ?? m.type}</span>
+                          <span className="text-xs text-gray-400">{formatThaiDateTime(m.created_at)}</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900 break-words">
+                          {m.products ? productLabel(m.products) : '(ไม่พบสินค้า)'}
+                        </p>
+                        {m.note && <p className="text-xs text-gray-500 break-words">{m.note}</p>}
                       </div>
-                      <p className="text-sm font-medium text-gray-900 break-words">
-                        {m.products ? productLabel(m.products) : '(ไม่พบสินค้า)'}
-                      </p>
-                      {m.note && <p className="text-xs text-gray-500 break-words">{m.note}</p>}
+                      <div className="text-right shrink-0">
+                        <p className={`text-base font-bold ${changeColor(change)}`}>
+                          {change === null ? '–' : signed(change)}
+                        </p>
+                        <p className="text-xs text-gray-400 whitespace-nowrap">
+                          {qb === null ? '?' : num(qb)} → {qa === null ? '?' : num(qa)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className={`text-base font-bold ${changeColor(change)}`}>
-                        {change === null ? '–' : signed(change)}
-                      </p>
-                      <p className="text-xs text-gray-400 whitespace-nowrap">
-                        {qb === null ? '?' : num(qb)} → {qa === null ? '?' : num(qa)}
-                      </p>
-                    </div>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
+                  </li>
+                )
+              })}
+            </ul>
+
+            {/* จอกว้างมาก (2xl+): ตารางแยกคอลัมน์ เวลา / ประเภท / สินค้า / หมายเหตุ / จำนวน / คงเหลือ */}
+            <div className="hidden 2xl:block max-h-[640px] overflow-auto">
+              <table className="w-full min-w-[640px] text-sm">
+                <thead className="bg-gray-50 sticky top-0 z-10">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600 whitespace-nowrap">เวลา</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">ประเภท</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">สินค้า</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">หมายเหตุ</th>
+                    <th className="text-right px-4 py-3 font-semibold text-gray-600 whitespace-nowrap">จำนวน</th>
+                    <th className="text-right px-4 py-3 font-semibold text-gray-600 whitespace-nowrap">คงเหลือ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {movements.map(m => {
+                    const qb = toNum(m.qty_before)
+                    const qa = toNum(m.qty_after)
+                    const change = qb !== null && qa !== null ? qa - qb : null
+                    return (
+                      <tr key={m.id} className={m.id === lastSavedId ? 'bg-green-50' : 'hover:bg-gray-50'}>
+                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{formatThaiDateTime(m.created_at)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={TYPE_BADGE[m.type] ?? 'badge-adjust'}>{TYPE_LABELS[m.type] ?? m.type}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-gray-900 break-words">
+                            {m.products ? productLabel(m.products) : '(ไม่พบสินค้า)'}
+                          </p>
+                          {m.products && <p className="text-xs text-gray-400 break-all">SKU {m.products.sku}</p>}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-500 break-words">{m.note || '-'}</td>
+                        <td className={`px-4 py-3 text-right text-base font-bold whitespace-nowrap ${changeColor(change)}`}>
+                          {change === null ? '–' : signed(change)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-xs text-gray-400 whitespace-nowrap">
+                          {qb === null ? '?' : num(qb)} → {qa === null ? '?' : num(qa)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
     </div>

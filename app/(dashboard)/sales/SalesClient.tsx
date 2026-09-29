@@ -739,9 +739,10 @@ export default function SalesClient({ products, recentSales }: {
 
   return (
     <div className="pb-28 lg:pb-0">
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6 items-start">
+      {/* lg+: พื้นที่สินค้ายืดเต็มที่เหลือ + ตะกร้ากว้างคงที่ด้านขวา / มือถือ-iPad แนวตั้ง: เรียงลงมาเหมือนเดิม */}
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 lg:items-start">
         {/* ===== สินค้า ===== */}
-        <section className="lg:col-span-3 space-y-3 min-w-0">
+        <section className="lg:flex-1 space-y-3 min-w-0">
           <div className="card p-3 sm:p-4 flex gap-2">
             <input
               ref={searchRef}
@@ -777,7 +778,8 @@ export default function SalesClient({ products, recentSales }: {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto lg:pr-1">
+              {/* จำนวนคอลัมน์เพิ่มตามความกว้างจอ (การ์ดกว้างราว 150-230px) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 min-[1150px]:grid-cols-3 2xl:grid-cols-4 min-[1800px]:grid-cols-5 min-[2200px]:grid-cols-6 gap-2 sm:gap-3 lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto lg:pr-1">
                 {shown.map(p => {
                   const variant = variantText(p)
                   const inCart = cartQtyById.get(p.id) ?? 0
@@ -821,7 +823,7 @@ export default function SalesClient({ products, recentSales }: {
         </section>
 
         {/* ===== ตะกร้า ===== */}
-        <section id="cart" className="lg:col-span-2 card p-4 sm:p-5 space-y-4 scroll-mt-20 lg:scroll-mt-4" aria-label="ตะกร้าสินค้า">
+        <section id="cart" className="lg:w-[380px] xl:w-[420px] lg:shrink-0 lg:sticky lg:top-4 card p-4 sm:p-5 space-y-4 scroll-mt-20 lg:scroll-mt-4" aria-label="ตะกร้าสินค้า">
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-semibold text-gray-900">
               🛒 ตะกร้า{' '}

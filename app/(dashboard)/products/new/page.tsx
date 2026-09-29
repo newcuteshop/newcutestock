@@ -12,7 +12,7 @@ export default async function NewProductPage() {
   if (error) throw new Error(thaiError(error))
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-2xl">
+    <div className="space-y-4 sm:space-y-6">
       <div>
         <Link
           href="/products"

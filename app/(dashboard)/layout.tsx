@@ -25,7 +25,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <MobileNav {...nav} />
 
         <main className="flex-1 overflow-y-auto pb-safe pl-safe pr-safe md:pl-0">
-          <div className="p-3 sm:p-4 md:p-6 max-w-7xl mx-auto">
+          {/* คอม: ใช้ความกว้างเต็มจอ (ไม่บีบเป็นคอลัมน์แคบกลางจอ) — มือถือ/iPad ระยะขอบเท่าเดิม */}
+          <div className="w-full p-3 sm:p-4 md:p-6 xl:p-8">
             {children}
           </div>
         </main>

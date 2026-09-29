@@ -151,6 +151,8 @@ export default async function DashboardPage() {
   if (permissions.products) quickActions.push({ href: '/products/new', label: 'เพิ่มสินค้าใหม่', icon: '➕', primary: false })
 
   const lowStockHref = permissions.stock ? '/stock' : permissions.reports ? '/reports' : null
+  // คอมจอกว้าง (xl+): ทำรายการด่วน (1 ส่วน) กับ สต๊อกใกล้หมด (2 ส่วน) วางข้างกัน — มีแค่อย่างเดียวให้เต็มแถว
+  const sideBySide = quickActions.length > 0 && lowStockTop.length > 0
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -160,55 +162,59 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stat Cards */}
-      <div className={`grid grid-cols-2 gap-3 sm:gap-4 ${statCards.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+      <div className={`grid grid-cols-2 gap-3 sm:gap-4 xl:gap-6 ${statCards.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
         {statCards.map(card => <StatCardView key={card.label} card={card} />)}
       </div>
 
-      {/* Quick Actions */}
-      {quickActions.length > 0 && (
-        <div className="card p-4 sm:p-5">
-          <h2 className="font-semibold text-gray-900 mb-3 sm:mb-4">ทำรายการด่วน</h2>
-          <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:gap-3">
-            {quickActions.map(a => (
-              <Link key={a.href} href={a.href} className={a.primary ? 'btn-primary' : 'btn-secondary'}>
-                <span aria-hidden="true">{a.icon}</span> {a.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+      {(quickActions.length > 0 || lowStockTop.length > 0) && (
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6 items-start">
+          {/* Quick Actions */}
+          {quickActions.length > 0 && (
+            <div className={`card p-4 sm:p-5 ${sideBySide ? '' : 'xl:col-span-3'}`}>
+              <h2 className="font-semibold text-gray-900 mb-3 sm:mb-4">ทำรายการด่วน</h2>
+              <div className={`grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:gap-3 ${sideBySide ? 'xl:grid' : ''}`}>
+                {quickActions.map(a => (
+                  <Link key={a.href} href={a.href} className={a.primary ? 'btn-primary' : 'btn-secondary'}>
+                    <span aria-hidden="true">{a.icon}</span> {a.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
-      {/* Low Stock Warning */}
-      {lowStockTop.length > 0 && (
-        <div className="card p-4 sm:p-5">
-          <h2 className="font-semibold text-gray-900 mb-2 sm:mb-4 flex items-center gap-2">
-            <span aria-hidden="true">⚠️</span> สินค้าสต๊อกใกล้หมด
-            <span className="text-sm font-normal text-gray-400">({lowStock.length.toLocaleString('en-US')} รายการ)</span>
-          </h2>
-          <div className="divide-y divide-gray-50">
-            {lowStockTop.map(item => {
-              const qty = num(item.stock_qty)
-              return (
-                <div key={item.id} className="flex items-center justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <p className="font-medium text-gray-900 text-sm break-words">{productLabel(item)}</p>
-                    <p className="text-xs text-gray-400 truncate">SKU: {item.sku}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="font-bold text-red-500">{qty <= 0 ? 'หมด' : `${qty.toLocaleString('en-US')} ชิ้น`}</p>
-                    <p className="text-xs text-gray-400">ขั้นต่ำ: {num(item.min_stock).toLocaleString('en-US')}</p>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-          {lowStockHref && (
-            <Link
-              href={lowStockHref}
-              className="inline-flex items-center min-h-[40px] text-brand-600 text-sm font-medium hover:underline mt-1"
-            >
-              ดูทั้งหมด →
-            </Link>
+          {/* Low Stock Warning */}
+          {lowStockTop.length > 0 && (
+            <div className={`card p-4 sm:p-5 ${sideBySide ? 'xl:col-span-2' : 'xl:col-span-3'}`}>
+              <h2 className="font-semibold text-gray-900 mb-2 sm:mb-4 flex items-center gap-2">
+                <span aria-hidden="true">⚠️</span> สินค้าสต๊อกใกล้หมด
+                <span className="text-sm font-normal text-gray-400">({lowStock.length.toLocaleString('en-US')} รายการ)</span>
+              </h2>
+              <div className="divide-y divide-gray-50">
+                {lowStockTop.map(item => {
+                  const qty = num(item.stock_qty)
+                  return (
+                    <div key={item.id} className="flex items-center justify-between gap-3 py-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 text-sm break-words">{productLabel(item)}</p>
+                        <p className="text-xs text-gray-400 truncate">SKU: {item.sku}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-bold text-red-500">{qty <= 0 ? 'หมด' : `${qty.toLocaleString('en-US')} ชิ้น`}</p>
+                        <p className="text-xs text-gray-400">ขั้นต่ำ: {num(item.min_stock).toLocaleString('en-US')}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              {lowStockHref && (
+                <Link
+                  href={lowStockHref}
+                  className="inline-flex items-center min-h-[40px] text-brand-600 text-sm font-medium hover:underline mt-1"
+                >
+                  ดูทั้งหมด →
+                </Link>
+              )}
+            </div>
           )}
         </div>
       )}

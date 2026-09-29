@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { productLabel, thaiError } from '@/lib/format'
+import { baht, productLabel, thaiError, variantText } from '@/lib/format'
 import { isPrintableAscii, normalizeScannedCode } from '@/lib/barcode'
 import BarcodeScanner from '@/components/BarcodeScanner'
 
@@ -128,6 +128,22 @@ export default function ProductForm({ categories, product }: ProductFormProps) {
   const costN = parseMoney(form.cost_price)
   const sellBelowCost = sellN !== null && costN !== null && !Number.isNaN(sellN) && !Number.isNaN(costN) && sellN < costN
 
+  // ตัวอย่างการ์ดสินค้าในหน้าขาย (แสดงเฉพาะคอมจอกว้าง) — คำนวณจากค่าในฟอร์มล้วน ไม่ดึงข้อมูลเพิ่ม
+  const previewName = form.name.trim()
+  const previewVariant = variantText(form)
+  const previewSku = form.sku.trim()
+  const previewSellOk = sellN !== null && !Number.isNaN(sellN) && sellN >= 0
+  const previewCost = costN ?? 0 // ช่องทุนว่าง = บันทึกเป็น 0 เหมือน validate()
+  const previewStock = typeof product?.stock_qty === 'number' ? product.stock_qty : 0
+  const previewCategory = categories.find(c => c.id === form.category_id)?.name ?? ''
+  const previewCode = normalizedBarcode || previewSku // สติกเกอร์ใช้บาร์โค้ดก่อน ไม่มีค่อยใช้ SKU
+  const previewProfit = previewSellOk && !Number.isNaN(previewCost) && previewCost >= 0
+    ? Math.round(((sellN ?? 0) - previewCost) * 100) / 100
+    : null
+  const previewMargin = previewProfit !== null && sellN !== null && sellN > 0
+    ? Math.round((previewProfit / sellN) * 100)
+    : null
+
   function normalizeBarcodeField() {
     setForm(f => ({ ...f, barcode: normalizeScannedCode(f.barcode) }))
   }
@@ -234,128 +250,181 @@ export default function ProductForm({ categories, product }: ProductFormProps) {
 
   return (
     <>
-      <form onSubmit={handleSubmit} noValidate className="card p-4 sm:p-6 space-y-5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="sm:col-span-2">
-            <label htmlFor="pf-name" className="block text-sm font-medium text-gray-700 mb-1">ชื่อสินค้า *</label>
-            <input id="pf-name" className="input" maxLength={200} value={form.name}
-              onChange={e => set('name', e.target.value)} />
-          </div>
-          <div>
-            <label htmlFor="pf-sku" className="block text-sm font-medium text-gray-700 mb-1">SKU *</label>
-            <input id="pf-sku" className="input" value={form.sku}
-              autoCapitalize="characters" autoCorrect="off" spellCheck={false}
-              onChange={e => set('sku', e.target.value)} placeholder="เช่น SHIRT-001" />
-            <p className="text-xs text-gray-400 mt-1">ภาษาอังกฤษ ตัวเลข หรือสัญลักษณ์ (เช่น - _ /)</p>
-          </div>
-          <div>
-            <label htmlFor="pf-barcode" className="block text-sm font-medium text-gray-700 mb-1">บาร์โค้ด</label>
-            <div className="flex gap-2">
-              <input id="pf-barcode" className="input flex-1 min-w-0" value={form.barcode}
-                autoCapitalize="none" autoCorrect="off" spellCheck={false}
-                placeholder="สแกนหรือพิมพ์ (ไม่บังคับ)"
-                onChange={e => set('barcode', e.target.value)}
-                onBlur={normalizeBarcodeField}
-                onKeyDown={e => {
-                  // เครื่องสแกนกด Enter ท้ายรหัส — ไม่ให้ส่งฟอร์มทันที
-                  if (e.key === 'Enter') { e.preventDefault(); normalizeBarcodeField() }
-                }} />
-              <button type="button" onClick={() => setShowScanner(true)}
-                className="btn-secondary shrink-0 min-h-[40px] px-3" aria-label="สแกนบาร์โค้ดด้วยกล้อง">
-                📷
-              </button>
+      {/* คอมจอกว้าง (xl+): ฟอร์มเต็มความกว้าง + แผงตัวอย่างด้านขวา / มือถือ-iPad: ฟอร์มอย่างเดียวเหมือนเดิม */}
+      <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:grid-cols-[minmax(0,1fr)_20rem] xl:gap-6 xl:items-start">
+        <form onSubmit={handleSubmit} noValidate className="card p-4 sm:p-6 space-y-5 min-w-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
+            <div className="sm:col-span-2">
+              <label htmlFor="pf-name" className="block text-sm font-medium text-gray-700 mb-1">ชื่อสินค้า *</label>
+              <input id="pf-name" className="input" maxLength={200} value={form.name}
+                onChange={e => set('name', e.target.value)} />
             </div>
-            {barcodeConverted && (
-              <p className="text-xs text-amber-600 mt-1">จะบันทึกเป็น: <span className="font-mono">{normalizedBarcode}</span></p>
-            )}
+            <div>
+              <label htmlFor="pf-sku" className="block text-sm font-medium text-gray-700 mb-1">SKU *</label>
+              <input id="pf-sku" className="input" value={form.sku}
+                autoCapitalize="characters" autoCorrect="off" spellCheck={false}
+                onChange={e => set('sku', e.target.value)} placeholder="เช่น SHIRT-001" />
+              <p className="text-xs text-gray-400 mt-1">ภาษาอังกฤษ ตัวเลข หรือสัญลักษณ์ (เช่น - _ /)</p>
+            </div>
+            <div className="lg:col-span-2 2xl:col-span-1">
+              <label htmlFor="pf-barcode" className="block text-sm font-medium text-gray-700 mb-1">บาร์โค้ด</label>
+              <div className="flex gap-2">
+                <input id="pf-barcode" className="input flex-1 min-w-0" value={form.barcode}
+                  autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                  placeholder="สแกนหรือพิมพ์ (ไม่บังคับ)"
+                  onChange={e => set('barcode', e.target.value)}
+                  onBlur={normalizeBarcodeField}
+                  onKeyDown={e => {
+                    // เครื่องสแกนกด Enter ท้ายรหัส — ไม่ให้ส่งฟอร์มทันที
+                    if (e.key === 'Enter') { e.preventDefault(); normalizeBarcodeField() }
+                  }} />
+                <button type="button" onClick={() => setShowScanner(true)}
+                  className="btn-secondary shrink-0 min-h-[40px] px-3" aria-label="สแกนบาร์โค้ดด้วยกล้อง">
+                  📷
+                </button>
+              </div>
+              {barcodeConverted && (
+                <p className="text-xs text-amber-600 mt-1">จะบันทึกเป็น: <span className="font-mono">{normalizedBarcode}</span></p>
+              )}
+            </div>
+            <div>
+              <label htmlFor="pf-category" className="block text-sm font-medium text-gray-700 mb-1">หมวดหมู่</label>
+              <select id="pf-category" className="input" value={form.category_id} onChange={e => set('category_id', e.target.value)}>
+                <option value="">-- เลือกหมวดหมู่ --</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="pf-size" className="block text-sm font-medium text-gray-700 mb-1">ไซส์</label>
+              <input id="pf-size" className="input" value={form.size} onChange={e => set('size', e.target.value)} placeholder="S, M, L, XL..." />
+            </div>
+            <div>
+              <label htmlFor="pf-color" className="block text-sm font-medium text-gray-700 mb-1">สี</label>
+              <input id="pf-color" className="input" value={form.color} onChange={e => set('color', e.target.value)} placeholder="ขาว, ดำ, แดง..." />
+            </div>
+            <div>
+              <label htmlFor="pf-cost" className="block text-sm font-medium text-gray-700 mb-1">ราคาทุน (฿)</label>
+              <input id="pf-cost" className="input" type="number" inputMode="decimal" min="0" step="0.01"
+                placeholder="0" value={form.cost_price} onChange={e => set('cost_price', e.target.value)} />
+            </div>
+            <div className="2xl:col-span-2">
+              <label htmlFor="pf-sell" className="block text-sm font-medium text-gray-700 mb-1">ราคาขาย (฿) *</label>
+              <input id="pf-sell" className="input" type="number" inputMode="decimal" min="0" step="0.01"
+                value={form.sell_price} onChange={e => set('sell_price', e.target.value)} />
+              {sellBelowCost && (
+                <p className="text-xs text-amber-600 mt-1">⚠️ ราคาขายต่ำกว่าราคาทุน</p>
+              )}
+            </div>
+            <div className="lg:col-span-2">
+              <label htmlFor="pf-min" className="block text-sm font-medium text-gray-700 mb-1">จำนวนขั้นต่ำ (แจ้งเตือน)</label>
+              <input id="pf-min" className="input" type="number" inputMode="numeric" min="0" step="1"
+                value={form.min_stock} onChange={e => set('min_stock', e.target.value)} />
+            </div>
           </div>
-          <div>
-            <label htmlFor="pf-category" className="block text-sm font-medium text-gray-700 mb-1">หมวดหมู่</label>
-            <select id="pf-category" className="input" value={form.category_id} onChange={e => set('category_id', e.target.value)}>
-              <option value="">-- เลือกหมวดหมู่ --</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="pf-size" className="block text-sm font-medium text-gray-700 mb-1">ไซส์</label>
-            <input id="pf-size" className="input" value={form.size} onChange={e => set('size', e.target.value)} placeholder="S, M, L, XL..." />
-          </div>
-          <div>
-            <label htmlFor="pf-color" className="block text-sm font-medium text-gray-700 mb-1">สี</label>
-            <input id="pf-color" className="input" value={form.color} onChange={e => set('color', e.target.value)} placeholder="ขาว, ดำ, แดง..." />
-          </div>
-          <div>
-            <label htmlFor="pf-cost" className="block text-sm font-medium text-gray-700 mb-1">ราคาทุน (฿)</label>
-            <input id="pf-cost" className="input" type="number" inputMode="decimal" min="0" step="0.01"
-              placeholder="0" value={form.cost_price} onChange={e => set('cost_price', e.target.value)} />
-          </div>
-          <div>
-            <label htmlFor="pf-sell" className="block text-sm font-medium text-gray-700 mb-1">ราคาขาย (฿) *</label>
-            <input id="pf-sell" className="input" type="number" inputMode="decimal" min="0" step="0.01"
-              value={form.sell_price} onChange={e => set('sell_price', e.target.value)} />
-            {sellBelowCost && (
-              <p className="text-xs text-amber-600 mt-1">⚠️ ราคาขายต่ำกว่าราคาทุน</p>
-            )}
-          </div>
-          <div>
-            <label htmlFor="pf-min" className="block text-sm font-medium text-gray-700 mb-1">จำนวนขั้นต่ำ (แจ้งเตือน)</label>
-            <input id="pf-min" className="input" type="number" inputMode="numeric" min="0" step="1"
-              value={form.min_stock} onChange={e => set('min_stock', e.target.value)} />
-          </div>
-        </div>
 
-        {/* สต๊อกแก้ในหน้านี้ไม่ได้ — ต้องผ่านหน้า รับ-จ่ายสต๊อก */}
-        {!product?.id ? (
-          <div className="rounded-lg bg-brand-50 border border-brand-100 px-3 py-2 text-sm text-brand-800">
-            📦 สต๊อกเริ่มต้นเป็น 0 — รับสินค้าเข้าได้ที่หน้า รับ-จ่ายสต๊อก
-            {' '}
-            <Link href="/stock?action=in" className="font-medium underline whitespace-nowrap">ไปหน้ารับสินค้าเข้า →</Link>
-            <span className="block text-xs text-brand-700/80 mt-0.5">(บันทึกสินค้านี้ก่อน แล้วค่อยรับเข้า)</span>
-          </div>
-        ) : typeof product.stock_qty === 'number' ? (
-          <div className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2 text-sm text-gray-600">
-            📦 สต๊อกปัจจุบัน <span className="font-semibold text-gray-900">{product.stock_qty}</span> ชิ้น — ปรับยอดได้ที่หน้า
-            {' '}
-            <Link href="/stock" className="font-medium text-brand-700 underline whitespace-nowrap">รับ-จ่ายสต๊อก</Link>
-          </div>
-        ) : null}
+          {/* สต๊อกแก้ในหน้านี้ไม่ได้ — ต้องผ่านหน้า รับ-จ่ายสต๊อก */}
+          {!product?.id ? (
+            <div className="rounded-lg bg-brand-50 border border-brand-100 px-3 py-2 text-sm text-brand-800">
+              📦 สต๊อกเริ่มต้นเป็น 0 — รับสินค้าเข้าได้ที่หน้า รับ-จ่ายสต๊อก
+              {' '}
+              <Link href="/stock?action=in" className="font-medium underline whitespace-nowrap">ไปหน้ารับสินค้าเข้า →</Link>
+              <span className="block text-xs text-brand-700/80 mt-0.5">(บันทึกสินค้านี้ก่อน แล้วค่อยรับเข้า)</span>
+            </div>
+          ) : typeof product.stock_qty === 'number' ? (
+            <div className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2 text-sm text-gray-600">
+              📦 สต๊อกปัจจุบัน <span className="font-semibold text-gray-900">{product.stock_qty}</span> ชิ้น — ปรับยอดได้ที่หน้า
+              {' '}
+              <Link href="/stock" className="font-medium text-brand-700 underline whitespace-nowrap">รับ-จ่ายสต๊อก</Link>
+            </div>
+          ) : null}
 
-        {!isActive && product?.id && (
-          <p className="text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-2">⏸ สินค้านี้ปิดใช้งานอยู่ — เปิดใช้งานได้ที่หน้ารายการสินค้า</p>
-        )}
+          {!isActive && product?.id && (
+            <p className="text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-2">⏸ สินค้านี้ปิดใช้งานอยู่ — เปิดใช้งานได้ที่หน้ารายการสินค้า</p>
+          )}
 
-        {error && (
-          <div role="alert" className="rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-sm text-red-600 space-y-2">
-            <p>{error}</p>
-            {canDeactivate && (
-              <button type="button" onClick={handleDeactivate} disabled={busy}
-                className="btn-secondary w-full sm:w-auto min-h-[40px] text-sm">
-                {deactivating ? 'กำลังปิดใช้งาน...' : '⏸ ปิดใช้งานสินค้านี้แทน'}
+          {error && (
+            <div role="alert" className="rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-sm text-red-600 space-y-2">
+              <p>{error}</p>
+              {canDeactivate && (
+                <button type="button" onClick={handleDeactivate} disabled={busy}
+                  className="btn-secondary w-full sm:w-auto min-h-[40px] text-sm">
+                  {deactivating ? 'กำลังปิดใช้งาน...' : '⏸ ปิดใช้งานสินค้านี้แทน'}
+                </button>
+              )}
+            </div>
+          )}
+          {notice && <p role="status" className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{notice}</p>}
+
+          <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-gray-100">
+            <button type="submit" disabled={busy || saved} className="btn-primary w-full sm:w-auto min-h-[44px]">
+              {saved ? '✅ บันทึกแล้ว' : loading ? 'กำลังบันทึก...' : product ? 'บันทึกการแก้ไข' : 'เพิ่มสินค้า'}
+            </button>
+            <Link href="/products" className="btn-secondary w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center">
+              ยกเลิก
+            </Link>
+            {product?.id && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={busy || saved}
+                className="w-full sm:w-auto sm:ml-auto min-h-[44px] px-4 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors text-sm font-medium disabled:opacity-50"
+              >
+                {deleting ? 'กำลังลบ...' : '🗑 ลบสินค้านี้'}
               </button>
             )}
           </div>
-        )}
-        {notice && <p role="status" className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{notice}</p>}
+        </form>
 
-        <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-gray-100">
-          <button type="submit" disabled={busy || saved} className="btn-primary w-full sm:w-auto min-h-[44px]">
-            {saved ? '✅ บันทึกแล้ว' : loading ? 'กำลังบันทึก...' : product ? 'บันทึกการแก้ไข' : 'เพิ่มสินค้า'}
-          </button>
-          <Link href="/products" className="btn-secondary w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center">
-            ยกเลิก
-          </Link>
-          {product?.id && (
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={busy || saved}
-              className="w-full sm:w-auto sm:ml-auto min-h-[44px] px-4 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors text-sm font-medium disabled:opacity-50"
-            >
-              {deleting ? 'กำลังลบ...' : '🗑 ลบสินค้านี้'}
-            </button>
-          )}
-        </div>
-      </form>
+        {/* ตัวอย่างการ์ดในหน้าขาย — หน้าตาเดียวกับการ์ดสินค้าในหน้า บันทึกการขาย */}
+        <aside aria-label="ตัวอย่างสินค้า" className="hidden xl:block xl:sticky xl:top-0 card p-5 space-y-4 min-w-0">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">ตัวอย่างในหน้าขาย</h2>
+            <p className="text-xs text-gray-400 mt-0.5">อัปเดตตามที่กรอกทันที</p>
+          </div>
+
+          <div className="rounded-lg bg-gray-50 p-4 flex justify-center">
+            <div className="card relative w-full max-w-[13rem] min-h-[72px] p-3 text-left">
+              <p className={`font-medium text-sm line-clamp-2 break-words ${previewName ? 'text-gray-900' : 'text-gray-300'}`}>
+                {previewName || 'ชื่อสินค้า'}
+              </p>
+              {previewVariant && <p className="text-xs font-medium text-brand-700 mt-0.5">{previewVariant}</p>}
+              <p className={`text-xs mt-0.5 truncate ${previewSku ? 'text-gray-400' : 'text-gray-300'}`}>{previewSku || 'SKU'}</p>
+              <div className="mt-2 flex items-end justify-between gap-1">
+                <span className={`font-bold ${previewSellOk ? 'text-brand-600' : 'text-gray-300'}`}>
+                  {previewSellOk ? baht(sellN) : '฿ —'}
+                </span>
+                <span className={`text-xs ${previewStock <= 0 ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
+                  คงเหลือ {previewStock}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <dl className="text-sm divide-y divide-gray-100">
+            <div className="flex items-start justify-between gap-3 py-2">
+              <dt className="text-gray-500 shrink-0">หมวดหมู่</dt>
+              <dd className="text-gray-900 text-right min-w-0 break-words">{previewCategory || '-'}</dd>
+            </div>
+            <div className="flex items-start justify-between gap-3 py-2">
+              <dt className="text-gray-500 shrink-0">รหัสบนสติกเกอร์</dt>
+              <dd className="text-gray-900 text-right min-w-0 font-mono break-all">{previewCode || '-'}</dd>
+            </div>
+            <div className="flex items-start justify-between gap-3 py-2">
+              <dt className="text-gray-500 shrink-0">กำไรต่อชิ้น</dt>
+              <dd className={`text-right min-w-0 font-medium ${
+                previewProfit === null ? 'text-gray-400' : previewProfit < 0 ? 'text-red-600' : 'text-green-700'
+              }`}>
+                {previewProfit === null ? '-' : baht(previewProfit)}
+                {previewMargin !== null && <span className="text-xs font-normal text-gray-400"> ({previewMargin}%)</span>}
+              </dd>
+            </div>
+            <div className="flex items-start justify-between gap-3 py-2">
+              <dt className="text-gray-500 shrink-0">แจ้งเตือนเมื่อเหลือ</dt>
+              <dd className="text-gray-900 text-right min-w-0 break-words">{form.min_stock.trim() || '0'} ชิ้น</dd>
+            </div>
+          </dl>
+        </aside>
+      </div>
 
       {/* อยู่นอก <form> — หน้าต่างสแกนมีฟอร์มของตัวเอง ห้ามซ้อนกัน */}
       {showScanner && (
