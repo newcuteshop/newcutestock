@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
+import { displayLogin } from '@/lib/auth/credentials'
 import { isActivePath, roleLabel, useLogout, visibleNavItems, type NavProps } from './Sidebar'
 
 const DRAWER_ID = 'mobile-nav-drawer'
@@ -13,6 +14,7 @@ export default function MobileNav({ email, fullName, role, permissions }: NavPro
   const [open, setOpen] = useState(false)
   const { loggingOut, logout } = useLogout()
   const items = visibleNavItems(permissions)
+  const login = displayLogin(email)
 
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
@@ -170,7 +172,7 @@ export default function MobileNav({ email, fullName, role, permissions }: NavPro
           {/* User */}
           <div className="px-4 py-3 border-b border-gray-100 min-w-0 shrink-0">
             {fullName && <p className="text-sm font-medium text-gray-800 truncate">{fullName}</p>}
-            <p className="text-xs text-gray-500 truncate">{email}</p>
+            <p className="text-xs text-gray-500 truncate">{login}</p>
             <p className="text-xs text-gray-400 mt-0.5">{roleLabel(role)}</p>
           </div>
 

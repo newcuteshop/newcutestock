@@ -10,13 +10,14 @@ import {
   PERMISSION_LABELS,
 } from '@/types'
 import { formatThaiDateTime, thaiError } from '@/lib/format'
+import { checkRawPassword, displayLogin, loginToEmail } from '@/lib/auth/credentials'
 import { createUserAction, updateUserAction, deleteUserAction } from './actions'
 
 type Role = 'admin' | 'staff'
 
 type UserForm = {
   id?: string
-  email: string
+  login: string // ชื่อผู้ใช้ (หรืออีเมลเต็ม) ตามที่พิมพ์ — server แปลงเป็นอีเมลเอง
   password: string
   fullName: string
   role: Role
@@ -26,7 +27,6 @@ type UserForm = {
 type Msg = { ok: boolean; text: string }
 
 const PERM_KEYS = Object.keys(PERMISSION_LABELS) as (keyof Permissions)[]
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // สิทธิ์ที่บันทึกไว้จริง (fail-closed: ไม่ใช่ true = ไม่มีสิทธิ์)
 function storedPermissions(u: UserProfile): Permissions {
@@ -44,7 +44,12 @@ function grantable(callerIsAdmin: boolean, callerPerms: Permissions, key: keyof 
 function newForm(callerIsAdmin: boolean, callerPerms: Permissions): UserForm {
   const permissions: Permissions = { ...DEFAULT_PERMISSIONS }
   for (const key of PERM_KEYS) permissions[key] = permissions[key] && grantable(callerIsAdmin, callerPerms, key)
-  return { email: '', password: '', fullName: '', role: 'staff', permissions }
+  return { login: '', password: '', fullName: '', role: 'staff', permissions }
+}
+
+// บัญชีที่ต้องใช้อีเมลเต็มตอน login (อีเมลโดเมนอื่น ไม่ใช่ชื่อผู้ใช้ @newcute.com)
+function isExternalEmail(email: string | null | undefined): boolean {
+  return displayLogin(email).includes('@')
 }
 
 export default function UsersClient({
@@ -64,6 +69,11 @@ export default function UsersClient({
   const isSelf = !!editing?.id && editing.id === currentUserId
   // ผู้ใช้ที่ไม่ใช่ admin แก้บทบาท/สิทธิ์ของตัวเองไม่ได้ (server ก็บังคับเหมือนกัน)
   const rolePermsLocked = isSelf && !callerIsAdmin
+  // เปลี่ยนชื่อผู้ใช้ของบัญชีเดิม → เตือนว่าครั้งหน้าต้องใช้ชื่อใหม่
+  const originalEmail = editing?.id ? (users.find(u => u.id === editing.id)?.email ?? '') : ''
+  const mappedLogin = editing?.id ? loginToEmail(editing.login) : null
+  const loginChanged = !!mappedLogin && 'email' in mappedLogin &&
+    mappedLogin.email !== originalEmail.trim().toLowerCase()
 
   useEffect(() => () => {
     if (closeTimer.current) clearTimeout(closeTimer.current)
@@ -80,7 +90,7 @@ export default function UsersClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing, loading])
 
-  // ผู้ใช้ที่ไม่ใช่ admin: แก้ตัวเองได้ (ชื่อ/อีเมล/รหัสผ่าน) และจัดการได้เฉพาะคนที่สิทธิ์ไม่เกินตัวเอง
+  // ผู้ใช้ที่ไม่ใช่ admin: แก้ตัวเองได้ (ชื่อ/ชื่อผู้ใช้/รหัสผ่าน) และจัดการได้เฉพาะคนที่สิทธิ์ไม่เกินตัวเอง
   // และไม่มีสิทธิ์ "จัดการผู้ใช้" — กันสร้างบัญชีสิทธิ์สูงกว่า / ตั้งรหัสผ่านใหม่ให้คนที่สิทธิ์สูงกว่าแล้วเข้าแทน
   function canManage(u: UserProfile) {
     if (callerIsAdmin || u.id === currentUserId) return true
@@ -105,7 +115,7 @@ export default function UsersClient({
     const perms = storedPermissions(u)
     setEditing({
       id: u.id,
-      email: u.email ?? '',
+      login: displayLogin(u.email),
       password: '',
       fullName: u.full_name ?? '',
       role: u.role === 'admin' ? 'admin' : 'staff',
@@ -129,12 +139,15 @@ export default function UsersClient({
     setSuccess('')
   }
 
+  // ตรวจแบบเดียวกับ server (server ตรวจซ้ำอีกชั้นเสมอ)
   function validate(f: UserForm): string {
-    const email = f.email.trim()
-    if (!email) return 'กรุณากรอกอีเมล'
-    if (!EMAIL_RE.test(email)) return 'รูปแบบอีเมลไม่ถูกต้อง'
-    if (!f.id && f.password.length < 6) return 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'
-    if (f.id && f.password && f.password.length < 6) return 'รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร'
+    const login = loginToEmail(f.login)
+    if ('error' in login) return login.error
+    // แก้ไข + เว้นว่างรหัสผ่าน = ไม่เปลี่ยนรหัส
+    if (!f.id || f.password) {
+      const invalid = checkRawPassword(f.password)
+      if (invalid) return invalid
+    }
     if (f.fullName.trim().length > 100) return 'ชื่อยาวเกินไป (สูงสุด 100 ตัวอักษร)'
     return ''
   }
@@ -160,14 +173,14 @@ export default function UsersClient({
       const result = editing.id
         ? await updateUserAction({
             id: editing.id,
-            email: editing.email.trim() || undefined,
+            login: editing.login.trim() || undefined,
             fullName: editing.fullName.trim(),
             role: editing.role,
             permissions: editing.permissions,
             password: editing.password || undefined,
           })
         : await createUserAction({
-            email: editing.email.trim(),
+            login: editing.login.trim(),
             password: editing.password,
             fullName: editing.fullName.trim(),
             role: editing.role,
@@ -180,7 +193,8 @@ export default function UsersClient({
       return
     }
 
-    const label = editing.email.trim()
+    const saved = loginToEmail(editing.login)
+    const label = 'email' in saved ? displayLogin(saved.email) : editing.login.trim()
     const wasCreate = !editing.id
     setSuccess('✅ บันทึกเรียบร้อย')
     setLoading(false)
@@ -195,7 +209,7 @@ export default function UsersClient({
 
   async function handleDelete(u: UserProfile) {
     if (deletingId) return
-    if (!confirm(`ลบผู้ใช้ ${u.email ?? u.full_name ?? ''}?\n\nผู้ใช้นี้จะเข้าสู่ระบบไม่ได้อีก`)) return
+    if (!confirm(`ลบผู้ใช้ ${displayLogin(u.email) || u.full_name || ''}?\n\nผู้ใช้นี้จะเข้าสู่ระบบไม่ได้อีก`)) return
     setDeletingId(u.id)
     setPageMsg(null)
     try {
@@ -203,7 +217,7 @@ export default function UsersClient({
       if (result.error) {
         setPageMsg({ ok: false, text: result.error })
       } else {
-        setPageMsg({ ok: true, text: `🗑 ลบผู้ใช้ ${u.email ?? ''} แล้ว` })
+        setPageMsg({ ok: true, text: `🗑 ลบผู้ใช้ ${displayLogin(u.email)} แล้ว` })
         router.refresh()
       }
     } catch (err: unknown) {
@@ -274,7 +288,7 @@ export default function UsersClient({
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">อีเมล</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">ชื่อผู้ใช้</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">ชื่อ</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">สิทธิ์</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-600 whitespace-nowrap">สร้างเมื่อ</th>
@@ -288,8 +302,12 @@ export default function UsersClient({
               {users.map(u => (
                 <tr key={u.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900 break-all">
-                    {u.email || '-'}
+                    {displayLogin(u.email) || '-'}
                     {u.id === currentUserId && <span className="ml-2 text-xs text-brand-600 whitespace-nowrap">(คุณ)</span>}
+                    {/* บัญชีอีเมลโดเมนอื่น: ชื่อที่ใช้ login คืออีเมลเต็ม (บัญชี @newcute.com ไม่ต้องโชว์โดเมน) */}
+                    {isExternalEmail(u.email) && (
+                      <p className="text-xs font-normal text-gray-400 mt-0.5">ใช้อีเมลเต็มเข้าสู่ระบบ</p>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-gray-600">{u.full_name || '-'}</td>
                   <td className="px-4 py-3">
@@ -355,13 +373,15 @@ export default function UsersClient({
             {/* Body */}
             <div className="px-5 py-4 space-y-3">
               <div>
-                <label htmlFor="user-email" className="block text-sm font-medium text-gray-700 mb-1">อีเมล *</label>
-                <input id="user-email" className="input" type="email" inputMode="email"
+                <label htmlFor="user-login" className="block text-sm font-medium text-gray-700 mb-1">ชื่อผู้ใช้ *</label>
+                <input id="user-login" className="input" type="text" maxLength={254}
                   autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-                  value={editing.email}
-                  onChange={e => setEditing({ ...editing, email: e.target.value })} />
-                {editing.id && (
-                  <p className="text-xs text-gray-400 mt-1">⚠️ เปลี่ยนอีเมลแล้วจะใช้อีเมลใหม่ในการ login</p>
+                  placeholder="เช่น max" aria-describedby="user-login-hint"
+                  value={editing.login}
+                  onChange={e => setEditing({ ...editing, login: e.target.value })} />
+                <p id="user-login-hint" className="text-xs text-gray-400 mt-1">a-z, 0-9, จุด, ขีด — หรือใส่อีเมลก็ได้</p>
+                {loginChanged && (
+                  <p className="text-xs text-amber-600 mt-1">⚠️ เปลี่ยนชื่อผู้ใช้แล้ว ครั้งหน้าต้อง login ด้วยชื่อใหม่</p>
                 )}
               </div>
               <div>
@@ -372,15 +392,13 @@ export default function UsersClient({
               </div>
               <div>
                 <label htmlFor="user-password" className="block text-sm font-medium text-gray-700 mb-1">
-                  รหัสผ่าน {editing.id
-                    ? <span className="text-gray-400 text-xs">(เว้นว่างถ้าไม่เปลี่ยน)</span>
-                    : <span>*</span>}
+                  รหัสผ่าน {!editing.id && <span>*</span>}
                 </label>
                 <div className="relative">
                   <input id="user-password" className="input pr-16"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-                    placeholder="อย่างน้อย 6 ตัว"
+                    placeholder={editing.id ? 'เว้นว่างถ้าไม่เปลี่ยน' : 'ตั้งรหัสผ่าน'}
                     value={editing.password}
                     onChange={e => setEditing({ ...editing, password: e.target.value })} />
                   <button type="button" onClick={() => setShowPassword(s => !s)}
@@ -408,7 +426,7 @@ export default function UsersClient({
                     }`}>👑 Admin</button>
                 </div>
                 {rolePermsLocked ? (
-                  <p className="text-xs text-gray-400 mt-1">🔒 แก้บทบาทและสิทธิ์ของตัวเองไม่ได้ — แก้ได้เฉพาะชื่อ อีเมล และรหัสผ่าน</p>
+                  <p className="text-xs text-gray-400 mt-1">🔒 แก้บทบาทและสิทธิ์ของตัวเองไม่ได้ — แก้ได้เฉพาะชื่อ ชื่อผู้ใช้ และรหัสผ่าน</p>
                 ) : !callerIsAdmin ? (
                   <p className="text-xs text-gray-400 mt-1">เฉพาะ Admin เท่านั้นที่ตั้งผู้ใช้เป็น Admin ได้</p>
                 ) : null}

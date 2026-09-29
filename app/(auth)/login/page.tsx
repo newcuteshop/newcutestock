@@ -1,14 +1,19 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { loginAction } from './actions'
 import { thaiError } from '@/lib/format'
+import { loginToEmail } from '@/lib/auth/credentials'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
+  const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // หน้านี้ prerender เป็น HTML นิ่ง — ก่อน JS โหลดเสร็จ ห้ามกดส่งฟอร์ม
+  // (ไม่งั้นเบราว์เซอร์ส่งฟอร์มเองแบบ GET แล้วรหัสผ่านไปโผล่ใน URL / ประวัติ / log)
+  const [hydrated, setHydrated] = useState(false)
+  useEffect(() => { setHydrated(true) }, [])
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -16,17 +21,23 @@ export default function LoginPage() {
 
     // อ่านค่าจากฟอร์มตรงๆ ด้วย — กันกรณีเบราว์เซอร์ autofill แล้วไม่ยิง onChange
     const fd = new FormData(e.currentTarget)
-    const em = (String(fd.get('email') ?? '') || email).trim()
+    const name = (String(fd.get('username') ?? '') || login).trim()
     const pw = String(fd.get('password') ?? '') || password
-    if (!em || !pw) {
-      setError('กรุณากรอกอีเมลและรหัสผ่าน')
+    if (!name || !pw) {
+      setError('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน')
+      return
+    }
+    // เช็ครูปแบบชื่อผู้ใช้ก่อนส่ง (เซิร์ฟเวอร์ตรวจซ้ำอีกชั้น)
+    const resolved = loginToEmail(name)
+    if ('error' in resolved) {
+      setError(resolved.error)
       return
     }
 
     setLoading(true)
     setError('')
     try {
-      const result = await loginAction(em, pw)
+      const result = await loginAction(name, pw)
       if (result?.error) {
         setError(result.error)
         setLoading(false)
@@ -52,16 +63,17 @@ export default function LoginPage() {
           <p className="text-gray-500 text-sm mt-1">ระบบสต๊อกสินค้าเสื้อผ้า</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4" noValidate>
+        <form method="post" onSubmit={handleLogin} className="space-y-4" noValidate>
           <div>
-            <label htmlFor="login-email" className="block text-sm font-medium text-gray-700 mb-1">อีเมล</label>
+            <label htmlFor="login-username" className="block text-sm font-medium text-gray-700 mb-1">ชื่อผู้ใช้</label>
             <input
-              id="login-email" name="email"
-              type="email" inputMode="email" autoComplete="username"
+              id="login-username" name="username"
+              type="text" autoComplete="username"
               autoCapitalize="none" autoCorrect="off" spellCheck={false}
-              value={email} onChange={e => { setEmail(e.target.value); setError('') }}
-              className="input" placeholder="your@email.com" required
+              value={login} onChange={e => { setLogin(e.target.value); setError('') }}
+              className="input" placeholder="เช่น max" aria-describedby="login-username-hint" required
             />
+            <p id="login-username-hint" className="text-xs text-gray-400 mt-1">ใช้อีเมลเดิมก็ได้</p>
           </div>
           <div>
             <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-1">รหัสผ่าน</label>
@@ -93,7 +105,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !hydrated}
             className="btn-primary w-full min-h-[44px]"
           >
             {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}

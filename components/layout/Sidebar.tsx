@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Permissions } from '@/types'
+import { displayLogin } from '@/lib/auth/credentials'
 import clsx from 'clsx'
 
 export type NavItem = { href: string; label: string; icon: string; perm: keyof Permissions | null }
@@ -20,7 +21,7 @@ export const NAV_ITEMS: NavItem[] = [
 
 // props ที่ layout ส่งให้ทั้งเมนูเดสก์ท็อป (Sidebar) และมือถือ (MobileNav)
 export type NavProps = {
-  email: string
+  email: string // อีเมลใน Auth — แสดงผลผ่าน displayLogin() (max@newcute.com → max)
   fullName: string | null
   role: 'admin' | 'staff'
   permissions: Permissions
@@ -76,6 +77,7 @@ export default function Sidebar({ email, fullName, role, permissions }: NavProps
   const pathname = usePathname()
   const { loggingOut, logout } = useLogout()
   const items = visibleNavItems(permissions)
+  const login = displayLogin(email)
 
   return (
     <aside className="hidden md:flex w-60 shrink-0 flex-col bg-white border-r border-gray-100 pt-safe pb-safe pl-safe">
@@ -119,7 +121,7 @@ export default function Sidebar({ email, fullName, role, permissions }: NavProps
       <div className="p-3 border-t border-gray-100">
         <div className="px-3 py-2 mb-1 min-w-0">
           {fullName && <p className="text-sm font-medium text-gray-800 truncate">{fullName}</p>}
-          <p className="text-xs text-gray-500 truncate" title={email}>{email}</p>
+          <p className="text-xs text-gray-500 truncate" title={login}>{login}</p>
           <p className="text-xs text-gray-400 mt-0.5">{roleLabel(role)}</p>
         </div>
         <button

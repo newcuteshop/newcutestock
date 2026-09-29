@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { thaiError } from '@/lib/format'
+import { checkRawPassword, loginToEmail, toAuthPassword } from '@/lib/auth/credentials'
 import { type Permissions, ADMIN_PERMISSIONS, NO_PERMISSIONS, PERMISSION_LABELS } from '@/types'
 
 // =========================================
@@ -11,8 +12,10 @@ import { type Permissions, ADMIN_PERMISSIONS, NO_PERMISSIONS, PERMISSION_LABELS 
 // - ผู้เรียกที่ไม่ใช่ admin: สร้าง/ตั้งใครเป็น admin ไม่ได้, ให้สิทธิ์ "จัดการผู้ใช้" ไม่ได้,
 //   ให้สิทธิ์ที่ตัวเองไม่มีไม่ได้, แก้/ลบ/ตั้งรหัสผ่านให้บัญชี admin หรือบัญชีที่มีสิทธิ์ "จัดการผู้ใช้"
 //   หรือมีสิทธิ์ที่ตัวเองไม่มีไม่ได้ (กันสร้างบัญชีสำรองสิทธิ์สูงกว่า / ยึดบัญชีคนอื่น),
-//   แก้บทบาท/สิทธิ์ของตัวเองไม่ได้ (แก้ได้แค่ชื่อ อีเมล รหัสผ่าน)
+//   แก้บทบาท/สิทธิ์ของตัวเองไม่ได้ (แก้ได้แค่ชื่อ ชื่อผู้ใช้ รหัสผ่าน)
 // - ห้ามลด/ลบ admin คนสุดท้าย (ฐานข้อมูลกันซ้ำอีกชั้นด้วย trigger keep_last_admin), ห้ามลบบัญชีตัวเอง
+// ชื่อผู้ใช้/รหัสผ่านแปลงก่อนส่งให้ Supabase Auth เสมอ (ชื่อ → อีเมล @newcute.com, รหัส → 'newcute:' + รหัส)
+// ดูเหตุผลใน lib/auth/credentials.ts
 // =========================================
 
 type Role = 'admin' | 'staff'
@@ -28,9 +31,6 @@ interface TargetProfile {
 }
 
 const PERM_KEYS = Object.keys(ADMIN_PERMISSIONS) as (keyof Permissions)[]
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const MIN_PASSWORD = 6
-const MAX_PASSWORD = 72 // ข้อจำกัดของ Supabase Auth (bcrypt)
 const MAX_NAME = 100
 
 // error ที่เราตั้งใจส่งข้อความไทยกลับไปตรงๆ (เช็คด้วย name — ไม่พึ่ง instanceof ของ subclass Error)
@@ -75,17 +75,18 @@ function parseRole(raw: unknown): Role {
   return fail('บทบาทไม่ถูกต้อง (ต้องเป็น Admin หรือ Staff)')
 }
 
-function parseEmail(raw: unknown): string {
-  const email = String(raw ?? '').trim().toLowerCase()
-  if (!email) fail('กรุณากรอกอีเมล')
-  if (email.length > 254 || !EMAIL_RE.test(email)) fail('รูปแบบอีเมลไม่ถูกต้อง')
-  return email
+// ชื่อผู้ใช้ (หรืออีเมล) → อีเมลที่เก็บใน Auth และ user_profiles.email
+function parseLogin(raw: unknown): string {
+  const result = loginToEmail(String(raw ?? ''))
+  if ('error' in result) return fail(result.error)
+  return result.email
 }
 
+// คืนรหัสผ่านที่ผู้ใช้พิมพ์ (ยังไม่แปลง) — ตอนส่งให้ Supabase ต้องผ่าน toAuthPassword() เสมอ
 function parsePassword(raw: unknown): string {
   const password = String(raw ?? '')
-  if (password.length < MIN_PASSWORD) fail(`รหัสผ่านต้องมีอย่างน้อย ${MIN_PASSWORD} ตัวอักษร`)
-  if (password.length > MAX_PASSWORD) fail(`รหัสผ่านยาวเกินไป (สูงสุด ${MAX_PASSWORD} ตัวอักษร)`)
+  const invalid = checkRawPassword(password)
+  if (invalid) fail(invalid)
   return password
 }
 
@@ -107,13 +108,13 @@ function authErrorThai(err: unknown): string {
   const msg = String(e.message ?? '').toLowerCase()
   const code = String(e.code ?? '')
   if (code === 'email_exists' || code === 'user_already_exists' || msg.includes('already been registered') || msg.includes('already registered')) {
-    return 'อีเมลนี้มีผู้ใช้อยู่แล้ว'
+    return 'ชื่อผู้ใช้นี้มีคนใช้แล้ว'
   }
   if (code === 'weak_password' || msg.includes('password should')) {
     return 'รหัสผ่านง่ายเกินไป กรุณาตั้งให้ยาวขึ้นหรือผสมตัวอักษรกับตัวเลข'
   }
   if (code === 'email_address_invalid' || msg.includes('unable to validate email') || msg.includes('invalid email')) {
-    return 'รูปแบบอีเมลไม่ถูกต้อง'
+    return 'ชื่อผู้ใช้หรืออีเมลไม่ถูกต้อง'
   }
   if (code === 'user_not_found' || msg.includes('user not found')) {
     return 'ไม่พบผู้ใช้นี้ (อาจถูกลบไปแล้ว)'
@@ -180,7 +181,7 @@ async function ensureNotLastAdmin(admin: AdminClient, action: string) {
 // สร้างผู้ใช้
 // =========================================
 export async function createUserAction(input: {
-  email: string
+  login: string // ชื่อผู้ใช้ หรืออีเมลเต็ม
   password: string
   fullName: string
   role: 'admin' | 'staff'
@@ -189,7 +190,7 @@ export async function createUserAction(input: {
   try {
     const caller = await loadCaller()
     const src = asRecord(input)
-    const email = parseEmail(src.email)
+    const email = parseLogin(src.login)
     const password = parsePassword(src.password)
     const fullName = parseFullName(src.fullName)
     const role = parseRole(src.role)
@@ -206,8 +207,8 @@ export async function createUserAction(input: {
     // ไม่ใส่ role/permissions ใน user_metadata (ผู้ใช้แก้ metadata ตัวเองได้) — กำหนดผ่าน user_profiles อย่างเดียว
     const { data, error } = await admin.auth.admin.createUser({
       email,
-      password,
-      email_confirm: true,
+      password: toAuthPassword(password),
+      email_confirm: true, // อีเมล @newcute.com ไม่มีกล่องจดหมายจริง — ยืนยันให้เลย ใช้ได้ทันที
       user_metadata: { full_name: fullName },
     })
     if (error) return { error: authErrorThai(error) }
@@ -226,7 +227,7 @@ export async function createUserAction(input: {
       const { error: rollbackError } = await admin.auth.admin.deleteUser(newUser.id)
       const detail = thaiError(profileError)
       if (rollbackError) {
-        return { error: `สร้างผู้ใช้ไม่สำเร็จ (${detail}) และลบบัญชีที่สร้างค้างไว้ไม่ได้ — กรุณาลบอีเมล ${email} ใน Supabase Auth เอง` }
+        return { error: `สร้างผู้ใช้ไม่สำเร็จ (${detail}) และลบบัญชีที่สร้างค้างไว้ไม่ได้ — กรุณาลบบัญชี ${email} ที่ Supabase → Authentication → Users เอง` }
       }
       return { error: `สร้างผู้ใช้ไม่สำเร็จ: ${detail}` }
     }
@@ -243,7 +244,7 @@ export async function createUserAction(input: {
 // =========================================
 export async function updateUserAction(input: {
   id: string
-  email?: string
+  login?: string // ชื่อผู้ใช้ หรืออีเมลเต็ม (ไม่ส่ง = ไม่เปลี่ยน)
   fullName: string
   role: 'admin' | 'staff'
   permissions: Permissions
@@ -255,8 +256,8 @@ export async function updateUserAction(input: {
     const id = parseId(src.id)
     const fullName = parseFullName(src.fullName)
     const requestedRole = parseRole(src.role)
-    const rawEmail = String(src.email ?? '').trim()
-    const email = rawEmail ? parseEmail(rawEmail) : null
+    const rawLogin = String(src.login ?? '').trim()
+    const email = rawLogin ? parseLogin(rawLogin) : null
     const rawPassword = typeof src.password === 'string' ? src.password : ''
     const password = rawPassword ? parsePassword(rawPassword) : null
 
@@ -273,11 +274,11 @@ export async function updateUserAction(input: {
     if (caller.role !== 'admin') {
       if (target.role === 'admin') fail('เฉพาะ Admin เท่านั้นที่แก้ไขบัญชี Admin ได้')
       if (isSelf) {
-        // แก้ตัวเองได้แค่ชื่อ/อีเมล/รหัสผ่าน — บทบาทและสิทธิ์คงเดิม (ไม่เขียนทับ)
+        // แก้ตัวเองได้แค่ชื่อ/ชื่อผู้ใช้/รหัสผ่าน — บทบาทและสิทธิ์คงเดิม (ไม่เขียนทับ)
         if (requestedRole !== target.role) fail('คุณเปลี่ยนบทบาทของตัวเองไม่ได้')
         rolePerms = null
       } else {
-        // บัญชีที่มีสิทธิ์ "จัดการผู้ใช้" หรือมีสิทธิ์ที่ผู้เรียกไม่มี → แตะไม่ได้เลย (รวมถึงอีเมล/รหัสผ่าน)
+        // บัญชีที่มีสิทธิ์ "จัดการผู้ใช้" หรือมีสิทธิ์ที่ผู้เรียกไม่มี → แตะไม่ได้เลย (รวมถึงชื่อผู้ใช้/รหัสผ่าน)
         if (!withinCallerPerms(target, caller)) {
           fail('แก้ไขได้เฉพาะผู้ใช้ที่มีสิทธิ์ไม่เกินของคุณ และไม่มีสิทธิ์ "จัดการผู้ใช้"')
         }
@@ -293,14 +294,14 @@ export async function updateUserAction(input: {
       await ensureNotLastAdmin(admin, 'เปลี่ยนบทบาทของ')
     }
 
-    // ---- อัพเดตอีเมล/รหัสผ่านใน Auth ----
+    // ---- อัพเดตชื่อผู้ใช้ (อีเมล)/รหัสผ่านใน Auth ----
     const emailChanged = !!email && email !== (target.email ?? '').toLowerCase()
     const authPayload: { email?: string; password?: string; email_confirm?: boolean } = {}
     if (emailChanged && email) {
       authPayload.email = email
       authPayload.email_confirm = true // เปลี่ยนโดยผู้ดูแล ไม่ต้องรอยืนยันทางอีเมล
     }
-    if (password) authPayload.password = password
+    if (password) authPayload.password = toAuthPassword(password)
     if (authPayload.email || authPayload.password) {
       const { error } = await admin.auth.admin.updateUserById(target.id, authPayload)
       if (error) return { error: authErrorThai(error) }
@@ -319,7 +320,7 @@ export async function updateUserAction(input: {
       .eq('id', target.id)
     if (profileError) {
       const prefix = authPayload.email || authPayload.password
-        ? 'เปลี่ยนอีเมล/รหัสผ่านแล้ว แต่บันทึกข้อมูลโปรไฟล์ไม่สำเร็จ: '
+        ? 'เปลี่ยนชื่อผู้ใช้/รหัสผ่านแล้ว แต่บันทึกข้อมูลโปรไฟล์ไม่สำเร็จ: '
         : 'บันทึกไม่สำเร็จ: '
       return { error: prefix + thaiError(profileError) }
     }
