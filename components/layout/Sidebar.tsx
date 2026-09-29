@@ -18,6 +18,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import type { Permissions } from '@/types'
 import { displayLogin } from '@/lib/auth/credentials'
+import { clearEnteredThisWindow } from '@/lib/auth/entry-gate'
 import BrandMark from '@/components/theme/BrandMark'
 import MotionToggle from '@/components/theme/MotionToggle'
 import { ICON, ICON_SM } from '@/components/theme/icons'
@@ -103,13 +104,15 @@ function clearSupabaseCookies() {
   }
 }
 
-// ออกจากระบบ: ล้าง session ในเครื่องนี้ แล้วโหลดหน้า /login ใหม่ทั้งหน้า
+// ออกจากระบบ: ล้าง session ในเครื่องนี้ แล้วโหลดหน้า /login ใหม่ทั้งหน้า (MobileNav ใช้ตัวเดียวกันนี้)
 export function useLogout() {
   const [loggingOut, setLoggingOut] = useState(false)
 
   async function logout() {
     if (loggingOut) return
     setLoggingOut(true)
+    // ลืมการเข้าสู่ระบบของหน้าต่างนี้ด้วย (ธงประตูเข้าระบบ — lib/auth/entry-gate.ts)
+    clearEnteredThisWindow()
     try {
       const { error } = await createClient().auth.signOut({ scope: 'local' })
       if (error) clearSupabaseCookies()

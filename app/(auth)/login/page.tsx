@@ -4,11 +4,25 @@ import { AlertCircle, ArrowRight, Eye, EyeOff, Heart, Loader2, Lock, UserRound }
 import { loginAction } from './actions'
 import { thaiError } from '@/lib/format'
 import { loginToEmail } from '@/lib/auth/credentials'
+import { signOutAction } from '@/lib/auth/sign-out-action'
+import {
+  clearEnteredThisWindow,
+  markEnteredThisWindow,
+  unlockEntryGate,
+  windowStorageWorks,
+} from '@/lib/auth/entry-gate'
 import BrandMark from '@/components/theme/BrandMark'
 import { ICON_SM } from '@/components/theme/icons'
 
 // ไอคอนในฟองบลัชที่หัวช่องกรอก (ตกแต่ง — ชื่อช่องอยู่ใน <label>)
 const FIELD_ICON = { size: 17, strokeWidth: 2, 'aria-hidden': true } as const
+
+// รอออกจากระบบเดิมไม่เกินเท่านี้ แล้วเปิดปุ่มเข้าสู่ระบบเลย (กันฟอร์มค้าง)
+// ถ้ายังไม่เสร็จ loginAction จะเข้าคิวต่อท้ายเอง (Next.js รัน server action ทีละตัว) → ไม่มีทางลบ session ใหม่
+const SIGN_OUT_WAIT_MS = 3000
+
+const STORAGE_BLOCKED =
+  'เบราว์เซอร์นี้บล็อกการเก็บข้อมูลของเว็บ จึงเข้าสู่ระบบไม่ได้ — อนุญาตคุกกี้/ข้อมูลเว็บไซต์สำหรับเว็บนี้ แล้วลองใหม่'
 
 export default function LoginPage() {
   const [login, setLogin] = useState('')
@@ -21,9 +35,52 @@ export default function LoginPage() {
   const [hydrated, setHydrated] = useState(false)
   useEffect(() => { setHydrated(true) }, [])
 
+  // เปิดหน้านี้ = เริ่มใหม่เสมอ: ลืมการเข้าสู่ระบบของหน้าต่างนี้ + เพิกถอน session เดิม (ถ้ามี) — ดู lib/auth/entry-gate.ts
+  // ปุ่มเข้าสู่ระบบรอจนออกจากระบบเสร็จ (ไม่เกิน SIGN_OUT_WAIT_MS)
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    let alive = true
+    let round = 0
+    let timer = 0
+
+    function reset() {
+      const mine = ++round
+      // มาจากหน้าที่ถูกล็อกโดยไม่ได้โหลดหน้าใหม่ → เปิดหน้าจอ (หน้านี้ไม่มีข้อมูลร้าน)
+      unlockEntryGate()
+      clearEnteredThisWindow()
+      setReady(false)
+      const finish = () => {
+        if (!alive || mine !== round) return
+        window.clearTimeout(timer)
+        setReady(true)
+      }
+      window.clearTimeout(timer)
+      timer = window.setTimeout(finish, SIGN_OUT_WAIT_MS)
+      signOutAction()
+        .catch(() => undefined)
+        .finally(finish)
+    }
+
+    reset()
+
+    // กด Back กลับมาหน้านี้จาก back/forward cache (หน้าเดิมในหน่วยความจำ) → เริ่มใหม่อีกรอบ
+    function onPageShow(e: PageTransitionEvent) {
+      if (!e.persisted) return
+      setLoading(false)
+      setError('')
+      reset()
+    }
+    window.addEventListener('pageshow', onPageShow)
+    return () => {
+      alive = false
+      window.clearTimeout(timer)
+      window.removeEventListener('pageshow', onPageShow)
+    }
+  }, [])
+
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (loading) return
+    if (loading || !ready) return
 
     // อ่านค่าจากฟอร์มตรงๆ ด้วย — กันกรณีเบราว์เซอร์ autofill แล้วไม่ยิง onChange
     const fd = new FormData(e.currentTarget)
@@ -39,6 +96,11 @@ export default function LoginPage() {
       setError(resolved.error)
       return
     }
+    // ประตูเข้าระบบจำหน้าต่างด้วย sessionStorage — ถ้าเบราว์เซอร์บล็อก เข้าไปแล้วจะถูกพากลับหน้านี้วนไป → บอกก่อน
+    if (!windowStorageWorks()) {
+      setError(STORAGE_BLOCKED)
+      return
+    }
 
     setLoading(true)
     setError('')
@@ -48,6 +110,8 @@ export default function LoginPage() {
         setError(result.error)
         setLoading(false)
       } else {
+        // จำว่าหน้าต่างนี้เข้าสู่ระบบเองแล้ว — ต้องตั้งก่อนเปลี่ยนหน้า ไม่งั้นหน้าระบบจะพากลับมาหน้านี้
+        markEnteredThisWindow()
         // โหลดหน้าใหม่ทั้งหน้า เพื่อให้ cookie session ใหม่ถูกใช้ทันที
         window.location.href = '/dashboard'
       }
@@ -127,7 +191,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading || !hydrated}
+              disabled={loading || !hydrated || !ready}
               className="btn-primary w-full min-h-[54px] text-base"
             >
               {loading && <Loader2 {...ICON_SM} className="animate-spin" />}

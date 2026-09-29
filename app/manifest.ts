@@ -10,7 +10,11 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'NEWCUTE',
     short_name: 'NEWCUTE',
     description: 'ระบบสต๊อกสินค้าเสื้อผ้า NEWCUTE',
-    start_url: '/dashboard',
+    // รหัสประจำแอป = start_url เดิม ('/dashboard') — ต้องคงไว้ ไม่งั้นเครื่องที่ติดตั้งแอปไว้แล้วจะมองเป็นแอปใหม่
+    // (ไม่รับการอัปเดต start_url และอาจชวนติดตั้งซ้ำ)
+    id: '/dashboard',
+    // เปิดแอปทุกครั้ง → หน้าเข้าสู่ระบบ (ต้องเข้าสู่ระบบเองทุกครั้ง — ดู lib/auth/entry-gate.ts)
+    start_url: '/login',
     scope: '/',
     display: 'standalone',
     orientation: 'any',

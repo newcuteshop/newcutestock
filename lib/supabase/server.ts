@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { sessionCookieOptions } from './cookies'
 
 export function createClient() {
   const cookieStore = cookies()
@@ -13,7 +14,8 @@ export function createClient() {
         },
         set(name: string, value: string, options: CookieOptions) {
           try {
-            cookieStore.set({ name, value, ...options })
+            // คุกกี้ session (ไม่มีวันหมดอายุ) → ปิดเบราว์เซอร์/แอปแล้วต้องเข้าสู่ระบบใหม่
+            cookieStore.set({ name, value, ...sessionCookieOptions(options) })
           } catch {}
         },
         remove(name: string, options: CookieOptions) {

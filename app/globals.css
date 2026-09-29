@@ -1040,3 +1040,40 @@ html[data-motion='off'] .petal > svg {
 @supports not (height: 100dvh) {
   .h-\[100dvh\] { height: 100vh; }
 }
+
+/* ================= ประตูเข้าระบบ (เปิดหน้าต่างใหม่ = ต้องเข้าสู่ระบบก่อนทุกครั้ง) ================= */
+/* สคริปต์ใน <head> ตั้ง <html data-gate="locked"> ก่อนวาดหน้าแรก เมื่อหน้าต่างนี้ยังไม่ได้เข้าสู่ระบบเอง (lib/auth/entry-gate.ts)
+   → ซ่อนทุกอย่างใน body (ข้อมูลร้านห้ามโผล่แม้แวบเดียว) เหลือแผ่นปิด components/auth/EntryGateCover.tsx จนกว่าจะไปหน้าเข้าสู่ระบบ
+   อยู่นอก @layer และท้ายไฟล์ เพื่อชนะกฎอื่นทั้งหมด */
+.entry-gate-cover {
+  display: none;
+}
+html[data-gate='locked'] body {
+  visibility: hidden;
+}
+html[data-gate='locked'] body > :not(.entry-gate-cover) {
+  display: none !important;
+}
+html[data-gate='locked'] .entry-gate-cover {
+  visibility: visible;
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+  background: #FFF3F5;
+  text-align: center;
+}
+/* ลิงก์สำรองโผล่หลังรอ 6 วินาที (ปกติถูกพาไปหน้าเข้าสู่ระบบก่อนแล้ว) — ปิดเอฟเฟกต์ = โผล่ทันที ไม่เป็นไร */
+.entry-gate-later {
+  margin-top: 8px;
+  animation: entry-gate-reveal 0.3s ease-out 6s backwards;
+}
+@keyframes entry-gate-reveal {
+  from { opacity: 0; visibility: hidden; }
+  to { opacity: 1; visibility: visible; }
+}

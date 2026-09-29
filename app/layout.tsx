@@ -2,7 +2,12 @@ import type { Metadata, Viewport } from 'next'
 import { Kodchasan, Sarabun } from 'next/font/google'
 import PetalLayer from '@/components/theme/PetalLayer'
 import { MOTION_BOOT_SCRIPT } from '@/components/theme/motion'
+import EntryGateCover from '@/components/auth/EntryGateCover'
+import { ENTRY_GATE_BOOT_SCRIPT } from '@/lib/auth/entry-gate'
 import './globals.css'
+
+// สคริปต์ใน <head> รันก่อนหน้าเว็บแสดงผล: ตั้งค่าเอฟเฟกต์ + ล็อกหน้าจอถ้าหน้าต่างนี้ยังไม่ได้เข้าสู่ระบบเอง (ดู lib/auth/entry-gate.ts)
+const BOOT_SCRIPT = `${MOTION_BOOT_SCRIPT};${ENTRY_GATE_BOOT_SCRIPT}`
 
 // เนื้อหา: Sarabun (ไม่มีหน้าไหนใช้น้ำหนัก 300 จึงไม่โหลด)
 const sarabun = Sarabun({
@@ -52,13 +57,15 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // data-motion ถูกตั้งจากสคริปต์ด้านล่างก่อน React เริ่มทำงาน → ไม่ต้องเตือนว่าแอตทริบิวต์ไม่ตรง
+    // data-motion / data-gate ถูกตั้งจากสคริปต์ด้านล่างก่อน React เริ่มทำงาน → ไม่ต้องเตือนว่าแอตทริบิวต์ไม่ตรง
     <html lang="th" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: MOTION_BOOT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
       </head>
       {/* พื้นหลังนมชมพูอยู่ใน globals.css (body) — ห้ามใส่ bg-* ที่ body/html ไม่งั้นบังกลีบกุหลาบ */}
       <body className={`${sarabun.variable} ${kodchasan.variable} font-sans text-gray-900 antialiased`}>
+        {/* แผ่นปิดตอนล็อกหน้าจอ (ต้องเป็นลูกชั้นแรกของ body) — ปกติซ่อน */}
+        <EntryGateCover />
         <PetalLayer />
         {children}
       </body>

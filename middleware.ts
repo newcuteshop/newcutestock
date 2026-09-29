@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { sessionCookieOptions } from '@/lib/supabase/cookies'
 
 type PendingCookie = { name: string; value: string; options: CookieOptions }
 
@@ -29,7 +30,8 @@ export async function middleware(request: NextRequest) {
         set(name: string, value: string, options: CookieOptions) {
           // อัปเดต request ด้วย เพื่อให้ server component เห็น session ใหม่ทันที
           request.cookies.set(name, value)
-          pending.set(name, { name, value, options })
+          // คุกกี้ session (ไม่มีวันหมดอายุ) → ปิดเบราว์เซอร์/แอปแล้วต้องเข้าสู่ระบบใหม่
+          pending.set(name, { name, value, options: sessionCookieOptions(options) })
           response = applyPending(NextResponse.next({ request }))
         },
         remove(name: string, options: CookieOptions) {
@@ -61,13 +63,8 @@ export async function middleware(request: NextRequest) {
     return applyPending(NextResponse.redirect(url))
   }
 
-  // ถ้า login แล้วและเข้า /login → redirect ไป dashboard
-  if (isLoggedIn && isLoginPage) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
-    url.search = ''
-    return applyPending(NextResponse.redirect(url))
-  }
+  // login อยู่แล้วแต่เปิด /login → ไม่พาไป dashboard อีกต่อไป: หน้าเข้าสู่ระบบต้องโชว์ฟอร์มเสมอ
+  // (หน้านั้นออกจากระบบเดิมให้เอง — ต้องเข้าสู่ระบบใหม่ทุกครั้งที่เปิดลิงก์ ดู lib/auth/entry-gate.ts)
 
   return response
 }
