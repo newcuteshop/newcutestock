@@ -267,7 +267,7 @@ function Box({ label, value, bad = false }: { label: string; value: string; bad?
   return (
     <div className="panel px-3 py-2 min-w-0">
       <p className="text-xs text-gray-500 truncate">{label}</p>
-      <p className={clsx('font-display text-base font-bold tabular-nums truncate', bad ? 'text-red-700' : 'text-gray-900')}>{value}</p>
+      <p className={clsx('text-base font-semibold tabular-nums truncate', bad ? 'text-red-700' : 'text-gray-900')}>{value}</p>
     </div>
   )
 }
@@ -278,7 +278,7 @@ function PreviewTable({ rows }: { rows: InitialPushPreviewRow[] }) {
   return (
     <>
       {/* มือถือ: รายการ "ก่อน → หลัง" (ไม่ต้องเลื่อนข้าง) */}
-      <ul className="panel divide-y divide-blush-hair px-3 sm:hidden" aria-label="สต๊อกบนแพลตฟอร์มตอนนี้ เทียบกับจำนวนที่จะส่ง">
+      <ul className="panel divide-y divide-gray-200 px-3 sm:hidden" aria-label="สต๊อกบนแพลตฟอร์มตอนนี้ เทียบกับจำนวนที่จะส่ง">
         {rows.map(r => {
           const ch = changeOf(r)
           const Icon = CHANGE_ICON[ch]
@@ -289,7 +289,7 @@ function PreviewTable({ rows }: { rows: InitialPushPreviewRow[] }) {
                 <p className="text-xs font-mono text-gray-500 break-all">{r.product.sku}</p>
               </div>
               <div className="shrink-0 text-right">
-                <p className="font-display font-bold tabular-nums text-gray-900">
+                <p className="font-semibold tabular-nums text-gray-900">
                   <span className="text-gray-500">{r.platform_qty === null ? '?' : qty(r.platform_qty)}</span>
                   <span aria-hidden="true"> → </span>
                   <span className="sr-only"> เป็น </span>

@@ -85,7 +85,7 @@ export default function SyncLogTab({
       <section className="card p-4 sm:p-5 space-y-3" aria-label="ตัวกรองบันทึก">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="sm:w-64">
-            <label htmlFor={selectId} className="block text-sm font-medium text-gray-700 mb-1">ประเภท</label>
+            <label htmlFor={selectId} className="field-label">ประเภท</label>
             <select
               id={selectId}
               className="input"
@@ -118,11 +118,11 @@ export default function SyncLogTab({
 
       {rows.length === 0 ? (
         <div className="card empty-state">
-          <span className="icon-bubble icon-bubble-lg"><History size={30} strokeWidth={1.8} aria-hidden="true" /></span>
+          <span className="icon-bubble icon-bubble-lg"><History size={28} strokeWidth={1.75} aria-hidden="true" /></span>
           <p className="empty-state-title">ยังไม่มีบันทึก{kind || onlyErrors ? 'ตามตัวกรองนี้' : ''}</p>
         </div>
       ) : (
-        <ul className="card divide-y divide-blush-hair overflow-hidden">
+        <ul className="card divide-y divide-gray-150 overflow-hidden">
           {rows.map(r => <LogRow key={r.id} r={r} />)}
         </ul>
       )}

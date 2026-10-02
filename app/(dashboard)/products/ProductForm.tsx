@@ -22,7 +22,7 @@ import {
   parseGroupJson, parseSaveResult, removeProductImageFiles, sizeKey, suggestSku, wait,
 } from '@/lib/products'
 import BarcodeScanner from '@/components/BarcodeScanner'
-import { ICON_SM } from '@/components/theme/icons'
+import { ICON, ICON_SM } from '@/components/theme/icons'
 import {
   type FormState, type RowState, type SavePayload,
   barcodeValue, emptyForm, formFromJson, formSignature, locateServerError, matchesPayload, mergeAfterConflict,
@@ -598,13 +598,13 @@ export default function ProductForm({ categories: initialCategories, canStock, i
           />
 
           {/* ข้อมูลสินค้า */}
-          <section className="card p-4 sm:p-6 space-y-4 min-w-0" aria-labelledby="pf-sec-info">
+          <section className="card p-4 sm:p-5 space-y-4 min-w-0" aria-labelledby="pf-sec-info">
             <h2 id="pf-sec-info" className="section-title">
-              <span className="icon-bubble icon-bubble-sm"><Shirt {...ICON_SM} /></span>
+              <Shirt {...ICON} />
               ข้อมูลสินค้า
             </h2>
             <div>
-              <label htmlFor="pf-name" className="block text-sm font-medium text-gray-700 mb-1">ชื่อสินค้า *</label>
+              <label htmlFor="pf-name" className="field-label">ชื่อสินค้า *</label>
               <input
                 id="pf-name" className="input" maxLength={220} value={form.name} disabled={busy || gone}
                 autoComplete="off" enterKeyHint="next"
@@ -613,11 +613,11 @@ export default function ProductForm({ categories: initialCategories, canStock, i
                 aria-invalid={fieldError?.id === 'pf-name' ? true : undefined}
                 aria-describedby={fieldError?.id === 'pf-name' ? 'pf-name-err' : undefined}
               />
-              {fieldError?.id === 'pf-name' && <p id="pf-name-err" className="mt-1 text-xs font-medium text-red-700">{fieldError.message}</p>}
+              {fieldError?.id === 'pf-name' && <p id="pf-name-err" className="field-hint font-medium text-red-700">{fieldError.message}</p>}
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="min-w-0">
-                <label htmlFor="pf-category" className="block text-sm font-medium text-gray-700 mb-1">หมวดหมู่</label>
+                <label htmlFor="pf-category" className="field-label">หมวดหมู่</label>
                 <select
                   id="pf-category" className="input" value={form.categoryId} disabled={busy || gone}
                   onChange={e => setField('categoryId', e.target.value)}
@@ -627,28 +627,28 @@ export default function ProductForm({ categories: initialCategories, canStock, i
                   {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   {!categoryKnown && <option value={form.categoryId}>(หมวดหมู่ที่ถูกลบแล้ว)</option>}
                 </select>
-                <p className="mt-1 text-xs text-gray-500">เพิ่ม/แก้ชื่อหมวดหมู่ได้ที่หน้ารายการสินค้า</p>
+                <p className="field-hint">เพิ่ม/แก้ชื่อหมวดหมู่ได้ที่หน้ารายการสินค้า</p>
               </div>
               <div className="min-w-0">
-                <label htmlFor="pf-color" className="block text-sm font-medium text-gray-700 mb-1">สี</label>
+                <label htmlFor="pf-color" className="field-label">สี</label>
                 <input
                   id="pf-color" className="input" maxLength={120} value={form.color} autoComplete="off" disabled={busy || gone}
                   placeholder="ขาว, ดำ, ชมพู..."
                   onChange={e => setField('color', e.target.value)}
                   aria-invalid={fieldError?.id === 'pf-color' ? true : undefined}
                 />
-                <p className="mt-1 text-xs text-gray-500">คนละสี = เพิ่มเป็นสินค้าใหม่อีกการ์ด</p>
+                <p className="field-hint">คนละสี = เพิ่มเป็นสินค้าใหม่อีกการ์ด</p>
               </div>
             </div>
             <div>
-              <label htmlFor="pf-desc" className="block text-sm font-medium text-gray-700 mb-1">รายละเอียด (ไม่บังคับ)</label>
+              <label htmlFor="pf-desc" className="field-label">รายละเอียด (ไม่บังคับ)</label>
               <textarea
                 id="pf-desc" className="input" rows={3} maxLength={MAX_DESCRIPTION + 50} value={form.description} disabled={busy || gone}
                 placeholder="เนื้อผ้า ขนาดอก/ยาว วิธีดูแล ฯลฯ"
                 onChange={e => setField('description', e.target.value)}
                 aria-invalid={fieldError?.id === 'pf-desc' ? true : undefined}
               />
-              <p className={`mt-1 text-right text-xs tabular-nums ${form.description.length > MAX_DESCRIPTION ? 'text-red-700 font-medium' : 'text-gray-500'}`}>
+              <p className={`field-hint text-right tabular-nums ${form.description.length > MAX_DESCRIPTION ? 'text-red-700 font-medium' : 'text-gray-500'}`}>
                 {form.description.length.toLocaleString('th-TH')}/{MAX_DESCRIPTION.toLocaleString('th-TH')}
               </p>
             </div>
@@ -656,9 +656,9 @@ export default function ProductForm({ categories: initialCategories, canStock, i
         </div>
 
         {/* ไซส์ ราคา สต๊อก */}
-        <section className="card p-4 sm:p-6 space-y-4 min-w-0" aria-labelledby="pf-sec-price">
+        <section className="card p-4 sm:p-5 space-y-4 min-w-0" aria-labelledby="pf-sec-price">
           <h2 id="pf-sec-price" className="section-title">
-            <span className="icon-bubble icon-bubble-sm">{form.hasSizes ? <Ruler {...ICON_SM} /> : <Coins {...ICON_SM} />}</span>
+            {form.hasSizes ? <Ruler {...ICON} /> : <Coins {...ICON} />}
             {form.hasSizes ? 'ไซส์ ราคา และสต๊อก' : 'ราคาและสต๊อก'}
           </h2>
 
@@ -678,7 +678,7 @@ export default function ProductForm({ categories: initialCategories, canStock, i
               </span>
             </span>
           </label>
-          {fieldError?.id === 'pf-has-sizes' && <p className="-mt-2 text-xs font-medium text-red-700">{fieldError.message}</p>}
+          {fieldError?.id === 'pf-has-sizes' && <p className="-mt-2 text-xs leading-relaxed font-medium text-red-700">{fieldError.message}</p>}
 
           {/* เปลี่ยนเป็นไม่มีไซส์: เลือกว่าจะเก็บรายการไหนไว้ */}
           {chooser && (
@@ -690,7 +690,7 @@ export default function ProductForm({ categories: initialCategories, canStock, i
                 </p>
               </div>
               {stockRows.length > 1 ? (
-                <p className="rounded-2xl bg-white/70 px-3 py-2 text-sm font-medium">
+                <p className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm font-medium">
                   ไซส์ {stockRows.map(r => cleanText(r.size) || '-').join(', ')} ยังมีสต๊อก — เปลี่ยนเป็นไม่มีไซส์ได้เมื่อเหลือสต๊อกไม่เกิน 1 ไซส์ (ปรับยอดที่เมนูรับ-จ่ายสต๊อกก่อน)
                 </p>
               ) : (
@@ -705,8 +705,7 @@ export default function ProductForm({ categories: initialCategories, canStock, i
                         disabled={!allowed || busy}
                         onClick={() => keepAsSingle(c.key)}
                       >
-                        {/* ไซส์ใช้ฟอนต์เนื้อหา: ตัว M ของฟอนต์หัวเรื่อง (Kodchasan) ดูเหมือน m ตัวเล็ก */}
-                        <span className="font-sans font-bold">{cleanText(c.size) || '-'}</span>
+                        <span className="font-semibold">{cleanText(c.size) || '-'}</span>
                         <span className="font-mono text-xs">{cleanText(c.sku) || 'ไม่มี SKU'}</span>
                         {c.id && c.stock !== 0 && <span className="text-xs">(สต๊อก {c.stock})</span>}
                       </button>
@@ -761,11 +760,10 @@ export default function ProductForm({ categories: initialCategories, canStock, i
 
         {/* สถานะการขาย + ลบ (เฉพาะสินค้าที่บันทึกแล้ว) */}
         {loaded && (
-          <section className="card p-4 sm:p-6 space-y-3 min-w-0" aria-labelledby="pf-sec-status">
+          <section className="card p-4 sm:p-5 space-y-3 min-w-0" aria-labelledby="pf-sec-status">
             <h2 id="pf-sec-status" className="section-title">
-              <span className={`icon-bubble icon-bubble-sm ${groupActive ? 'icon-bubble-ok' : ''}`}>
-                {groupActive ? <PlayCircle {...ICON_SM} /> : <PauseCircle {...ICON_SM} />}
-              </span>
+              {/* เปิดขาย = ไอคอนเขียว / ปิดใช้งาน = ไอคอนเทา (ชนะสีโรสโกลด์อัตโนมัติของ .section-title) */}
+              {groupActive ? <PlayCircle {...ICON} className="!text-green-700" /> : <PauseCircle {...ICON} className="!text-gray-500" />}
               สถานะการขาย
             </h2>
             <p className="text-sm text-gray-600">
@@ -798,7 +796,7 @@ export default function ProductForm({ categories: initialCategories, canStock, i
         )}
 
         {/* แถบบันทึก: ติดขอบล่างจอ กดบันทึกได้ตลอดไม่ต้องเลื่อนหา */}
-        <div className="sticky bottom-0 z-20 -mx-3 sm:-mx-4 md:mx-0 bottom-bar px-3 pt-3 pb-3 sm:px-5 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-[env(safe-area-inset-bottom)] after:bg-milk-soft">
+        <div className="sticky bottom-0 z-20 -mx-3 sm:-mx-4 md:mx-0 bottom-bar px-3 pt-3 pb-3 sm:px-5 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-[env(safe-area-inset-bottom)] after:bg-white">
           {msg && (
             <div className="mb-3 max-h-[40dvh] overflow-y-auto overscroll-contain">
               <div role={msg.kind === 'err' ? 'alert' : 'status'} className={ALERT_CLASS[msg.kind]}>
@@ -863,7 +861,7 @@ export default function ProductForm({ categories: initialCategories, canStock, i
             </Link>
             {dirty && !busy && (
               <span className="hidden md:inline-flex items-center gap-1.5 text-xs text-gray-500">
-                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-strawberry" />
+                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-brand-600" />
                 มีการแก้ไขที่ยังไม่บันทึก
               </span>
             )}

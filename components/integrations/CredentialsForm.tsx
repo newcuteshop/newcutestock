@@ -232,7 +232,7 @@ function CredentialInput({
 
   return (
     <div>
-      <label htmlFor={id} className="flex flex-wrap items-center gap-x-2 text-sm font-medium text-gray-700 mb-1">
+      <label htmlFor={id} className="field-label flex flex-wrap items-center gap-x-2">
         {field.label}
         {field.required && !hint && <span className="text-xs font-semibold text-red-700">จำเป็น</span>}
       </label>

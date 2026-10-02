@@ -34,14 +34,14 @@ function Field({
 }) {
   return (
     <div className={`relative min-w-0 ${className}`}>
-      <label htmlFor={id} className={`block text-sm font-medium text-gray-700 mb-1 ${tableMode ? 'min-[1400px]:sr-only' : ''}`}>
+      <label htmlFor={id} className={`field-label ${tableMode ? 'min-[1400px]:sr-only' : ''}`}>
         {label}{required ? ' *' : ''}
       </label>
       {children}
       {error ? (
-        <p id={`${id}-err`} className="mt-1 text-xs font-medium text-red-700 break-words">{error}</p>
+        <p id={`${id}-err`} className="field-hint font-medium text-red-700 break-words">{error}</p>
       ) : hint ? (
-        <div className={`mt-1 text-xs text-gray-500 ${tableMode ? 'min-[1400px]:hidden' : ''}`}>{hint}</div>
+        <div className={`field-hint ${tableMode ? 'min-[1400px]:hidden' : ''}`}>{hint}</div>
       ) : null}
     </div>
   )
@@ -122,7 +122,7 @@ function StockBox({ row }: { row: RowState }) {
       aria-label={`คงเหลือ ${row.stock} ชิ้น`}
     >
       <Package size={16} strokeWidth={1.9} aria-hidden="true" className={low ? 'text-red-600' : 'text-brand-600'} />
-      <span className="font-display font-bold">{row.stock}</span>
+      <span className="font-semibold">{row.stock}</span>
       <span className="text-xs font-normal text-gray-500">ชิ้น</span>
     </div>
   )
@@ -191,9 +191,9 @@ export function SingleVariantFields({
         ) : null
       ) : (
         <div className="min-w-0">
-          <p className="block text-sm font-medium text-gray-700 mb-1">สต๊อกปัจจุบัน</p>
+          <p className="field-label">สต๊อกปัจจุบัน</p>
           <StockBox row={row} />
-          <p className="mt-1 text-xs text-gray-500">ปรับยอดได้ที่เมนู รับ-จ่ายสต๊อก</p>
+          <p className="field-hint">ปรับยอดได้ที่เมนู รับ-จ่ายสต๊อก</p>
         </div>
       )}
     </div>
@@ -250,12 +250,12 @@ export function SizeRow({
   )
 
   return (
-    <li className={`relative panel p-3 sm:p-4 grid grid-cols-6 gap-x-3 gap-y-3 min-[1400px]:gap-x-2 min-[1400px]:gap-y-1 min-[1400px]:items-start min-[1400px]:rounded-none min-[1400px]:border-0 min-[1400px]:border-t min-[1400px]:border-blush-hair min-[1400px]:bg-transparent min-[1400px]:px-3 min-[1400px]:py-2.5 ${SIZE_GRID_TABLE}`}>
-      {/* ไซส์ — ใช้ฟอนต์เนื้อหา (ตัว M ของฟอนต์หัวเรื่อง Kodchasan ดูเหมือน m ตัวเล็ก) */}
+    <li className={`relative panel p-3 sm:p-4 grid grid-cols-6 gap-x-3 gap-y-3 min-[1400px]:gap-x-2 min-[1400px]:gap-y-1 min-[1400px]:items-start min-[1400px]:rounded-none min-[1400px]:border-0 min-[1400px]:border-t min-[1400px]:border-gray-150 min-[1400px]:bg-transparent min-[1400px]:px-3 min-[1400px]:py-2.5 ${SIZE_GRID_TABLE}`}>
+      {/* ไซส์ (ตัวหนาปานกลาง อ่านง่าย) */}
       <Field id={ids.size} label="ไซส์" required tableMode error={errOf(fieldError, ids.size)} className="col-span-2 min-[1400px]:col-span-1">
         <input
           id={ids.size}
-          className="input px-3 text-center font-sans font-bold"
+          className="input px-3 text-center font-semibold"
           value={row.size}
           disabled={disabled}
           maxLength={MAX_SIZE_LEN + 10}
@@ -331,13 +331,13 @@ export function SizeRow({
           </Field>
         ) : (
           <div className="col-span-3 min-[1400px]:col-span-1 min-w-0">
-            <p className="block text-sm font-medium text-gray-700 mb-1 min-[1400px]:sr-only">คงเหลือ</p>
+            <p className="field-label min-[1400px]:sr-only">คงเหลือ</p>
             <div className="panel flex min-h-[44px] items-center px-3.5 text-sm text-gray-500">ใหม่ · 0</div>
           </div>
         )
       ) : (
         <div className="col-span-3 min-[1400px]:col-span-1 min-w-0">
-          <p className="block text-sm font-medium text-gray-700 mb-1 min-[1400px]:sr-only">คงเหลือ</p>
+          <p className="field-label min-[1400px]:sr-only">คงเหลือ</p>
           <StockBox row={row} />
         </div>
       )}
@@ -351,11 +351,11 @@ export function SizeRow({
           disabled={disabled || !groupActive}
           onClick={() => onChange({ active: !row.active })}
           title={groupActive ? undefined : 'สินค้านี้ปิดใช้งานทั้งแบบอยู่ — เปิดขายสินค้าก่อน'}
-          className={`inline-flex w-full items-center justify-center gap-2 min-h-[44px] rounded-full border-2 px-3 text-sm font-semibold leading-tight whitespace-nowrap select-none transition-[transform,background-color,border-color,color] duration-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 ${
-            on ? 'border-green-200 bg-green-50 text-green-800' : 'border-blush-line bg-white text-gray-600'
+          className={`inline-flex w-full items-center justify-center gap-2 min-h-[44px] rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium leading-tight whitespace-nowrap select-none transition-colors duration-150 active:bg-gray-100 [@media(hover:hover)]:hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 ${
+            on ? 'text-green-800' : 'text-gray-600'
           }`}
         >
-          <span aria-hidden="true" className={`switch switch-sm switch-leaf ${on ? 'switch-on' : 'bg-gray-100'}`}>
+          <span aria-hidden="true" className={`switch switch-sm switch-leaf ${on ? 'switch-on' : ''}`}>
             <span className="switch-knob" />
           </span>
           {on ? 'เปิดขาย' : 'ปิดขาย'}

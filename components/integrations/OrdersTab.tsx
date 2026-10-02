@@ -187,7 +187,7 @@ export default function OrdersTab({
 
       {rows.length === 0 ? (
         <div className="card empty-state">
-          <span className="icon-bubble icon-bubble-lg"><ShoppingBag size={30} strokeWidth={1.8} aria-hidden="true" /></span>
+          <span className="icon-bubble icon-bubble-lg"><ShoppingBag size={28} strokeWidth={1.75} aria-hidden="true" /></span>
           <p className="empty-state-title">{filter === 'all' ? 'ยังไม่มีออเดอร์จากช่องทางนี้' : 'ไม่มีออเดอร์ตามตัวกรองนี้'}</p>
         </div>
       ) : (
@@ -260,7 +260,7 @@ function OrderCard({
     <li className={clsx('card p-4 space-y-3', o.has_oversold && 'border-red-300')}>
       <div className="space-y-0.5">
         <div className="flex items-start justify-between gap-3">
-          <p className="min-w-0 font-display font-semibold text-gray-900 [overflow-wrap:anywhere]">#{o.external_order_id}</p>
+          <p className="min-w-0 font-semibold text-gray-900 [overflow-wrap:anywhere]">#{o.external_order_id}</p>
           <span className="shrink-0"><OrderStatusPill status={o.status} /></span>
         </div>
         <p className="text-xs text-gray-500 break-words">
@@ -292,7 +292,7 @@ function OrderCard({
         </div>
       )}
 
-      <ul className="panel divide-y divide-blush-hair px-3">
+      <ul className="panel divide-y divide-gray-200 px-3">
         {o.lines.map(line => (
           <OrderLine
             key={line.id}
@@ -369,7 +369,7 @@ function OrderLine({
           </p>
         </div>
         <div className="shrink-0 text-right">
-          <p className="font-display font-bold tabular-nums text-gray-900">× {qty(line.qty)}</p>
+          <p className="font-semibold tabular-nums text-gray-900">× {qty(line.qty)}</p>
           {line.unit_price !== null && <p className="text-xs text-gray-500 tabular-nums">{baht(line.unit_price)}</p>}
         </div>
       </div>
@@ -386,7 +386,7 @@ function OrderLine({
         )}
       </div>
       {canReturn && (
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2">
           <span className="inline-flex items-center gap-1 text-sm font-semibold text-amber-800">
             <Undo2 size={16} strokeWidth={2} aria-hidden="true" />
             รับของคืนแล้ว (รวม)
@@ -401,7 +401,7 @@ function OrderLine({
             >
               <Minus {...ICON_SM} />
             </button>
-            <span className="w-10 text-center font-display text-lg font-bold tabular-nums text-gray-900" aria-live="polite">{total}</span>
+            <span className="w-10 text-center text-lg font-semibold tabular-nums text-gray-900" aria-live="polite">{total}</span>
             <button
               type="button"
               onClick={() => setTotal(t => Math.min(max, t + 1))}

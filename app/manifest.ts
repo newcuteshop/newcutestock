@@ -1,9 +1,11 @@
 import type { MetadataRoute } from 'next'
 
-// ไฟล์ติดตั้งแอป (/manifest.webmanifest) — ไอคอนแบบ 06 "ถุงช้อปปิ้งโบว์" บนพื้นนมชมพู
+// ไฟล์ติดตั้งแอป (/manifest.webmanifest) — ไอคอนแบบ 06 "ถุงช้อปปิ้งโบว์"
 // Next.js ใส่ <link rel="manifest"> ให้เอง · ไฟล์รูปอยู่ใน public/icons (middleware ไม่ตรวจ login กับไฟล์พวกนี้)
-// สีพื้น/สีแถบ = สีนมชมพูเดียวกับ body (globals.css) และ themeColor (app/layout.tsx) → หน้าจอเปิดแอปไม่กระพริบสี
-const MILK = '#FFF3F5'
+// สีพื้นหน้าเปิดแอป = สีพื้น body (globals.css) · สีแถบ = สีขาวของแถบบนและ themeColor (app/layout.tsx) → เปิดแอปแล้วไม่กระพริบสี
+// (ไอคอนแอปไม่เปลี่ยน — เจ้าของเลือกไว้แล้ว)
+const CANVAS = '#F7F6F6'
+const BAR = '#FFFFFF'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -18,8 +20,8 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: '/',
     display: 'standalone',
     orientation: 'any',
-    background_color: MILK,
-    theme_color: MILK,
+    background_color: CANVAS,
+    theme_color: BAR,
     lang: 'th',
     icons: [
       // มุมโค้งมน + มุมโปร่งใส (Windows/เดสก์ท็อปไม่ตัดมุมให้เอง) · เปลี่ยนชื่อไฟล์เมื่อแก้รูป เพื่อให้เครื่องที่ติดตั้งไว้ดึงรูปใหม่

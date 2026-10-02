@@ -251,7 +251,7 @@ export default function BarcodeScanner({ onScan, onClose, title, closeOnSuccess 
     inputRef.current?.focus()
   }
 
-  // กล่องผลสแกน: สำเร็จ = เขียว, ไม่สำเร็จ = แดง, อ่านรหัสได้เฉยๆ = ชมพูนม
+  // กล่องผลสแกน: สำเร็จ = เขียว, ไม่สำเร็จ = แดง, อ่านรหัสได้เฉยๆ = โรสโกลด์อ่อน
   const feedbackClass =
     feedback?.kind === 'ok' ? 'alert-ok'
       : feedback?.kind === 'error' ? 'alert-err'
@@ -263,10 +263,10 @@ export default function BarcodeScanner({ onScan, onClose, title, closeOnSuccess 
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="sheet w-full max-w-md max-h-[90dvh] overflow-y-auto overscroll-contain rounded-b-none border-b-0 sm:rounded-4xl sm:border-b-2 pb-[env(safe-area-inset-bottom)] animate-fade-up"
+        className="sheet w-full max-w-md max-h-[90dvh] overflow-y-auto overscroll-contain rounded-b-none border-b-0 sm:rounded-4xl sm:border-b pb-[env(safe-area-inset-bottom)] animate-fade-up"
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-blush-hair bg-white pl-4 pr-2 py-2">
-          <h3 id={titleId} className="flex min-w-0 items-center gap-2.5 text-base font-bold text-gray-900">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-gray-200 bg-white pl-4 pr-2 py-2">
+          <h3 id={titleId} className="flex min-w-0 items-center gap-2.5 text-base font-semibold text-gray-900">
             <span className="icon-bubble icon-bubble-sm"><ScanBarcode {...ICON_SM} /></span>
             <span className="truncate">{title ?? 'สแกนบาร์โค้ด'}</span>
           </h3>
@@ -289,7 +289,7 @@ export default function BarcodeScanner({ onScan, onClose, title, closeOnSuccess 
           )}
 
           {/* พื้นที่กล้อง — div ที่มี id ห้ามมีลูกที่ React จัดการ เพราะ html5-qrcode ล้าง innerHTML เอง */}
-          <div className={cameraError ? 'hidden' : 'relative flex max-h-[45dvh] min-h-[140px] items-center justify-center overflow-hidden rounded-3xl bg-black ring-4 ring-blush'}>
+          <div className={cameraError ? 'hidden' : 'relative flex max-h-[45dvh] min-h-[140px] items-center justify-center overflow-hidden rounded-xl bg-black ring-1 ring-gray-200'}>
             <div id={scannerId} className="w-full" />
             {!cameraReady && !cameraError && (
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-white/80">
@@ -314,7 +314,7 @@ export default function BarcodeScanner({ onScan, onClose, title, closeOnSuccess 
           </div>
 
           <div>
-            <div className="wave-divider decor mb-3" aria-hidden="true" />
+            <hr className="divider mb-3" />
             <form onSubmit={handleManualSubmit} className="flex gap-2">
               <input
                 ref={inputRef}

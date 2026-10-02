@@ -565,7 +565,7 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
     }
   }
 
-  // กล่องข้อความตามธีม: สำเร็จ = เขียว, ผิดพลาด = แดง, แจ้งให้ทราบ = นมชมพู
+  // กล่องข้อความตามธีม: สำเร็จ = เขียว, ผิดพลาด = แดง, แจ้งให้ทราบ = โรสโกลด์อ่อน
   const noticeClass = (n: Notice) =>
     n.type === 'ok' ? 'alert-ok'
       : n.type === 'error' ? 'alert-err'
@@ -616,12 +616,12 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
 
         <div className="card overflow-hidden">
           {/* จอกว้างมาก (2xl+): รายการสินค้า 2 คอลัมน์ */}
-          <div className="max-h-[55vh] lg:max-h-[600px] overflow-y-auto divide-y divide-blush-hair 2xl:divide-y-0 2xl:grid 2xl:grid-cols-2 2xl:content-start">
+          <div className="max-h-[55vh] lg:max-h-[600px] overflow-y-auto divide-y divide-gray-150 2xl:divide-y-0 2xl:grid 2xl:grid-cols-2 2xl:content-start">
             {shown.map(p => {
               const picked = selected[p.id]
               return (
                 <button key={p.id} type="button" onClick={() => addRow(p)}
-                  className="w-full text-left px-4 sm:px-5 py-3 min-h-[60px] [@media(hover:hover)]:hover:bg-milk active:bg-blush-hair focus-visible:outline-offset-[-3px] transition-colors flex items-center gap-3 2xl:!border-b 2xl:border-blush-hair 2xl:odd:border-r">
+                  className="w-full text-left px-4 sm:px-5 py-3 min-h-[60px] [@media(hover:hover)]:hover:bg-gray-50 active:bg-gray-100 focus-visible:outline-offset-[-3px] transition-colors flex items-center gap-3 2xl:!border-b 2xl:border-gray-150 2xl:odd:border-r">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900 text-sm truncate">{productLabel(p)}</p>
                     <p className="text-xs text-gray-500 truncate mt-0.5">
@@ -630,7 +630,7 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
                   </div>
                   {picked ? (
                     <span className="chip shrink-0">
-                      <Check size={14} strokeWidth={2.4} aria-hidden="true" />
+                      <Check size={14} strokeWidth={2.4} aria-hidden="true" className="text-brand-600" />
                       {picked} ดวง
                     </span>
                   ) : null}
@@ -645,8 +645,8 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
               <div className="empty-state 2xl:col-span-2">
                 <span className="icon-bubble icon-bubble-lg">
                   {products.length === 0
-                    ? <Tag size={30} strokeWidth={1.8} aria-hidden="true" />
-                    : <SearchX size={30} strokeWidth={1.8} aria-hidden="true" />}
+                    ? <Tag size={28} strokeWidth={1.75} aria-hidden="true" />
+                    : <SearchX size={28} strokeWidth={1.75} aria-hidden="true" />}
                 </span>
                 <p className="empty-state-title">
                   {products.length === 0 ? 'ยังไม่มีสินค้าที่เปิดใช้งาน' : 'ไม่พบสินค้า'}
@@ -666,14 +666,14 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
       <div className="card p-4 sm:p-5 space-y-4 h-fit min-w-0 lg:w-[380px] lg:shrink-0 lg:sticky lg:top-0">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="section-title min-w-0">
-            <span className="icon-bubble icon-bubble-sm"><Tag {...ICON_SM} /></span>
+            <Tag {...ICON} />
             รายการสติกเกอร์
           </h2>
           <span className="chip tabular-nums">{totalLabels.toLocaleString('en-US')} ดวง · {pages} หน้า</span>
         </div>
 
         <div>
-          <label htmlFor="label-size" className="block text-sm font-medium text-gray-700 mb-1">ขนาด</label>
+          <label htmlFor="label-size" className="field-label">ขนาด</label>
           <select id="label-size" className="input" value={size} disabled={generating}
             onChange={e => { setSize(e.target.value as SizeKey); setWarnings([]) }}>
             {SIZE_KEYS.map(k => (
@@ -730,7 +730,7 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
                     inputMode="numeric"
                     pattern="[0-9]*"
                     aria-label={`จำนวน ${label}`}
-                    className="input w-16 text-center px-1 font-display font-bold tabular-nums"
+                    className="input w-16 text-center px-1 font-semibold tabular-nums"
                     value={r.qty}
                     disabled={generating}
                     onChange={e => setQtyRaw(p.id, e.target.value)}
@@ -762,7 +762,7 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
             </span>
           </button>
           {generating && progress && progress.total > 0 && (
-            <div className="h-2 bg-blush-hair rounded-full overflow-hidden">
+            <div className="h-2 bg-gray-150 rounded-full overflow-hidden">
               {/* ไม่ใส่ transition ที่ความกว้าง (ขยับเป็นช่วงๆ ทุก 20 ดวงอยู่แล้ว) — ไม่ต้องวาดใหม่ทุกเฟรม */}
               <div className="h-full bg-brand-600 rounded-full"
                 style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }} />

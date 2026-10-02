@@ -30,14 +30,14 @@ type StatCard = {
   unit?: string
   sub?: string
   icon: LucideIcon
-  // คลาสฟองไอคอน (สีตามความหมาย) + จังหวะแสงวาวกระโดด (รวมทั้งจอไม่เกิน 4 ฟอง)
+  // คลาสกล่องไอคอนตามความหมาย ('' = โรสโกลด์ปกติ, -warn = เตือน, -strong = การ์ดเด่น)
   bubble: string
   // การ์ดเด่นหนึ่งใบ (ยอดขายวันนี้)
   hot?: boolean
   href: string | null
 }
 
-type QuickAction = { href: string; label: string; icon: LucideIcon; variant: 'btn-primary' | 'btn-soft' | 'btn-dashed' }
+type QuickAction = { href: string; label: string; icon: LucideIcon; variant: 'btn-primary' | 'btn-soft' | 'btn-secondary' }
 
 function num(v: unknown): number {
   const n = Number(v)
@@ -61,8 +61,8 @@ function StatCardView({ card, wide }: { card: StatCard; wide: boolean }) {
         {/* ตัวเลขห้ามแยกบรรทัดกลางจำนวน (อ่านเป็นยอดอื่นได้) — หน่วย/บิลขึ้นบรรทัดใหม่ได้
             แต่ "· 7 บิล" ต้องไปทั้งก้อน (การ์ดครึ่งจอมือถือเคยเหลือ "บิล" ตกบรรทัดเดียว) */}
         <span className="whitespace-nowrap">{card.value}</span>
-        {card.unit && <span className={`stat-sub font-sans font-normal ${card.hot ? 'text-gray-600' : ''}`}> {card.unit}</span>}
-        {card.sub && <span className={`stat-sub font-sans font-normal ${card.hot ? 'text-gray-600' : ''}`}> <span className="whitespace-nowrap">· {card.sub}</span></span>}
+        {card.unit && <span className={`stat-sub ${card.hot ? 'text-gray-600' : ''}`}> {card.unit}</span>}
+        {card.sub && <span className={`stat-sub ${card.hot ? 'text-gray-600' : ''}`}> <span className="whitespace-nowrap">· {card.sub}</span></span>}
       </p>
     </>
   )
@@ -91,7 +91,7 @@ export default async function DashboardPage() {
           </div>
         </div>
         <div className="card empty-state">
-          <span className="icon-bubble icon-bubble-lg icon-bubble-warn"><Lock size={30} strokeWidth={1.8} aria-hidden="true" /></span>
+          <span className="icon-bubble icon-bubble-lg icon-bubble-warn"><Lock size={28} strokeWidth={1.75} aria-hidden="true" /></span>
           <p className="empty-state-title max-w-md">
             บัญชีนี้ยังไม่ได้รับสิทธิ์ใช้งานเมนูใดๆ กรุณาติดต่อผู้ดูแลระบบเพื่อกำหนดสิทธิ์
           </p>
@@ -158,7 +158,7 @@ export default async function DashboardPage() {
       value: totalProducts.toLocaleString('en-US'),
       unit: 'รายการ',
       icon: Package,
-      bubble: 'hop',
+      bubble: '',
       href: permissions.products ? '/products' : null,
     },
   ]
@@ -178,7 +178,7 @@ export default async function DashboardPage() {
       value: lowStock.length.toLocaleString('en-US'),
       unit: 'รายการ',
       icon: AlertTriangle,
-      bubble: 'icon-bubble-warn hop hop-2',
+      bubble: 'icon-bubble-warn',
       href: permissions.stock ? '/stock' : permissions.reports ? '/reports' : null,
     },
     {
@@ -186,17 +186,17 @@ export default async function DashboardPage() {
       value: baht(todayRevenue),
       sub: `${todayBills.toLocaleString('en-US')} บิล`,
       icon: ShoppingBag,
-      bubble: 'icon-bubble-strong hop hop-3',
+      bubble: 'icon-bubble-strong',
       hot: true,
       href: permissions.sales ? '/sales' : permissions.reports ? '/reports' : null,
     },
   )
 
-  // ปุ่มหลัก (ลูกกวาด) มีได้อันเดียว — รับสินค้าเข้า = ปุ่มบลัช, เพิ่มสินค้าใหม่ = ปุ่มเส้นประ
+  // ปุ่มหลัก (โรสโกลด์) มีได้อันเดียว — รับสินค้าเข้า = ปุ่มรองโทนโรสอ่อน, เพิ่มสินค้าใหม่ = ปุ่มรองขาว
   const quickActions: QuickAction[] = []
   if (permissions.sales) quickActions.push({ href: '/sales', label: 'บันทึกการขาย', icon: ReceiptText, variant: 'btn-primary' })
   if (permissions.stock) quickActions.push({ href: '/stock?action=in', label: 'รับสินค้าเข้า', icon: ArrowDownToLine, variant: 'btn-soft' })
-  if (permissions.products) quickActions.push({ href: '/products/new', label: 'เพิ่มสินค้าใหม่', icon: Plus, variant: 'btn-dashed' })
+  if (permissions.products) quickActions.push({ href: '/products/new', label: 'เพิ่มสินค้าใหม่', icon: Plus, variant: 'btn-secondary' })
 
   const lowStockHref = permissions.stock ? '/stock' : permissions.reports ? '/reports' : null
   // คอมจอกว้าง (xl+): ทำรายการด่วน (1 ส่วน) กับ สต๊อกใกล้หมด (2 ส่วน) วางข้างกัน — มีแค่อย่างเดียวให้เต็มแถว
@@ -222,9 +222,11 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6 items-start">
           {/* Quick Actions */}
           {quickActions.length > 0 && (
-            <div className={`card p-4 sm:p-5 ${sideBySide ? '' : 'xl:col-span-3'}`}>
-              <h2 className="section-kicker mb-3">ทำรายการด่วน</h2>
-              <div className={`grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:gap-3 ${sideBySide ? 'xl:grid' : ''}`}>
+            <section className={`card ${sideBySide ? '' : 'xl:col-span-3'}`}>
+              <div className="card-header">
+                <h2 className="section-title">ทำรายการด่วน</h2>
+              </div>
+              <div className={`grid grid-cols-1 gap-2 p-4 sm:flex sm:flex-wrap sm:gap-3 sm:p-5 ${sideBySide ? 'xl:grid' : ''}`}>
                 {quickActions.map(a => {
                   const Icon = a.icon
                   return (
@@ -235,18 +237,28 @@ export default async function DashboardPage() {
                   )
                 })}
               </div>
-            </div>
+            </section>
           )}
 
           {/* Low Stock Warning */}
           {lowStockTop.length > 0 && (
-            <div className={`card p-4 sm:p-5 ${sideBySide ? 'xl:col-span-2' : 'xl:col-span-3'}`}>
-              <h2 className="section-title flex-wrap mb-1 sm:mb-2">
-                <AlertTriangle {...ICON} className="text-amber-600" />
-                สินค้าสต๊อกใกล้หมด
-                <span className="font-sans text-sm font-normal text-gray-500">({lowStock.length.toLocaleString('en-US')} รายการ)</span>
-              </h2>
-              <div className="divide-y divide-brand-100">
+            <section className={`card overflow-hidden ${sideBySide ? 'xl:col-span-2' : 'xl:col-span-3'}`}>
+              {/* มือถือ: ลิงก์ "ดูทั้งหมด" อยู่ขวาเสมอ — จำนวนรายการขึ้นบรรทัดใหม่ใต้หัวข้อแทน */}
+              <div className="card-header">
+                <h2 className="section-title min-w-0 flex-wrap gap-y-0">
+                  {/* ไอคอนเตือนสีอำพัน (ชนะสีโรสโกลด์อัตโนมัติของ .section-title) */}
+                  <AlertTriangle {...ICON} className="!text-amber-600" />
+                  สินค้าสต๊อกใกล้หมด
+                  <span className="text-sm font-normal text-gray-500">({lowStock.length.toLocaleString('en-US')} รายการ)</span>
+                </h2>
+                {lowStockHref && (
+                  <Link href={lowStockHref} className="link shrink-0 text-sm">
+                    ดูทั้งหมด
+                    <ArrowRight {...ICON_SM} />
+                  </Link>
+                )}
+              </div>
+              <div className="divide-y divide-gray-150">
                 {lowStockTop.map(item => {
                   const qty = num(item.stock_qty)
                   const groupId = groupIdOf.get(item.id)
@@ -254,11 +266,11 @@ export default async function DashboardPage() {
                     <>
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-gray-900 text-sm break-words">{productLabel(item)}</p>
-                        <p className="text-xs text-gray-400 truncate">SKU: {item.sku}</p>
+                        <p className="text-xs text-gray-500 truncate">SKU: {item.sku}</p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="font-display font-bold tabular-nums text-red-600">{qty <= 0 ? 'หมด' : `${qty.toLocaleString('en-US')} ชิ้น`}</p>
-                        <p className="text-xs text-gray-400">ขั้นต่ำ: {num(item.min_stock).toLocaleString('en-US')}</p>
+                        <p className="font-semibold tabular-nums text-red-700">{qty <= 0 ? 'หมด' : `${qty.toLocaleString('en-US')} ชิ้น`}</p>
+                        <p className="text-xs text-gray-500 tabular-nums">ขั้นต่ำ: {num(item.min_stock).toLocaleString('en-US')}</p>
                       </div>
                     </>
                   )
@@ -267,25 +279,19 @@ export default async function DashboardPage() {
                       key={item.id}
                       href={`/products/${groupId}`}
                       prefetch={false}
-                      className="-mx-2 flex min-h-[44px] items-center justify-between gap-3 rounded-2xl px-2 py-3 transition-colors active:bg-blush-soft [@media(hover:hover)]:hover:bg-gray-50"
+                      className="flex min-h-[44px] items-center justify-between gap-3 px-4 py-3 sm:px-5 transition-colors active:bg-gray-100 [@media(hover:hover)]:hover:bg-gray-50"
                     >
                       {body}
-                      <ChevronRight {...ICON_SM} className="text-brand-700" />
+                      <ChevronRight {...ICON_SM} className="shrink-0 text-gray-400" />
                     </Link>
                   ) : (
-                    <div key={item.id} className="flex items-center justify-between gap-3 py-3">
+                    <div key={item.id} className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
                       {body}
                     </div>
                   )
                 })}
               </div>
-              {lowStockHref && (
-                <Link href={lowStockHref} className="link text-sm">
-                  ดูทั้งหมด
-                  <ArrowRight {...ICON_SM} />
-                </Link>
-              )}
-            </div>
+            </section>
           )}
         </div>
       )}

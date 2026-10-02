@@ -62,7 +62,7 @@ export default function ConfirmDialog({
           <span className={clsx('icon-bubble shrink-0', tone === 'danger' ? 'icon-bubble-err' : 'icon-bubble-warn')} aria-hidden="true">
             <AlertTriangle {...ICON_SM} />
           </span>
-          <h3 id={titleId} className="min-w-0 flex-1 pt-2 text-lg font-bold leading-snug text-gray-900 break-words">{title}</h3>
+          <h3 id={titleId} className="min-w-0 flex-1 pt-2 text-lg font-semibold leading-snug text-gray-900 break-words">{title}</h3>
           <button
             type="button"
             onClick={onCancel}

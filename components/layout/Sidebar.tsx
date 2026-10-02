@@ -21,7 +21,6 @@ import type { Permissions } from '@/types'
 import { displayLogin } from '@/lib/auth/credentials'
 import { clearEnteredThisWindow } from '@/lib/auth/entry-gate'
 import BrandMark from '@/components/theme/BrandMark'
-import MotionToggle from '@/components/theme/MotionToggle'
 import { ICON, ICON_SM } from '@/components/theme/icons'
 
 // adminOnly = แสดงเฉพาะบทบาท admin (พนักงานที่มีทุกสิทธิ์ก็ไม่เห็น) ; group 'settings' = อยู่ใต้หัวข้อ "ตั้งค่า"
@@ -88,8 +87,8 @@ export function NavLinks({
     <>
       {main.map(link)}
       {settings.length > 0 && (
-        <div role="group" aria-label="ตั้งค่า" className="space-y-1 pt-3">
-          <p aria-hidden="true" className="section-kicker px-4 pb-0.5">ตั้งค่า</p>
+        <div role="group" aria-label="ตั้งค่า" className="space-y-1 pt-4">
+          <p aria-hidden="true" className="section-kicker px-3 pb-1">ตั้งค่า</p>
           {settings.map(link)}
         </div>
       )}
@@ -119,17 +118,17 @@ export function UserPill({ fullName, login, role }: { fullName: string | null; l
   const RoleIcon = role === 'admin' ? Crown : UserRound
   return (
     <div className="user-pill">
-      <span className="icon-bubble icon-bubble-sm font-display font-bold text-berry" aria-hidden="true">
+      <span className="icon-bubble icon-bubble-sm rounded-full text-sm font-semibold text-gray-900" aria-hidden="true">
         {initial || <UserRound {...ICON_SM} />}
       </span>
       <div className="min-w-0 flex-1 leading-normal">
-        <p className="text-sm font-bold text-gray-900 truncate" title={fullName || login}>{fullName || login}</p>
+        <p className="text-sm font-semibold text-gray-900 truncate" title={fullName || login}>{fullName || login}</p>
         <p className="flex items-center gap-1 min-w-0 text-xs text-gray-500">
           <RoleIcon
             size={14}
             strokeWidth={2}
             aria-hidden="true"
-            className={role === 'admin' ? 'text-amber-600' : 'text-brand-700'}
+            className={role === 'admin' ? 'text-amber-600' : 'text-brand-600'}
           />
           <span className="shrink-0">{roleLabel(role)}</span>
           {/* มีชื่อจริง → ชื่อผู้ใช้ย้ายมาบรรทัดนี้ */}
@@ -182,25 +181,24 @@ export default function Sidebar({ email, fullName, role, permissions }: NavProps
   const login = displayLogin(email)
 
   return (
-    // พื้นบลัช + ขอบขวาหยักวาดใน .surface-sidebar::before — ขอบขวาเว้น >= 24px ให้พ้นลอนหยัก 12px
+    // พื้นขาว + เส้นขวาบาง 1px (.surface-sidebar)
     <aside className="surface-sidebar hidden md:flex w-60 shrink-0 flex-col pt-safe pb-safe pl-safe">
       {/* Logo */}
-      <div className="flex items-center gap-3 pl-5 pr-7 pt-6 pb-4 shrink-0">
+      <div className="flex items-center gap-3 px-4 pt-5 pb-4 shrink-0">
         <BrandMark />
         <div className="min-w-0">
-          <p className="font-display text-lg font-bold leading-tight tracking-wide text-gray-900">NEWCUTE</p>
+          <p className="text-lg font-semibold leading-tight tracking-wide text-gray-900">NEWCUTE</p>
           <p className="truncate text-xs text-gray-500">ระบบสต๊อกสินค้าเสื้อผ้า</p>
         </div>
       </div>
 
-      {/* Nav — เมนูที่เลือกอยู่ (aria-current) เป็นแคปซูลลูกกวาดเองจาก .nav-item */}
-      <nav aria-label="เมนูหลัก" className="flex-1 overflow-y-auto overscroll-y-contain pl-3 pr-6 py-2 space-y-1">
+      {/* Nav — เมนูที่เลือกอยู่ (aria-current) = พื้นโรสโกลด์อ่อน + ตัวอักษรโรสโกลด์เข้ม (มาจาก .nav-item เอง) */}
+      <nav aria-label="เมนูหลัก" className="flex-1 overflow-y-auto overscroll-y-contain px-3 py-2 space-y-1">
         <NavLinks items={items} pathname={pathname} />
       </nav>
 
-      {/* สวิตช์เอฟเฟกต์ + ผู้ใช้ + ออกจากระบบ */}
-      <div className="shrink-0 pl-3 pr-6 pt-2 pb-4 space-y-2">
-        <MotionToggle />
+      {/* ผู้ใช้ + ออกจากระบบ (คั่นจากเมนูด้วยเส้นบาง) */}
+      <div className="shrink-0 border-t border-gray-150 px-3 pt-3 pb-4 space-y-2">
         <UserPill fullName={fullName} login={login} role={role} />
         <button
           type="button"

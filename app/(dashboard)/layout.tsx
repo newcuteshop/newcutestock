@@ -9,8 +9,8 @@ import { getSession } from '@/lib/auth/permissions'
 const NOSCRIPT_LOCK =
   '<style>.app-shell{display:none!important}</style>' +
   '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;text-align:center">' +
-  '<p style="margin:0;max-width:22rem;font-size:15px;line-height:1.7;color:#5C2336">' +
-  'ต้องเปิด JavaScript ก่อนจึงจะใช้ระบบได้<br><a href="/login" style="color:#5C2336;font-weight:700">ไปหน้าเข้าสู่ระบบ</a>' +
+  '<p style="margin:0;max-width:22rem;font-size:15px;line-height:1.7;color:#201B1D">' +
+  'ต้องเปิด JavaScript ก่อนจึงจะใช้ระบบได้<br><a href="/login" style="color:#A43D56;font-weight:600">ไปหน้าเข้าสู่ระบบ</a>' +
   '</p></div>'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -28,8 +28,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <>
       <noscript dangerouslySetInnerHTML={{ __html: NOSCRIPT_LOCK }} />
-      {/* ไม่ใส่พื้นหลัง: ให้พื้นนมชมพู + กลีบกุหลาบของ body (app/layout.tsx) มองเห็นผ่านช่องว่างระหว่างการ์ด
-          .app-shell = บอก globals.css ว่าเป็นหน้าระบบ (ซ่อนกลีบแถบหัวเรื่องเมื่อจอแคบ ไม่ให้ทับหัวเรื่อง) */}
+      {/* ไม่ใส่พื้นหลัง: ใช้พื้นเทาอ่อนของ body (การ์ดขาววางบนพื้นนี้)
+          .app-shell = ตัวห่อหน้าระบบ (NOSCRIPT_LOCK ด้านบนซ่อนตัวนี้เมื่อปิด JavaScript) */}
       <div className="app-shell flex h-[100dvh] overflow-hidden">
         {/* หน้าต่างใหม่ที่ยังไม่ได้เข้าสู่ระบบเอง → ออกจากระบบ + ไปหน้าเข้าสู่ระบบ (อยู่ใน layout = ไม่ mount ใหม่ตอนเปลี่ยนหน้า) */}
         <EntryGate />
@@ -44,8 +44,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
           {/* โปร่งใสเสมอ (ห้ามใส่ bg-*) · overscroll-y-contain = เลื่อนสุดแล้วไม่ลากทั้งหน้า */}
           <main className="flex-1 overflow-y-auto overscroll-y-contain pb-safe pl-safe pr-safe md:pl-0">
             {/* คอม: ใช้ความกว้างเต็มจอ (ไม่บีบเป็นคอลัมน์แคบกลางจอ)
-                มือถือ: ขอบบนเผื่อขอบหยักของแถบบนที่ห้อยลงมา 11px ไม่ให้ชิดหัวเรื่อง */}
-            <div className="w-full px-3 pt-6 pb-3 sm:px-4 sm:pt-7 sm:pb-4 md:p-6 xl:p-8">
+                มือถือ: ขอบซ้าย-ขวา px-3 / sm:px-4 ต้องเท่ากับ -mx-3 sm:-mx-4 ของแถบบันทึกใน ProductForm (แถบยืดชนขอบจอ) */}
+            <div className="w-full px-3 pt-4 pb-3 sm:px-4 sm:pt-5 sm:pb-4 md:p-6 xl:p-8">
               {children}
             </div>
           </main>

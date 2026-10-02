@@ -129,7 +129,7 @@ function PaymentText({ method, size = 18 }: { method: string; size?: number }) {
   const Icon = PAYMENT_ICONS[method]
   return (
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-      {Icon && <Icon size={size} strokeWidth={1.9} aria-hidden="true" className="text-brand-600" />}
+      {Icon && <Icon size={size} strokeWidth={1.75} aria-hidden="true" className="text-brand-600" />}
       {PAYMENT_LABELS[method] ?? method}
     </span>
   )
@@ -828,18 +828,18 @@ export default function SalesClient({ products, recentSales }: {
 
           {catalog.length === 0 ? (
             <div className="card empty-state">
-              <span className="icon-bubble icon-bubble-lg"><Shirt size={30} strokeWidth={1.8} aria-hidden="true" /></span>
+              <span className="icon-bubble icon-bubble-lg"><Shirt size={28} strokeWidth={1.75} aria-hidden="true" /></span>
               <p className="empty-state-title">ยังไม่มีสินค้าที่เปิดขาย — เพิ่มสินค้าที่เมนู &quot;สินค้า&quot; ก่อน</p>
             </div>
           ) : filtered.length === 0 ? (
             <div className="card empty-state">
-              <span className="icon-bubble icon-bubble-lg"><SearchX size={30} strokeWidth={1.8} aria-hidden="true" /></span>
+              <span className="icon-bubble icon-bubble-lg"><SearchX size={28} strokeWidth={1.75} aria-hidden="true" /></span>
               <p className="empty-state-title break-words">ไม่พบสินค้าที่ตรงกับ &quot;{search.trim()}&quot;</p>
             </div>
           ) : (
             <>
               {/* จำนวนคอลัมน์เพิ่มตามความกว้างจอ (การ์ดกว้างราว 150-230px)
-                  lg+: กล่องเลื่อนในตัว เว้นขอบ 4px ไม่ให้การ์ดที่ลอยขึ้นตอนชี้ถูกตัดขอบ */}
+                  lg+: กล่องเลื่อนในตัว เว้นขอบ 4px ไม่ให้วงโฟกัสของการ์ดถูกตัดขอบ */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 min-[1150px]:grid-cols-3 2xl:grid-cols-4 min-[1800px]:grid-cols-5 min-[2200px]:grid-cols-6 gap-2 sm:gap-3 lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto lg:overscroll-contain lg:-m-1 lg:p-1">
                 {shown.map(p => {
                   const variant = variantText(p)
@@ -859,7 +859,7 @@ export default function SalesClient({ products, recentSales }: {
                           {inCart}
                         </span>
                       )}
-                      <p className={`w-full font-display font-semibold text-gray-900 text-sm sm:text-[15px] leading-snug line-clamp-2 break-words ${inCart > 0 ? 'pr-8' : ''}`}>
+                      <p className={`w-full font-medium text-gray-900 text-sm sm:text-[15px] leading-snug line-clamp-2 break-words ${inCart > 0 ? 'pr-8' : ''}`}>
                         {p.name}
                       </p>
                       {variant && (
@@ -867,11 +867,11 @@ export default function SalesClient({ products, recentSales }: {
                           <span className="min-w-0 truncate">{variant}</span>
                         </span>
                       )}
-                      <p className="w-full text-xs text-gray-400 mt-1 truncate">{p.sku}</p>
+                      <p className="w-full text-xs text-gray-500 mt-1 truncate">{p.sku}</p>
                       <div className="mt-auto flex w-full flex-wrap items-end justify-between gap-x-2 gap-y-0.5 pt-2">
-                        <span className="money text-base sm:text-lg leading-tight text-brand-600">{baht(p.sell_price)}</span>
-                        <span className={`inline-flex items-center gap-1 text-xs ${out ? 'text-red-700 font-medium' : 'text-gray-400'}`}>
-                          <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${out ? 'bg-red-500' : 'bg-strawberry'}`} />
+                        <span className="money text-base sm:text-lg leading-tight text-gray-900">{baht(p.sell_price)}</span>
+                        <span className={`inline-flex items-center gap-1 text-xs tabular-nums ${out ? 'text-red-700 font-medium' : 'text-gray-500'}`}>
+                          <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${out ? 'bg-red-600' : 'bg-gray-300'}`} />
                           คงเหลือ {p.stock_qty}
                         </span>
                       </div>
@@ -892,10 +892,10 @@ export default function SalesClient({ products, recentSales }: {
         <section id="cart" className="lg:w-[380px] xl:w-[420px] lg:shrink-0 lg:sticky lg:top-4 card p-4 sm:p-5 space-y-4 scroll-mt-20 lg:scroll-mt-4" aria-label="ตะกร้าสินค้า">
           <div className="flex items-center justify-between gap-2">
             <h2 className="section-title min-w-0">
-              <ShoppingCart {...ICON} className="text-brand-600" />
+              <ShoppingCart {...ICON} />
               <span className="min-w-0">
                 ตะกร้า{' '}
-                <span className="font-sans font-normal text-gray-500 text-sm">
+                <span className="font-normal text-gray-500 text-sm tabular-nums">
                   ({lines.length} รายการ{itemCount > 0 ? ` · ${itemCount} ชิ้น` : ''})
                 </span>
               </span>
@@ -921,7 +921,7 @@ export default function SalesClient({ products, recentSales }: {
           ) : (
             <ul className="space-y-2 lg:max-h-[40vh] lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
               {cartView.map(v => (
-                <li key={v.id} className={`p-3 ${v.problem ? 'rounded-2xl bg-red-50 border border-red-200' : 'panel'}`}>
+                <li key={v.id} className={`p-3 ${v.problem ? 'rounded-lg bg-red-50 border border-red-200' : 'panel'}`}>
                   <div className="flex items-start gap-2">
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-medium break-words ${v.problem ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
@@ -963,7 +963,7 @@ export default function SalesClient({ products, recentSales }: {
                           onChange={n => setLineQty(v.id, n)}
                           disabled={saving}
                           ariaLabel={`จำนวน ${v.label}`}
-                          className="input w-[60px] px-1 text-center font-display font-semibold tabular-nums"
+                          className="input w-[60px] px-1 text-center font-semibold tabular-nums"
                         />
                         <button
                           type="button"
@@ -984,7 +984,7 @@ export default function SalesClient({ products, recentSales }: {
           )}
 
           <div className="space-y-3">
-            <div className="wave-divider decor" aria-hidden="true" />
+            <hr className="divider" />
             <div className="flex justify-between text-sm text-gray-600">
               <span>ยอดรวม</span>
               <span className="font-semibold tabular-nums">{baht(total)}</span>
@@ -1008,12 +1008,12 @@ export default function SalesClient({ products, recentSales }: {
               </div>
             </div>
             <div className="panel flex items-center justify-between gap-3 px-4 py-2.5">
-              <span className="font-display font-semibold text-gray-700">ยอดสุทธิ</span>
+              <span className="font-semibold text-gray-700">ยอดสุทธิ</span>
               <span className="money min-w-0 break-words text-right text-2xl text-brand-700">{baht(net)}</span>
             </div>
 
             <div>
-              <label htmlFor="pos-sale-channel" className="block text-sm font-medium text-gray-700 mb-1.5">ช่องทางขาย</label>
+              <label htmlFor="pos-sale-channel" className="field-label">ช่องทางขาย</label>
               <select
                 id="pos-sale-channel"
                 className={`input ${saleChannel !== 'store' ? 'border-brand-600' : ''}`}
@@ -1034,7 +1034,7 @@ export default function SalesClient({ products, recentSales }: {
             </div>
 
             <div>
-              <p className="block text-sm font-medium text-gray-700 mb-1.5">ช่องทางชำระ</p>
+              <p className="field-label">ช่องทางชำระ</p>
               <div className="grid grid-cols-3 gap-2" role="group" aria-label="ช่องทางชำระ">
                 {PAYMENT_OPTIONS.map(opt => {
                   const active = paymentMethod === opt.value
@@ -1103,7 +1103,7 @@ export default function SalesClient({ products, recentSales }: {
               type="button"
               onClick={handleCheckout}
               disabled={(payable.length === 0 && !pending) || saving}
-              className="btn-primary w-full min-h-[56px] text-lg"
+              className="btn-primary w-full min-h-[52px] text-base"
             >
               {saving ? (
                 <>
@@ -1128,9 +1128,9 @@ export default function SalesClient({ products, recentSales }: {
 
       {/* ===== รายการขายล่าสุด ===== */}
       <section className="card overflow-hidden mt-4 sm:mt-6">
-        <div className="px-4 py-3.5 sm:px-5">
+        <div className="card-header">
           <h2 className="section-title">
-            <History {...ICON} className="text-brand-600" />
+            <History {...ICON} />
             รายการขายล่าสุด
           </h2>
         </div>
@@ -1146,7 +1146,7 @@ export default function SalesClient({ products, recentSales }: {
             </thead>
             <tbody>
               {recentSales.length === 0 && (
-                <tr><td colSpan={4} className="text-center py-6 text-gray-400">ยังไม่มีรายการ</td></tr>
+                <tr><td colSpan={4} className="text-center py-6 text-gray-500">ยังไม่มีรายการ</td></tr>
               )}
               {recentSales.map(s => {
                 const voided = !!s.voided_at
@@ -1156,7 +1156,7 @@ export default function SalesClient({ products, recentSales }: {
                     <td className={`font-mono text-xs whitespace-nowrap ${voided ? 'text-gray-400' : 'text-gray-600'}`}>
                       {s.sale_no}
                       {voided && (
-                        <span className="chip-outline mt-1 flex w-fit font-display" title="ออเดอร์ถูกยกเลิกก่อนส่ง — คืนสต๊อกแล้ว ไม่นับในยอดขาย">
+                        <span className="chip-outline mt-1 flex w-fit" title="ออเดอร์ถูกยกเลิกก่อนส่ง — คืนสต๊อกแล้ว ไม่นับในยอดขาย">
                           ยกเลิก
                         </span>
                       )}
@@ -1165,7 +1165,7 @@ export default function SalesClient({ products, recentSales }: {
                       {s.payment_method === 'marketplace' ? (
                         // บิลจากออเดอร์แพลตฟอร์ม: ลูกค้าจ่ายผ่านแพลตฟอร์ม — แสดงชื่อแพลตฟอร์มแทน (คอลัมน์ไม่กว้างเกินจอมือถือ)
                         <span className="inline-flex items-center gap-1.5 whitespace-nowrap" title={PAYMENT_LABELS.marketplace}>
-                          <ShoppingBag size={18} strokeWidth={1.9} aria-hidden="true" className="text-brand-600" />
+                          <ShoppingBag {...ICON_SM} className="text-brand-600" />
                           {channel || PAYMENT_LABELS.marketplace}
                         </span>
                       ) : (
@@ -1180,7 +1180,7 @@ export default function SalesClient({ products, recentSales }: {
                         {baht(toNum(s.net_amount))}
                       </span>
                     </td>
-                    <td className="text-right text-gray-400 text-xs whitespace-nowrap">
+                    <td className="text-right text-gray-500 text-xs whitespace-nowrap tabular-nums">
                       {formatThaiDateTime(s.created_at)}
                     </td>
                   </tr>
@@ -1191,7 +1191,7 @@ export default function SalesClient({ products, recentSales }: {
         </div>
       </section>
 
-      {/* ===== แถบชำระเงินด้านล่าง (มือถือ/แท็บเล็ต) — ทึบ อยู่เหนือกลีบกุหลาบ ===== */}
+      {/* ===== แถบชำระเงินด้านล่าง (มือถือ/แท็บเล็ต) — พื้นขาว เส้นบนบาง ===== */}
       {!payButtonVisible && !success && (
         <div className="lg:hidden fixed inset-x-0 md:left-60 bottom-0 z-30 bottom-bar pb-[env(safe-area-inset-bottom)] pl-safe pr-safe md:pl-0">
           <div className="flex items-center gap-3 px-4 py-2.5">
@@ -1247,16 +1247,16 @@ export default function SalesClient({ products, recentSales }: {
         >
           <div className="sheet w-full max-w-md max-h-[90dvh] overflow-y-auto overscroll-contain p-5 space-y-4 pb-[calc(1.25rem_+_env(safe-area-inset-bottom))] sm:pb-5 animate-pop-in">
             <div className="text-center">
-              <span className={`icon-bubble icon-bubble-lg ${successSale.already_saved ? '' : 'icon-bubble-strong hop'}`}>
+              <span className={`icon-bubble icon-bubble-lg ${successSale.already_saved ? '' : 'icon-bubble-strong'}`}>
                 {successSale.already_saved
-                  ? <Info size={30} strokeWidth={1.8} aria-hidden="true" />
-                  : <Check size={32} strokeWidth={2.4} aria-hidden="true" />}
+                  ? <Info size={28} strokeWidth={1.75} aria-hidden="true" />
+                  : <Check size={28} strokeWidth={2.2} aria-hidden="true" />}
               </span>
-              <h3 id="pos-success-title" className="mt-3 text-xl font-bold text-gray-900">
+              <h3 id="pos-success-title" className="mt-3 text-xl font-semibold text-gray-900">
                 {successSale.already_saved ? 'บิลนี้บันทึกไว้แล้ว' : 'บันทึกการขายสำเร็จ'}
               </h3>
               <p className="mt-1 font-mono text-sm text-gray-600">เลขที่ {successSale.sale_no}</p>
-              <p className="mt-0.5 flex flex-wrap items-center justify-center gap-x-1.5 text-xs text-gray-400">
+              <p className="mt-0.5 flex flex-wrap items-center justify-center gap-x-1.5 text-xs text-gray-500">
                 <span>{formatThaiDateTime(successSale.created_at)}</span>
                 <span>·</span>
                 <PaymentText method={successSale.payment_method} size={14} />
@@ -1294,12 +1294,12 @@ export default function SalesClient({ products, recentSales }: {
             )}
 
             {successSale.items.length > 0 && (
-              <ul className="panel divide-y divide-blush-hair px-3.5 text-sm">
+              <ul className="panel divide-y divide-gray-200 px-3.5 text-sm">
                 {successSale.items.map((it, i) => (
                   <li key={`${it.product_id}-${i}`} className="flex items-start justify-between gap-3 py-2.5">
                     <div className="min-w-0">
                       <p className="text-gray-900 break-words">{productLabel(it)}</p>
-                      <p className="text-xs text-gray-400">{baht(it.unit_price)} × {it.qty}</p>
+                      <p className="text-xs text-gray-500 tabular-nums">{baht(it.unit_price)} × {it.qty}</p>
                     </div>
                     <p className="font-semibold text-gray-900 whitespace-nowrap tabular-nums">{baht(it.subtotal)}</p>
                   </li>
@@ -1307,7 +1307,7 @@ export default function SalesClient({ products, recentSales }: {
               </ul>
             )}
 
-            <div className="wave-divider decor" aria-hidden="true" />
+            <hr className="divider" />
             <div className="space-y-1 text-sm">
               <div className="flex justify-between text-gray-600">
                 <span>ยอดรวม</span><span className="tabular-nums">{baht(successSale.total_amount)}</span>
@@ -1318,7 +1318,7 @@ export default function SalesClient({ products, recentSales }: {
                 </div>
               )}
               <div className="flex justify-between items-center gap-3 pt-1">
-                <span className="font-display text-base font-bold text-gray-900">ยอดสุทธิ</span>
+                <span className="text-base font-semibold text-gray-900">ยอดสุทธิ</span>
                 <span className="money min-w-0 break-words text-right text-2xl sm:text-3xl text-brand-700">{baht(successSale.net_amount)}</span>
               </div>
             </div>
@@ -1327,7 +1327,7 @@ export default function SalesClient({ products, recentSales }: {
               type="button"
               autoFocus
               onClick={startNewBill}
-              className="btn-primary w-full min-h-[56px] text-lg"
+              className="btn-primary w-full min-h-[52px] text-base"
             >
               <Receipt {...ICON} />
               ขายบิลใหม่

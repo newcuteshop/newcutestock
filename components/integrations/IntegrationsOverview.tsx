@@ -255,7 +255,7 @@ function EmptyPlatformCard({
       <div className="flex items-center gap-3">
         <PlatformBadge platform={platform} />
         <div className="min-w-0 flex-1">
-          <p className="font-display text-lg font-bold leading-tight text-gray-900 break-words">{meta.label}</p>
+          <p className="text-base sm:text-lg font-semibold leading-tight text-gray-900 break-words">{meta.label}</p>
           <p className="text-xs text-gray-500">ยังไม่ได้ตั้งค่า</p>
         </div>
       </div>
@@ -301,7 +301,7 @@ function StepsDetails({ platform }: { platform: Platform }) {
   if (steps.length === 0) return null
   return (
     <details className="group panel px-3">
-      <summary className="flex min-h-[44px] cursor-pointer select-none items-center justify-between gap-2 text-sm font-semibold text-brand-800 [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-[44px] cursor-pointer select-none items-center justify-between gap-2 text-sm font-semibold text-brand-700 [&::-webkit-details-marker]:hidden">
         ขั้นตอนสมัคร ({steps.length} ขั้น)
         <ChevronDown size={18} strokeWidth={1.9} aria-hidden="true" className="shrink-0 transition-transform group-open:rotate-180" />
       </summary>
@@ -341,7 +341,7 @@ function ChannelCard({
       <div className="flex items-start gap-3">
         <PlatformBadge platform={c.platform} />
         <div className="min-w-0 flex-1">
-          <p className="font-display text-lg font-bold leading-tight text-gray-900 break-words">{c.display_name}</p>
+          <p className="text-base sm:text-lg font-semibold leading-tight text-gray-900 break-words">{c.display_name}</p>
           {(() => {
             // ชื่อร้านซ้ำกับชื่อแพลตฟอร์ม (ค่าเริ่มต้น) → ไม่ต้องแสดงชื่อแพลตฟอร์มซ้ำ
             const parts = [c.display_name !== meta.label ? meta.label : null, c.external_shop_name ?? c.external_shop_id].filter(Boolean)
@@ -422,7 +422,7 @@ function ChannelCard({
           </Link>
         )}
         {canDisconnect && (
-          <button type="button" onClick={onDisconnect} disabled={busy !== null} className="btn-ghost px-4 text-red-700">
+          <button type="button" onClick={onDisconnect} disabled={busy !== null} className="btn-danger-soft px-4">
             <Unplug {...ICON_SM} />
             ตัดการเชื่อมต่อ
           </button>
@@ -432,7 +432,7 @@ function ChannelCard({
       <StepsDetails platform={c.platform} />
 
       {isLast && (
-        <div className="flex flex-wrap gap-x-4 border-t border-blush-hair pt-2">
+        <div className="flex flex-wrap gap-x-4 border-t border-gray-150 pt-2">
           <button type="button" onClick={() => onAdd('production')} disabled={busy !== null} className="btn-ghost -ml-3 px-3 text-sm">
             <Plus {...ICON_SM} />
             เพิ่มร้านอีก

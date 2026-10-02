@@ -81,7 +81,7 @@ function StockExport({ channel }: { channel: ChannelJson }) {
 
   return (
     <div className="panel p-3 sm:p-4 space-y-2">
-      <p className="font-display font-semibold text-gray-900">ส่งออก CSV สต๊อก</p>
+      <p className="font-semibold text-gray-900">ส่งออก CSV สต๊อก</p>
       <p className="text-sm text-gray-600">
         จำนวนที่ขายได้ของทุกไซส์ (หักกันสต๊อก {qty(channel.options.stock_buffer)} ชิ้นและของที่ค้างส่ง) สำหรับอัปโหลดในเว็บของแพลตฟอร์ม
       </p>
@@ -150,7 +150,7 @@ function OrdersImport({ channel }: { channel: ChannelJson }) {
 
   return (
     <div className="panel p-3 sm:p-4 space-y-3">
-      <p className="font-display font-semibold text-gray-900">นำเข้า CSV ออเดอร์</p>
+      <p className="font-semibold text-gray-900">นำเข้า CSV ออเดอร์</p>
       <p className="text-sm text-gray-600">
         ตัดสต๊อกจากไฟล์ออเดอร์ที่ดาวน์โหลดจาก Seller Center — หัวตารางต้องมี
         <span className="font-mono text-xs"> order_id, sku, qty</span> (ไม่บังคับ:
@@ -386,7 +386,7 @@ function FeedBox({
 
   return (
     <div className="panel p-3 sm:p-4 space-y-3">
-      <p className="inline-flex items-center gap-2 font-display font-semibold text-gray-900">
+      <p className="inline-flex items-center gap-2 font-semibold text-gray-900">
         <Rss {...ICON_SM} className="text-brand-600" />
         ลิงก์ฟีดสินค้า
       </p>

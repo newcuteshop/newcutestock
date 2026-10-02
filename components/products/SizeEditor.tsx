@@ -66,7 +66,7 @@ export default function SizeEditor({
       {/* SKU ตั้งต้น */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="min-w-0">
-          <label htmlFor="pf-base-sku" className="block text-sm font-medium text-gray-700 mb-1">SKU ตั้งต้น</label>
+          <label htmlFor="pf-base-sku" className="field-label">SKU ตั้งต้น</label>
           <input
             id="pf-base-sku"
             className="input font-mono"
@@ -77,7 +77,7 @@ export default function SizeEditor({
             placeholder="เช่น SHIRT01"
             onChange={e => actions.changeBaseSku(e.target.value)}
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="field-hint">
             ไซส์ใหม่จะได้ SKU อัตโนมัติ เช่น <span className="font-mono text-gray-700">{exampleSku}</span> (แก้เองได้ทุกช่อง · SKU ของไซส์เดิมไม่เปลี่ยน)
           </p>
         </div>
@@ -195,15 +195,15 @@ export default function SizeEditor({
       {form.rows.length === 0 ? (
         <div className="panel flex flex-col items-center gap-2 px-4 py-8 text-center text-sm text-gray-500">
           <span className="icon-bubble"><Ruler {...ICON_SM} /></span>
-          <p className="font-display font-semibold text-gray-900">ยังไม่มีไซส์</p>
+          <p className="font-semibold text-gray-900">ยังไม่มีไซส์</p>
           <p>กดเลือกไซส์ด้านบน หรือพิมพ์ไซส์เองแล้วกดเพิ่ม</p>
         </div>
       ) : (
-        <div className="min-[1400px]:rounded-3xl min-[1400px]:border min-[1400px]:border-blush-line min-[1400px]:bg-white min-[1400px]:overflow-hidden">
+        <div className="min-[1400px]:rounded-xl min-[1400px]:border min-[1400px]:border-gray-200 min-[1400px]:bg-white min-[1400px]:overflow-hidden">
           {/* หัวตาราง (จอกว้างเท่านั้น) */}
           <div
             aria-hidden="true"
-            className={`relative hidden min-[1400px]:grid min-[1400px]:gap-x-2 bg-milk px-3 py-2.5 text-[13px] font-semibold text-gray-600 border-b-2 border-blush-hair ${SIZE_GRID_TABLE}`}
+            className={`relative hidden min-[1400px]:grid min-[1400px]:gap-x-2 bg-gray-50 px-3 py-2.5 text-[13px] font-semibold text-gray-600 border-b border-gray-200 ${SIZE_GRID_TABLE}`}
           >
             <span>ไซส์ *</span>
             <span>SKU *</span>
@@ -267,7 +267,7 @@ export function RemovedAndArchived({
           </p>
           <ul className="space-y-2">
             {pendingRemovals.map(v => (
-              <li key={v.id} className="flex flex-wrap items-center gap-2 rounded-2xl bg-white/70 px-3 py-2">
+              <li key={v.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2">
                 <span className="chip">{v.size ?? 'ไม่มีไซส์'}</span>
                 <span className="chip-outline font-mono max-w-full"><span className="truncate">{v.sku}</span></span>
                 <span className="min-w-0 flex-1 text-xs">
@@ -299,7 +299,7 @@ export function RemovedAndArchived({
           </summary>
           <ul className="mt-2 space-y-2 pb-2">
             {archived.map(v => (
-              <li key={v.id} className="flex flex-wrap items-center gap-2 rounded-2xl bg-white px-3 py-2 border border-blush-hair">
+              <li key={v.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-white px-3 py-2 border border-gray-150">
                 <span className="chip">{v.size ?? 'ไม่มีไซส์'}</span>
                 <span className="chip-outline font-mono max-w-full"><span className="truncate">{v.sku}</span></span>
                 <span className="text-xs text-gray-500 tabular-nums">{baht(v.sell_price)} · คงเหลือ {v.stock_qty}</span>

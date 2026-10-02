@@ -65,15 +65,15 @@ export default function SetupGuide({
                 aria-checked={done[i]}
                 onClick={() => toggle(i)}
                 className={clsx(
-                  'flex w-full min-h-[44px] items-start gap-3 rounded-2xl border px-3 py-2.5 text-left text-sm leading-relaxed transition-colors active:scale-[0.99]',
-                  done[i] ? 'border-green-200 bg-green-50 text-green-900' : 'border-blush-hair bg-gray-50 text-gray-800',
+                  'flex w-full min-h-[44px] items-start gap-3 rounded-lg border px-3 py-2.5 text-left text-sm leading-relaxed transition-colors',
+                  done[i] ? 'border-green-200 bg-green-50 text-green-900' : 'border-gray-200 bg-gray-50 text-gray-800 active:bg-gray-100',
                 )}
               >
                 <span
                   aria-hidden="true"
                   className={clsx(
-                    'mt-0.5 inline-grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 font-display text-xs font-bold',
-                    done[i] ? 'border-green-600 bg-green-600 text-white' : 'border-strawberry bg-white text-brand-700',
+                    'mt-0.5 inline-grid h-6 w-6 shrink-0 place-items-center rounded-full border text-xs font-semibold tabular-nums',
+                    done[i] ? 'border-green-600 bg-green-600 text-white' : 'border-brand-400 bg-white text-brand-700',
                   )}
                 >
                   {done[i] ? <Check size={14} strokeWidth={2.6} aria-hidden="true" /> : i + 1}

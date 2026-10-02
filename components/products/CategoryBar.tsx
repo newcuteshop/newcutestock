@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEven
 import { AlertTriangle, Check, CheckCircle2, Info, Loader2, Pencil, Plus, Tag, Trash2, X, XCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { thaiError } from '@/lib/format'
-import { ICON, ICON_SM } from '@/components/theme/icons'
+import { ICON, ICON_SM, ICON_XS } from '@/components/theme/icons'
 
 // ===== แถบหมวดหมู่หน้าสินค้า: ชิปกรอง + เพิ่ม / เปลี่ยนชื่อ / ลบหมวดหมู่ =====
 // เขียนตาราง categories ตรงๆ (RLS ให้เฉพาะผู้มีสิทธิ์ "จัดการสินค้า") — ตาม CONTRACT §5.1
@@ -205,7 +205,8 @@ function FilterChip({ label, count, pressed, onClick, dashed = false }: {
       className={`chip-toggle group shrink-0 max-w-[15rem] ${dashed && !pressed ? 'border-dashed' : ''}`}
     >
       <span className="min-w-0 truncate">{label}</span>
-      <span className="tabular-nums text-xs font-bold text-gray-500 group-aria-pressed:text-white">
+      {/* จำนวนในชิปที่เลือก (พื้นโรสโกลด์อ่อน) ต้องเป็นสีหมึก ห้ามขาว */}
+      <span className="tabular-nums text-xs font-semibold text-gray-500 group-aria-pressed:text-gray-900">
         {count.toLocaleString('en-US')}
       </span>
     </button>
@@ -445,14 +446,14 @@ function CategorySheet({
         aria-modal="true"
         aria-labelledby="category-sheet-title"
         tabIndex={-1}
-        className="sheet w-full max-w-lg max-h-[90dvh] overflow-y-auto overscroll-contain rounded-b-none border-b-0 sm:rounded-4xl sm:border-b-2 animate-fade-up focus:outline-none"
+        className="sheet w-full max-w-lg max-h-[90dvh] overflow-y-auto overscroll-contain rounded-b-none border-b-0 sm:rounded-4xl sm:border-b animate-fade-up focus:outline-none"
       >
         {/* หัวป็อปอัป (ติดด้านบนเวลาเลื่อน) */}
-        <div className="sticky top-0 z-10 bg-white border-b border-blush-hair px-5 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="icon-bubble icon-bubble-strong"><Tag {...ICON} /></span>
-            <h3 id="category-sheet-title" className="font-bold text-gray-900 text-lg leading-snug">จัดการหมวดหมู่</h3>
-          </div>
+        <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between gap-3">
+          <h3 id="category-sheet-title" className="section-title min-w-0">
+            <Tag {...ICON} />
+            จัดการหมวดหมู่
+          </h3>
           <button type="button" onClick={onClose} disabled={busy} className="btn-icon btn-icon-plain -mr-2" aria-label="ปิด">
             <X {...ICON} />
           </button>
@@ -461,7 +462,7 @@ function CategorySheet({
         <div className="px-5 py-4 space-y-4">
           {/* เพิ่มหมวดหมู่ใหม่ */}
           <form onSubmit={addCategory} className="space-y-1" noValidate>
-            <label htmlFor="category-add-name" className="block text-sm font-medium text-gray-700 mb-1">เพิ่มหมวดหมู่ใหม่</label>
+            <label htmlFor="category-add-name" className="field-label">เพิ่มหมวดหมู่ใหม่</label>
             <div className="flex gap-2">
               <input
                 id="category-add-name"
@@ -488,11 +489,11 @@ function CategorySheet({
             </p>
           )}
 
-          <div className="wave-divider decor" aria-hidden="true" />
+          <div className="divider" aria-hidden="true" />
 
           <div className="space-y-2">
             <p className="flex items-start gap-1.5 text-xs text-gray-500">
-              <Info {...ICON_SM} />
+              <Info {...ICON_XS} className="mt-px" />
               <span className="min-w-0">ลบหมวดหมู่แล้ว สินค้าในหมวดนั้นจะย้ายไปอยู่ &quot;ไม่มีหมวดหมู่&quot; — ตัวสินค้าไม่ถูกลบ</span>
             </p>
 
@@ -545,7 +546,7 @@ function CategorySheet({
 
                   if (confirmId === c.id) {
                     return (
-                      <li key={c.id} className="rounded-2xl border border-red-200 bg-red-50 p-3 space-y-3">
+                      <li key={c.id} className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-3">
                         <p className="flex items-start gap-2 text-sm text-red-800">
                           <AlertTriangle {...ICON_SM} className="mt-0.5" />
                           <span className="min-w-0 break-words">
@@ -602,7 +603,7 @@ function CategorySheet({
 
         {/* ท้ายป็อปอัป (ติดด้านล่าง + เว้นขอบล่างของ iPhone) */}
         <div
-          className="sticky bottom-0 z-10 bg-white border-t border-blush-hair px-5 pt-3"
+          className="sticky bottom-0 z-10 bg-white border-t border-gray-200 px-5 pt-3"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
         >
           <button type="button" onClick={onClose} disabled={busy} className="btn-secondary w-full">เสร็จ</button>

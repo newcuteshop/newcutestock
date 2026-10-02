@@ -312,7 +312,7 @@ export default function ProductsClient({
           onCategoryDeleted={handleCategoryDeleted}
         />
 
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-blush-hair pt-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-gray-150 pt-3">
           <p className="text-sm text-gray-600 tabular-nums" aria-live="polite">
             {hasFilter
               ? `พบ ${filtered.length.toLocaleString('en-US')} แบบ จากทั้งหมด ${groups.length.toLocaleString('en-US')} แบบ`
@@ -329,13 +329,13 @@ export default function ProductsClient({
 
       {groups.length === 0 ? (
         <div className="card empty-state">
-          <span className="icon-bubble icon-bubble-lg"><Shirt size={30} strokeWidth={1.8} aria-hidden="true" /></span>
+          <span className="icon-bubble icon-bubble-lg"><Shirt size={28} strokeWidth={1.75} aria-hidden="true" /></span>
           <p className="empty-state-title">ยังไม่มีสินค้า</p>
           {canManage && <p>กดปุ่ม &quot;เพิ่มสินค้า&quot; ด้านบนเพื่อเริ่มเพิ่มสินค้าแบบแรก</p>}
         </div>
       ) : filtered.length === 0 ? (
         <div className="card empty-state">
-          <span className="icon-bubble icon-bubble-lg"><SearchX size={30} strokeWidth={1.8} aria-hidden="true" /></span>
+          <span className="icon-bubble icon-bubble-lg"><SearchX size={28} strokeWidth={1.75} aria-hidden="true" /></span>
           <p className="empty-state-title break-words">
             {search.trim() ? `ไม่พบสินค้าที่ตรงกับ "${search.trim()}"` : 'ยังไม่มีสินค้าในหมวดนี้'}
           </p>

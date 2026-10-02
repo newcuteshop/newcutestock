@@ -36,14 +36,14 @@ export default function DashboardError({
     <div className="flex min-h-[60vh] items-center justify-center">
       <div role="alert" className="card w-full max-w-md p-5 sm:p-6 flex flex-col items-center text-center">
         <span className="icon-bubble icon-bubble-lg icon-bubble-err mb-3" aria-hidden="true">
-          <AlertTriangle size={30} strokeWidth={1.8} aria-hidden="true" />
+          <AlertTriangle size={28} strokeWidth={1.75} aria-hidden="true" />
         </span>
-        <h1 className="font-display text-lg sm:text-xl font-bold text-gray-900">เกิดข้อผิดพลาด</h1>
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-900">เกิดข้อผิดพลาด</h1>
         <p className="text-sm text-gray-600 mt-2 break-words">
           {message || 'ไม่สามารถแสดงหน้านี้ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง'}
         </p>
         {error?.digest && (
-          <p className="text-xs text-gray-400 mt-2 break-all">รหัสอ้างอิง: {error.digest}</p>
+          <p className="text-xs text-gray-500 mt-2 break-all tabular-nums">รหัสอ้างอิง: {error.digest}</p>
         )}
         <div className="mt-5 w-full flex flex-col sm:flex-row gap-2 sm:justify-center">
           <button type="button" onClick={retry} disabled={pending} className="btn-primary">

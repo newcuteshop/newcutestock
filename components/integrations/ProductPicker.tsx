@@ -101,7 +101,7 @@ export default function ProductPicker({
         className="sheet w-full max-w-lg max-h-[85dvh] flex flex-col p-4 sm:p-5 gap-3 pb-[calc(1rem_+_env(safe-area-inset-bottom))] sm:pb-5 animate-pop-in"
       >
         <div className="flex items-start gap-2">
-          <h3 id={titleId} className="min-w-0 flex-1 pt-2 text-lg font-bold leading-snug text-gray-900 break-words">{title}</h3>
+          <h3 id={titleId} className="min-w-0 flex-1 pt-2 text-lg font-semibold leading-snug text-gray-900 break-words">{title}</h3>
           <button type="button" onClick={onClose} disabled={busy} aria-label="ปิด" className="btn-icon btn-icon-plain -mr-2 -mt-1 shrink-0">
             <X {...ICON_SM} />
           </button>
@@ -146,7 +146,7 @@ export default function ProductPicker({
                     type="button"
                     onClick={() => onPick(p)}
                     disabled={busy}
-                    className="panel flex w-full min-h-[52px] items-center justify-between gap-3 px-3 py-2 text-left transition-colors hover:border-strawberry active:scale-[0.99] disabled:opacity-60"
+                    className="panel flex w-full min-h-[52px] items-center justify-between gap-3 px-3 py-2 text-left transition-colors [@media(hover:hover)]:hover:border-gray-300 active:bg-gray-100 disabled:opacity-60"
                   >
                     <span className="min-w-0">
                       <span className="block text-sm font-medium text-gray-900 break-words">{productLabel(p)}</span>
@@ -154,7 +154,7 @@ export default function ProductPicker({
                     </span>
                     <span className="shrink-0 text-right">
                       <span className="block text-xs text-gray-500">คงเหลือ</span>
-                      <span className="block font-display font-bold tabular-nums text-gray-900">{qty(p.stock_qty)}</span>
+                      <span className="block font-semibold tabular-nums text-gray-900">{qty(p.stock_qty)}</span>
                       {!p.is_active && <span className="block text-xs font-semibold text-amber-800">ปิดขายอยู่</span>}
                     </span>
                   </button>

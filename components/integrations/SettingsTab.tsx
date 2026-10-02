@@ -79,7 +79,7 @@ function StatusCard({ channel, nowMs }: { channel: ChannelJson; nowMs: number })
         </p>
       )}
 
-      <dl className="divide-y divide-blush-hair">
+      <dl className="divide-y divide-gray-150">
         <Row label="ร้าน">
           {channel.external_shop_name || channel.external_shop_id
             ? <>{channel.external_shop_name ?? ''}{channel.external_shop_id ? <span className="block text-xs font-mono text-gray-500 break-all">{channel.external_shop_id}</span> : null}</>

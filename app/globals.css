@@ -3,10 +3,12 @@
 @tailwind utilities;
 
 /*
-  ธีม 16 · สตรอว์เบอร์รีมิลค์ + กลีบกุหลาบปลิว (ธีม 11)
-  - สี/ฟอนต์/เงา อยู่ใน tailwind.config.ts · ไฟล์นี้ = คลาสสำเร็จรูป + ลวดลายตกแต่ง + การเคลื่อนไหว
-  - เคลื่อนไหวเฉพาะ transform / opacity (แสงบนปุ่ม, ฟองนม, กลีบกุหลาบ) → ไม่กระตุก ไม่กินแบต
-  - ปิดการเคลื่อนไหวทั้งหมดได้: <html data-motion="off"> (สวิตช์ในเมนู) หรือ prefers-reduced-motion ของเครื่อง
+  ธีมทางการ "โรสโกลด์ชมพู" — เรียบ สะอาด เป็นทางการ (แทนธีมสตรอว์เบอร์รีมิลค์)
+  - สี/ฟอนต์/มุม/เงา อยู่ใน tailwind.config.ts · ไฟล์นี้ = คลาสสำเร็จรูป (ชื่อเดิมทั้งหมด หน้าเดิมใช้ต่อได้)
+  - พื้นหน้าเทาอ่อน #F7F6F6 · การ์ดขาว + เส้น 1px · โรสโกลด์ชมพู (#F0ADB9) เป็นสีเน้นเท่านั้น
+  - แบน: ไม่มีเงา (ยกเว้นเงาจางของป็อปอัป/โทสต์) · ไม่มีไล่สี ไม่มีลวดลาย ไม่มีแอนิเมชันตกแต่ง
+  - เคลื่อนไหวเฉพาะที่มีหน้าที่: เปลี่ยนสีตอนชี้/กด 150ms, ป็อปอัปเปิด, ไอคอนหมุนกำลังโหลด, โครงรอโหลดกะพริบจาง
+  - คู่มือเต็ม: THEME_SPEC_PRO.md
 */
 
 @layer base {
@@ -18,62 +20,57 @@
     /* ไม่ให้มีกรอบเทาวาบตอนแตะบนมือถือ (มีวงแหวนโฟกัสของธีมแทน) */
     -webkit-tap-highlight-color: transparent;
     color-scheme: light;
-    scrollbar-color: #F4A7BB transparent;
+    /* checkbox / radio / range ของเบราว์เซอร์เป็นสีโรสโกลด์ (brand-600) */
+    accent-color: #C14E67;
+    scrollbar-color: #D5D2D3 transparent;
     /* กันดึงหน้าเด้ง/ดึงรีเฟรชทั้งหน้าโดยไม่ตั้งใจระหว่างขาย (ใส่ทั้ง html และ body ให้ครบทุกเบราว์เซอร์) */
     overscroll-behavior-y: none;
   }
   body {
     min-height: 100vh;   /* สำรองสำหรับเบราว์เซอร์เก่าที่ไม่รู้จัก dvh */
     min-height: 100dvh;
-    color: #5C2336;
-    /* พื้นนมชมพู + แสงขาวมุมซ้ายบน + จุดลายนมเล็กๆ (วาดครั้งเดียว ไม่เคลื่อนไหว)
-       ห้ามใส่พื้นหลังให้ <html> — ไม่งั้นกลีบกุหลาบ (z-index -1) จะถูกพื้น body บังหมด */
-    background-color: #FFF3F5;
-    background-image:
-      radial-gradient(rgba(178, 58, 94, 0.07) 1.6px, transparent 2.2px),
-      radial-gradient(90% 70% at 10% 0%, #FFFFFF 0%, rgba(255, 255, 255, 0) 60%),
-      linear-gradient(160deg, #FFF3F5 0%, #FDE6EC 55%, #FBDDE5 100%);
-    background-size: 24px 24px, 100% 100%, 100% 100%;
+    color: #201B1D;
+    /* พื้นเทาอ่อนเรียบ สีเดียว (การ์ดขาววางบนพื้นนี้) */
+    background-color: #F7F6F6;
+    /* ชื่อตัวแปรฟอนต์เดิม: หน้ารายงานอ่าน --font-display ไปใช้กับกราฟ → ชี้ฟอนต์เดียวกับเนื้อหา */
+    --font-display: var(--font-sans);
     /* กันหน้าเลื่อนออกข้างบนมือถือ (ตารางกว้างต้องอยู่ใน .table-wrap / overflow-x-auto ของตัวเอง) */
     overflow-x: clip;
     overscroll-behavior-y: none;
-  }
-  h1, h2, h3 {
-    font-family: theme('fontFamily.display');
   }
   /* แตะแล้วตอบสนองทันที (ไม่รอเช็คดับเบิลแตะซูม) */
   a, button, input, select, textarea, label, summary, [role='button'], [role='switch'] {
     touch-action: manipulation;
   }
   ::selection {
-    background-color: #F4A7BB;
-    color: #5C2336;
+    background-color: #FCDCE1;
+    color: #201B1D;
   }
   /* ไอคอน lucide ไม่ถูกบีบในแถว flex */
   svg.lucide {
     flex-shrink: 0;
   }
-  /* วงแหวนโฟกัสจากคีย์บอร์ด: เส้นเบอร์รีเข้ม เห็นชัดบนทั้งพื้นชมพูและปุ่มสตรอว์เบอร์รี */
+  /* วงแหวนโฟกัสจากคีย์บอร์ด: โรสโกลด์เข้ม (brand-600) เห็นชัดทั้งบนขาว เทา และปุ่มสีเน้น */
   :focus-visible {
-    outline: 2px solid #5C2336;
-    outline-offset: 3px;
+    outline: 2px solid #C14E67;
+    outline-offset: 2px;
   }
-  /* แถบเลื่อนสีชมพู (Safari / Chrome รุ่นเก่า — รุ่นใหม่ใช้ scrollbar-color ด้านบน) */
+  /* แถบเลื่อนเทาบาง (Safari / Chrome รุ่นเก่า — รุ่นใหม่ใช้ scrollbar-color ด้านบน) */
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background-color: #F4A7BB;
+    background-color: #D5D2D3;
     border: 3px solid transparent;
     border-radius: 999px;
     background-clip: padding-box;
   }
-  ::-webkit-scrollbar-thumb:hover { background-color: #E27F9B; }
+  ::-webkit-scrollbar-thumb:hover { background-color: #B9B3B5; }
 }
 
 @layer components {
   /* ================= ปุ่ม ================= */
 
-  /* โครงร่วมของปุ่มทุกแบบ: แคปซูลกลม สูงอย่างน้อย 44px ทุกขนาดจอ, ตัวหนังสือ Kodchasan */
+  /* โครงร่วมของปุ่มข้อความทุกแบบ: มุม 8px สูงอย่างน้อย 44px ทุกขนาดจอ, เส้นขอบ 1px (ทุกแบบสูงเท่ากัน) */
   .btn-primary,
   .btn-secondary,
   .btn-soft,
@@ -81,8 +78,8 @@
   .btn-ghost,
   .btn-danger,
   .btn-danger-soft {
-    @apply inline-flex items-center justify-center gap-2 min-h-[44px] px-5 py-2 rounded-full font-display text-[15px] font-semibold leading-snug text-center select-none;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    @apply inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 rounded-lg border border-transparent text-[15px] font-semibold leading-snug text-center select-none;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   }
   .btn-primary:disabled,
   .btn-secondary:disabled,
@@ -94,238 +91,168 @@
   .btn-primary[aria-disabled='true'],
   .btn-secondary[aria-disabled='true'] {
     @apply cursor-not-allowed;
-    opacity: 0.55;
-    transform: none;
+    opacity: 0.5;
   }
 
-  /* ลายเซ็นของธีม: "ลูกกวาด" — พื้นสตรอว์เบอร์รี + แถบลายลูกกวาดวิ่งผ่าน (::before) + ไฮไลต์เงาเด้ง (::after)
-     ใช้ได้ทั้ง .btn-primary, .candy (ชิป/ป้ายเด่น) และเมนูที่เลือกอยู่ */
-  .candy,
-  .btn-primary,
-  .nav-item[aria-current='page'] {
-    position: relative;
-    isolation: isolate;
-    overflow: hidden;
-    color: #FFFFFF;
-    background-image: linear-gradient(180deg, #B23A5E 0%, #A3304F 100%);
-    box-shadow: inset 0 -4px 0 rgba(92, 35, 54, 0.28), inset 0 2px 0 rgba(255, 255, 255, 0.18), 0 12px 22px -12px rgba(178, 58, 94, 0.75);
+  /* ปุ่มหลัก (1 ปุ่มต่อบริเวณ): พื้นโรสโกลด์ชมพู + ตัวอักษรหมึกเข้ม (9.2:1) — ห้ามตัวอักษรขาว */
+  .btn-primary {
+    color: #201B1D;
+    background-color: #F0ADB9;
+    border-color: #F0ADB9;
   }
-  /* แถบลาย: กว้าง 250% ของปุ่ม เลื่อนด้วย transform (ไม่ repaint) — z-index -1 = อยู่ใต้ตัวหนังสือเสมอ */
-  .candy::before,
-  .btn-primary::before,
-  .nav-item[aria-current='page']::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 250%;
-    z-index: -1;
-    pointer-events: none;
-    background-image: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.12) 0 7px, rgba(255, 255, 255, 0) 7px 14px);
-    -webkit-mask-image: linear-gradient(90deg, transparent 0 28%, #000 42% 58%, transparent 72% 100%);
-    mask-image: linear-gradient(90deg, transparent 0 28%, #000 42% 58%, transparent 72% 100%);
-    transform: translate3d(-60%, 0, 0);
-    animation: candy-slide 3.6s ease-in-out infinite;
-  }
-  /* ไฮไลต์เงาวงรีมุมซ้ายบน เด้งเบาๆ */
-  .candy::after,
-  .btn-primary::after,
-  .nav-item[aria-current='page']::after {
-    content: '';
-    position: absolute;
-    left: 18px;
-    top: 6px;
-    width: 24px;
-    height: 8px;
-    z-index: -1;
-    pointer-events: none;
-    border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.5);
-    animation: candy-gloss 2.8s ease-in-out infinite;
-  }
-  /* จังหวะช้า (ใช้กับของที่อยู่ติดกันหลายชิ้น ไม่ให้วิ่งพร้อมกัน) */
-  .candy-slow::before,
-  .nav-item[aria-current='page']::before {
-    animation-duration: 5.5s;
-    animation-delay: 1.1s;
-  }
-  .candy-slow::after,
-  .nav-item[aria-current='page']::after {
-    animation-delay: 0.7s;
-  }
-  .candy-nogloss::after { display: none; }
-
   @media (hover: hover) {
-    .btn-primary:not(:disabled):hover { transform: translateY(-2px); }
+    .btn-primary:not(:disabled):hover { background-color: #E694A4; border-color: #E694A4; }
   }
-  .btn-primary:not(:disabled):active {
-    transform: translateY(1px) scale(0.98);
-    box-shadow: inset 0 -2px 0 rgba(92, 35, 54, 0.28), inset 0 2px 0 rgba(255, 255, 255, 0.14), 0 6px 12px -10px rgba(178, 58, 94, 0.7);
-  }
-  .btn-primary:disabled,
-  .btn-primary[aria-disabled='true'] {
-    box-shadow: inset 0 -3px 0 rgba(92, 35, 54, 0.2);
-  }
-  /* ปุ่มกดไม่ได้ (เช่นกำลังบันทึก) → หยุดแสงวิ่ง */
-  .btn-primary:disabled::before,
-  .btn-primary:disabled::after,
-  .btn-primary[aria-disabled='true']::before,
-  .btn-primary[aria-disabled='true']::after {
-    animation: none;
-    opacity: 0;
-  }
+  .btn-primary:not(:disabled):active { background-color: #E694A4; border-color: #C14E67; }
 
-  /* ปุ่มรอง: แคปซูลขาวนม ขอบบลัช */
+  /* ปุ่มรอง: ขาว ขอบเทา ตัวอักษรเข้ม */
   .btn-secondary {
-    color: #9A2F52;
+    color: #2E282A;
     background-color: #FFFFFF;
-    border: 2px solid #FAD0DA;
-    box-shadow: inset 0 -3px 0 #FDEBF0;
+    border-color: #D5D2D3;
   }
   @media (hover: hover) {
-    .btn-secondary:not(:disabled):hover {
-      background-color: #FFF6F8;
-      border-color: #F4A7BB;
-      transform: translateY(-1px);
-    }
+    .btn-secondary:not(:disabled):hover { background-color: #FAF9FA; border-color: #B9B3B5; }
   }
-  .btn-secondary:not(:disabled):active {
-    transform: translateY(1px);
-    box-shadow: inset 0 -1px 0 #FDEBF0;
-  }
+  .btn-secondary:not(:disabled):active { background-color: #F5F4F5; }
 
-  /* ปุ่มบลัชทึบ (btn2 ของแบบ) — ทางเลือกรองที่เด่นกว่า .btn-secondary */
+  /* ปุ่มรองโทนโรสโกลด์อ่อน — ทางเลือกรองที่เด่นกว่า .btn-secondary (ทางลัด/คำสั่งประจำ) */
   .btn-soft {
-    color: #7A2442;
-    background-color: #FCD9E1;
-    box-shadow: inset 0 -4px 0 #F6C1CE;
+    color: #813148;
+    background-color: #FFF7F8;
+    border-color: #FCDCE1;
   }
   @media (hover: hover) {
-    .btn-soft:not(:disabled):hover { transform: translateY(-2px); }
+    .btn-soft:not(:disabled):hover { background-color: #FFEFF1; border-color: #F7C5CE; }
   }
-  .btn-soft:not(:disabled):active {
-    transform: translateY(1px);
-    box-shadow: inset 0 -2px 0 #F6C1CE;
-  }
+  .btn-soft:not(:disabled):active { background-color: #FCDCE1; }
 
-  /* ปุ่มเส้นประ (btn3 ของแบบ) — "เพิ่ม..." / ทางเลือกลำดับสาม */
+  /* ปุ่มเส้นประ — "เพิ่ม..." / ทางเลือกลำดับสาม */
   .btn-dashed {
-    color: #9A2F52;
+    color: #463E41;
     background-color: #FFFFFF;
-    border: 2px dashed #F4A7BB;
+    border-style: dashed;
+    border-color: #D5D2D3;
   }
   @media (hover: hover) {
-    .btn-dashed:not(:disabled):hover { transform: translateY(-2px); background-color: #FFF6F8; }
+    .btn-dashed:not(:disabled):hover { color: #A43D56; background-color: #FFF7F8; border-color: #F0ADB9; }
   }
-  .btn-dashed:not(:disabled):active { transform: translateY(1px); }
+  .btn-dashed:not(:disabled):active { background-color: #FFEFF1; }
 
-  /* ปุ่มโปร่ง — ลิงก์/คำสั่งในแถวตาราง (ชี้แล้วเป็นพื้นบลัชอ่อน เห็นได้ทั้งบนการ์ดขาวและแถวตาราง) */
+  /* ปุ่มโปร่ง — คำสั่งในแถวตาราง/รายการ (ตัวอักษรสีลิงก์ ชี้แล้วพื้นเทาอ่อน) */
   .btn-ghost {
-    color: #9A2F52;
+    color: #A43D56;
     background-color: transparent;
   }
   @media (hover: hover) {
-    .btn-ghost:not(:disabled):hover { background-color: #FDEBF0; }
+    .btn-ghost:not(:disabled):hover { background-color: #F5F4F5; }
   }
-  .btn-ghost:not(:disabled):active { background-color: #FCE0E7; }
+  .btn-ghost:not(:disabled):active { background-color: #EFEDEE; }
 
-  /* ปุ่มอันตราย (ลบ) — แดงเชอร์รี ไม่มีลายลูกกวาด แยกจากปุ่มหลักได้ชัด */
+  /* ปุ่มอันตราย (ลบ ที่ยืนยันในป็อปอัปแล้ว) — แดงทึบ ตัวอักษรขาว (6:1) */
   .btn-danger {
     color: #FFFFFF;
-    background-image: linear-gradient(180deg, #C93434 0%, #A12222 100%);
-    box-shadow: inset 0 -4px 0 rgba(61, 11, 11, 0.28), 0 10px 20px -12px rgba(191, 43, 43, 0.7);
+    background-color: #BF2B2B;
+    border-color: #BF2B2B;
   }
   @media (hover: hover) {
-    .btn-danger:not(:disabled):hover { transform: translateY(-2px); }
+    .btn-danger:not(:disabled):hover { background-color: #A12222; border-color: #A12222; }
   }
-  .btn-danger:not(:disabled):active { transform: translateY(1px) scale(0.98); }
+  .btn-danger:not(:disabled):active { background-color: #841E1E; border-color: #841E1E; }
+  /* ปุ่มอันตรายแบบรอง (ลบในแถว/ฟอร์ม) */
   .btn-danger-soft {
     color: #A12222;
     background-color: #FFFFFF;
-    border: 2px solid #FDC7C7;
+    border-color: #FDC7C7;
   }
   @media (hover: hover) {
     .btn-danger-soft:not(:disabled):hover { background-color: #FFF1F1; border-color: #F7A0A0; }
   }
-  .btn-danger-soft:not(:disabled):active { transform: translateY(1px); background-color: #FFE1E1; }
+  .btn-danger-soft:not(:disabled):active { background-color: #FFE1E1; }
 
-  /* ปุ่มไอคอนกลม 44px (ปิด, +/−, แจ้งเตือน) — ต้องมี aria-label เสมอ */
+  /* ปุ่มไอคอน 44px (ปิด, +/−, ลบ) — ต้องมี aria-label เสมอ */
   .btn-icon {
-    @apply inline-grid place-items-center shrink-0 w-11 h-11 rounded-full select-none;
-    color: #B23A5E;
+    @apply inline-grid place-items-center shrink-0 w-11 h-11 rounded-lg select-none;
+    color: #463E41;
     background-color: #FFFFFF;
-    border: 2px solid #FAD0DA;
-    transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    border: 1px solid #E8E6E6;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   }
-  @media (hover: hover) {
-    .btn-icon:not(:disabled):hover { background-color: #FFF3F5; border-color: #F4A7BB; }
-    .btn-icon-danger:not(:disabled):hover { color: #BF2B2B; background-color: #FFF1F1; border-color: #FDC7C7; }
-  }
-  .btn-icon:not(:disabled):active { transform: scale(0.94); }
-  .btn-icon:disabled { @apply cursor-not-allowed; opacity: 0.45; }
   /* ไม่มีกรอบ (ปุ่มปิดบนหัวป็อปอัป / แถบบน) */
   .btn-icon-plain {
     border-color: transparent;
     background-color: transparent;
   }
+  @media (hover: hover) {
+    .btn-icon:not(:disabled):hover { color: #201B1D; background-color: #FAF9FA; border-color: #D5D2D3; }
+    .btn-icon-plain:not(:disabled):hover { background-color: #F5F4F5; border-color: transparent; }
+    .btn-icon-danger:not(:disabled):hover { color: #A12222; background-color: #FFF1F1; border-color: #FDC7C7; }
+    .btn-icon-plain.btn-icon-danger:not(:disabled):hover { border-color: transparent; }
+  }
+  .btn-icon:not(:disabled):active { background-color: #EFEDEE; }
+  .btn-icon:disabled { @apply cursor-not-allowed; opacity: 0.45; }
 
   /* ================= ช่องกรอก ================= */
 
   /* มือถือ 16px (กัน iOS ซูมเข้าเองตอนแตะ) · ตั้งแต่ md ใช้ 14px */
   .input {
-    @apply w-full min-h-[44px] rounded-full px-4 py-2 text-base md:text-sm text-gray-900;
-    background-color: #FFF6F8;
-    border: 2px solid #FAD0DA;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    @apply w-full min-h-[44px] rounded-lg px-3.5 py-2 text-base md:text-sm text-gray-900;
+    background-color: #FFFFFF;
+    border: 1px solid #D5D2D3;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
   .input::placeholder {
-    color: #8C5D6B;
+    color: #776E71;
     opacity: 1;
   }
+  /* โฟกัส: เส้นโรสโกลด์เข้ม + วงอ่อนรอบช่อง (วงสีทึบ ไม่ใช่แสงเรือง) */
   .input:focus {
     outline: none;
-    background-color: #FFFFFF;
-    border-color: #B23A5E;
-    box-shadow: 0 0 0 4px rgba(178, 58, 94, 0.14);
+    border-color: #C14E67;
+    box-shadow: 0 0 0 3px #FCDCE1;
   }
   .input:focus-visible { outline: none; }
-  /* ช่องที่เบราว์เซอร์กรอกให้อัตโนมัติ (Chrome/iOS ทาสีฟ้า/เหลืองเอง) → คงสีนมชมพูของธีม
-     ใช้เงาด้านในทับสีพื้น จึงต้องใส่วงแหวนโฟกัสซ้ำในสถานะ :focus */
+  /* ช่องที่เบราว์เซอร์กรอกให้อัตโนมัติ (Chrome/iOS ทาสีฟ้า/เหลืองเอง) → คงพื้นขาว
+     ใช้เงาด้านในทับสีพื้น จึงต้องใส่วงโฟกัสซ้ำในสถานะ :focus */
   .input:-webkit-autofill,
   .input:-webkit-autofill:hover {
-    -webkit-text-fill-color: #5C2336;
-    caret-color: #5C2336;
-    -webkit-box-shadow: 0 0 0 1000px #FFF6F8 inset;
-    box-shadow: 0 0 0 1000px #FFF6F8 inset;
-    transition: background-color 9999s ease-out 0s, border-color 0.2s ease;
+    -webkit-text-fill-color: #201B1D;
+    caret-color: #201B1D;
+    -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset;
+    box-shadow: 0 0 0 1000px #FFFFFF inset;
+    transition: background-color 9999s ease-out 0s, border-color 0.15s ease;
   }
   .input:-webkit-autofill:focus {
-    -webkit-text-fill-color: #5C2336;
-    border-color: #B23A5E;
-    -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset, 0 0 0 4px rgba(178, 58, 94, 0.14);
-    box-shadow: 0 0 0 1000px #FFFFFF inset, 0 0 0 4px rgba(178, 58, 94, 0.14);
+    -webkit-text-fill-color: #201B1D;
+    border-color: #C14E67;
+    -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset, 0 0 0 3px #FCDCE1;
+    box-shadow: 0 0 0 1000px #FFFFFF inset, 0 0 0 3px #FCDCE1;
+  }
+  .input:disabled,
+  .input[readonly] {
+    background-color: #F5F4F5;
   }
   .input:disabled {
     @apply cursor-not-allowed;
-    opacity: 0.6;
-    background-color: #FBE9EE;
+    color: #675F62;
   }
   .input[aria-invalid='true'] {
-    border-color: #C93434;
-    box-shadow: 0 0 0 4px rgba(191, 43, 43, 0.12);
+    border-color: #BF2B2B;
+    box-shadow: 0 0 0 3px #FFE1E1;
   }
   textarea.input {
-    border-radius: 20px;
     min-height: 88px;
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+    line-height: 1.6;
   }
   select.input {
     -webkit-appearance: none;
     appearance: none;
-    padding-right: 2.75rem;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23B23A5E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    padding-right: 2.5rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23675F62' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 14px center;
+    background-position: right 12px center;
     background-size: 18px 18px;
   }
   /* ช่องมีไอคอนนำหน้า: ห่อด้วย .input-icon แล้วใส่ไอคอน (aria-hidden) ก่อน <input className="input pl-11"> */
@@ -338,253 +265,210 @@
     left: 14px;
     top: 50%;
     transform: translateY(-50%);
-    color: #B23A5E;
+    color: #776E71;
     pointer-events: none;
   }
+  /* ป้ายชื่อช่อง / คำแนะนำใต้ช่อง */
+  .field-label { @apply mb-1.5 block text-sm font-medium text-gray-700; }
+  .field-hint { @apply mt-1 text-xs leading-relaxed text-gray-500; }
 
   /* ================= การ์ดและพื้นผิว ================= */
 
-  /* การ์ด: ขาว มุมโค้ง 24px (มือถือ) / 28px, เส้นบลัชบาง, เงาชมพูนุ่ม */
+  /* การ์ด: ขาว มุม 12px เส้นเทาบาง 1px ไม่มีเงา */
   .card {
-    @apply rounded-[24px] sm:rounded-4xl;
+    @apply rounded-xl;
     background-color: #FFFFFF;
-    border: 1px solid #FAD0DA;
-    box-shadow: 0 16px 32px -24px rgba(178, 58, 94, 0.42), 0 1px 2px rgba(178, 58, 94, 0.04);
+    border: 1px solid #E8E6E6;
   }
-  @media (min-width: 640px) {
-    .card { box-shadow: 0 22px 44px -28px rgba(178, 58, 94, 0.45), 0 1px 2px rgba(178, 58, 94, 0.04); }
-  }
-  .card-milk { background-color: #FFFBFC; }
-  /* การ์ดที่กดได้ (ลิงก์/ปุ่มสินค้า) — ลอยขึ้นเล็กน้อยเมื่อชี้, ยุบเมื่อกด */
+  /* (เลิกใช้) การ์ดนม → ตอนนี้ขาวเหมือน .card */
+  .card-milk { background-color: #FFFFFF; }
+  /* การ์ดที่กดได้ (ลิงก์/ปุ่มสินค้า) — ชี้แล้วเส้นขอบเข้มขึ้น กดแล้วพื้นเทาอ่อน (ไม่ลอย ไม่ยุบ) */
   .card-hover {
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
   }
   @media (hover: hover) {
-    .card-hover:not(:disabled):hover {
-      transform: translateY(-2px);
-      border-color: #F4A7BB;
-      box-shadow: 0 22px 40px -22px rgba(178, 58, 94, 0.5);
-    }
+    .card-hover:not(:disabled):hover { border-color: #D5D2D3; }
   }
-  .card-hover:not(:disabled):active { transform: scale(0.985); }
+  .card-hover:not(:disabled):active { background-color: #FAF9FA; }
+  /* หัวการ์ดมีเส้นคั่น (ชื่อส่วน + ปุ่มด้านขวา) */
+  .card-header {
+    @apply flex items-center justify-between gap-3 px-4 py-3 sm:px-5;
+    border-bottom: 1px solid #E8E6E6;
+  }
 
   /* แผงย่อยในการ์ด (แถวตะกร้า, สรุปยอด) */
   .panel {
-    @apply rounded-2xl;
-    background-color: #FFF6F8;
-    border: 1px solid #FCE0E7;
+    @apply rounded-lg;
+    background-color: #FAF9FA;
+    border: 1px solid #EFEDEE;
   }
 
-  /* การ์ดตัวเลขสรุป — ขอบหนา + ขอบล่างนูน (ตามแบบ) */
+  /* การ์ดตัวเลขสรุป: ขาว เส้นบาง ป้ายเทา ตัวเลขใหญ่สีหมึก ไอคอนโรสโกลด์เล็ก (.icon-bubble) */
   .stat-card {
-    @apply relative flex flex-col justify-between gap-3 rounded-[24px] sm:rounded-[30px] p-4 sm:p-5;
+    @apply relative flex flex-col justify-between gap-3 rounded-xl p-4 sm:p-5;
     /* ให้ตัวเลขข้างในย่อ/ขยายตามความกว้างการ์ด (หน่วย cqi ใน .stat-value) */
     container-type: inline-size;
     background-color: #FFFFFF;
-    border: 2px solid #FCE0E7;
-    box-shadow: inset 0 -5px 0 #FDEBF0;
+    border: 1px solid #E8E6E6;
   }
-  /* การ์ดเด่นหนึ่งใบ (เช่น ยอดขายวันนี้) — ตัวอักษรรองบนพื้นนี้ใช้ gray-500 ขึ้นไป */
+  /* การ์ดเด่นหนึ่งใบ (เช่น ยอดขายวันนี้): พื้นยังขาว + เส้นโรสโกลด์ + แถบบน 3px */
   .stat-card-hot {
-    background-image: linear-gradient(160deg, #FDE3EA, #FBD0DB);
-    border-color: #F9C6D3;
-    box-shadow: inset 0 -5px 0 #F7C0CE;
+    border-color: #F7C5CE;
+    box-shadow: inset 0 3px 0 #F0ADB9;
   }
-  .stat-label { @apply text-[13px] sm:text-sm font-semibold leading-snug text-gray-500; }
+  .stat-label { @apply text-[13px] sm:text-sm font-medium leading-snug text-gray-500; }
   /* ตัวเลขเงิน/จำนวนห้ามตัดกลางตัวเลข (ห่อด้วย <span class="whitespace-nowrap">) —
-     ขนาดตามความกว้างการ์ด 14-28px: 13cqi = ยอดหลักล้านมีสตางค์ (฿1,048,290.75) ยังพอดีการ์ดครึ่งจอมือถือ 360px
-     (ขั้นต่ำ 14px มีผลเฉพาะจอแคบมาก เช่น 320px ไม่ให้ยอดหลักล้านล้นขอบการ์ด)
+     ขนาดตามความกว้างการ์ด 14-28px: 12cqi = ยอดหลักล้านมีสตางค์ (฿1,048,290.75) ยังพอดีการ์ดครึ่งจอมือถือ
      เบราว์เซอร์เก่าที่ไม่รู้จัก cqi ใช้ 18px */
   .stat-value {
-    @apply font-display font-bold leading-tight text-gray-900 tabular-nums;
+    @apply font-semibold leading-tight text-gray-900 tabular-nums;
     font-size: 1.125rem;
-    font-size: clamp(0.875rem, 13cqi, 1.75rem);
+    font-size: clamp(0.875rem, 12cqi, 1.75rem);
   }
-  .stat-sub { @apply text-xs sm:text-[13px] text-gray-500; }
+  .stat-sub { @apply text-xs sm:text-[13px] font-normal text-gray-500; }
 
-  /* ป็อปอัป/ชีตล่าง */
+  /* ป็อปอัป/ชีตล่าง: ขาว มุม 16px เส้นบาง + เงาจาง (ของลอยทับเท่านั้นที่มีเงา) */
   .sheet {
     @apply rounded-4xl;
     background-color: #FFFFFF;
-    border: 2px solid #FAD0DA;
-    box-shadow: 0 30px 70px -30px rgba(92, 35, 54, 0.5);
+    border: 1px solid #E8E6E6;
+    box-shadow: 0 12px 32px -12px rgba(32, 27, 29, 0.2);
   }
-  /* พื้นหลังมืดหลังป็อปอัป (เบอร์รีโปร่ง ไม่ใช้ blur) */
-  .scrim { background-color: rgba(92, 35, 54, 0.42); }
+  /* พื้นหลังมืดหลังป็อปอัป (เทาเข้มโปร่ง ไม่ใช้ blur) */
+  .scrim { background-color: rgba(32, 27, 29, 0.45); }
 
-  /* แถบล่างติดจอ (แถบชำระเงินมือถือ) */
+  /* แถบล่างติดจอ (แถบชำระเงินมือถือ, ปุ่มบันทึกฟอร์ม) — ขาว เส้นบนบาง ขอบตรง */
   .bottom-bar {
-    background-color: #FFFBFC;
-    border-top: 2px solid #FAD0DA;
-    border-top-left-radius: 24px;
-    border-top-right-radius: 24px;
-    box-shadow: 0 -10px 24px -16px rgba(178, 58, 94, 0.45);
+    background-color: #FFFFFF;
+    border-top: 1px solid #E8E6E6;
   }
 
-  /* แถบเมนูข้าง / ลิ้นชักมือถือ: บลัชไล่สี + จุดนม + ขอบขวาหยักเป็นลอน (วาดใน ::before ไม่บังเนื้อหา) */
+  /* เมนูข้าง / ลิ้นชักมือถือ: ขาว + เส้นขวาบาง */
   .surface-sidebar {
     position: relative;
-    isolation: isolate;
-  }
-  .surface-sidebar::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background-image:
-      radial-gradient(rgba(255, 255, 255, 0.7) 1.6px, transparent 2.2px),
-      linear-gradient(180deg, #FDE3EA 0%, #FBD3DD 100%);
-    background-size: 18px 18px, 100% 100%;
-    -webkit-mask:
-      linear-gradient(#000 0 0) 0 0 / calc(100% - 12px) 100% no-repeat,
-      radial-gradient(circle 12px at 0 50%, #000 97%, transparent 100%) 100% 0 / 12px 24px repeat-y;
-    mask:
-      linear-gradient(#000 0 0) 0 0 / calc(100% - 12px) 100% no-repeat,
-      radial-gradient(circle 12px at 0 50%, #000 97%, transparent 100%) 100% 0 / 12px 24px repeat-y;
+    background-color: #FFFFFF;
+    border-right: 1px solid #E8E6E6;
   }
 
-  /* แถบบนมือถือ: สีนมเดียวกับ themeColor + ขอบล่างหยักมีเส้นบลัช (ห้อยลงมา 11px, แตะทะลุได้) */
+  /* แถบบนมือถือ: ขาว (สีเดียวกับ themeColor) + เส้นล่างบาง */
   .surface-topbar {
     position: relative;
-    isolation: isolate;
     z-index: 20;
-  }
-  .surface-topbar::before,
-  .surface-topbar::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    pointer-events: none;
-    -webkit-mask:
-      linear-gradient(#000 0 0) 0 0 / 100% calc(100% - 9px) no-repeat,
-      radial-gradient(circle 9px at 50% 0, #000 97%, transparent 100%) 0 100% / 18px 9px repeat-x;
-    mask:
-      linear-gradient(#000 0 0) 0 0 / 100% calc(100% - 9px) no-repeat,
-      radial-gradient(circle 9px at 50% 0, #000 97%, transparent 100%) 0 100% / 18px 9px repeat-x;
-  }
-  .surface-topbar::before {
-    bottom: -9px;
-    z-index: -1;
-    background-color: #FFF3F5;
-  }
-  .surface-topbar::after {
-    bottom: -11px;
-    z-index: -2;
-    background-color: #FAD0DA;
+    background-color: #FFFFFF;
+    border-bottom: 1px solid #E8E6E6;
   }
 
   /* ================= เมนู ================= */
 
-  /* รายการเมนู — ตัวที่เลือก (aria-current="page") กลายเป็นแคปซูลลูกกวาดเอง */
+  /* รายการเมนู — ตัวที่เลือก (aria-current="page") = พื้นโรสโกลด์อ่อน + ตัวอักษร/ไอคอนโรสโกลด์เข้ม */
   .nav-item {
-    @apply flex items-center gap-3 min-h-[44px] px-4 rounded-full text-[15px] font-medium leading-snug;
-    color: #6E2D45;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    @apply flex items-center gap-3 min-h-[44px] px-3 rounded-lg text-[15px] font-medium leading-snug;
+    color: #463E41;
+    transition: background-color 0.15s ease, color 0.15s ease;
   }
   @media (hover: hover) {
-    .nav-item:not([aria-current='page']):hover { background-color: rgba(255, 255, 255, 0.75); }
+    .nav-item:not([aria-current='page']):hover { color: #201B1D; background-color: #F5F4F5; }
+    /* ปุ่มออกจากระบบ (text-red-700) — ชี้แล้วยังเป็นสีแดง ไม่กลายเป็นสีเข้มปกติ */
+    .nav-item.text-red-700:not([aria-current='page']):hover { color: #A12222; background-color: #FFF1F1; }
   }
-  .nav-item:not([aria-current='page']):active { background-color: rgba(255, 255, 255, 0.9); }
-  .nav-item[aria-current='page'] { font-weight: 600; }
-  .nav-item[aria-current='page']::after {
-    left: auto;
-    right: 16px;
-    top: 6px;
-    width: 18px;
-    height: 6px;
+  .nav-item:not([aria-current='page']):active { background-color: #EFEDEE; }
+  .nav-item.text-red-700:not([aria-current='page']):active { background-color: #FFE4E4; }
+  .nav-item[aria-current='page'] {
+    font-weight: 600;
+    color: #A43D56;
+    background-color: #FFEFF1;
   }
   /* กล่องผู้ใช้ท้ายเมนู */
   .user-pill {
-    @apply flex items-center gap-2.5 rounded-full py-2 pl-2 pr-3 min-w-0;
-    background-color: #FFFFFF;
-    box-shadow: inset 0 -3px 0 #FCE0E7, 0 8px 18px -12px rgba(178, 58, 94, 0.5);
+    @apply flex items-center gap-2.5 rounded-lg py-2 pl-2 pr-3 min-w-0;
+    background-color: #FAF9FA;
+    border: 1px solid #E8E6E6;
   }
 
   /* ================= ตัวเลือก / ชิป / ป้าย ================= */
 
-  /* ปุ่มตัวเลือกในกลุ่ม (วิธีชำระเงิน, ประเภทสต๊อก, บทบาท) — ใช้คู่ aria-pressed="true" */
+  /* ปุ่มตัวเลือกในกลุ่ม (วิธีชำระเงิน, ประเภทสต๊อก, บทบาท) — ใช้คู่ aria-pressed="true" (หรือ aria-checked) */
   .choice {
-    @apply inline-flex flex-col items-center justify-center gap-1 min-h-[52px] px-2 py-2 rounded-2xl text-sm font-semibold leading-tight text-center select-none;
-    color: #643947;
+    @apply inline-flex flex-col items-center justify-center gap-1 min-h-[52px] px-2 py-2 rounded-lg text-sm font-medium leading-tight text-center select-none;
+    color: #463E41;
     background-color: #FFFFFF;
-    border: 2px solid #FAD0DA;
-    box-shadow: inset 0 -3px 0 #FDEBF0;
-    transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    border: 1px solid #D5D2D3;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   }
   @media (hover: hover) {
-    .choice:not(:disabled):not([aria-pressed='true']):hover {
-      background-color: #FFF6F8;
-      border-color: #F4A7BB;
-    }
+    .choice:not(:disabled):not([aria-pressed='true']):not([aria-checked='true']):hover { background-color: #FAF9FA; border-color: #B9B3B5; }
   }
-  .choice:not(:disabled):active { transform: scale(0.97); }
+  .choice:not(:disabled):active { background-color: #F5F4F5; }
   .choice:disabled { @apply cursor-not-allowed; opacity: 0.5; }
+  /* ที่เลือกอยู่ = พื้นโรสโกลด์ชมพู + ตัวอักษรหมึก (เส้นขอบโรสโกลด์เข้มขึ้นหนึ่งขั้น) */
   .choice[aria-pressed='true'],
   .choice[aria-checked='true'] {
-    color: #FFFFFF;
-    background-image: linear-gradient(180deg, #B23A5E 0%, #A3304F 100%);
-    border-color: #A3304F;
-    box-shadow: inset 0 -3px 0 rgba(92, 35, 54, 0.28), 0 8px 16px -10px rgba(178, 58, 94, 0.7);
+    font-weight: 600;
+    color: #201B1D;
+    background-color: #F0ADB9;
+    border-color: #E694A4;
   }
-  /* สีเมื่อถูกเลือกตามความหมาย (ประเภทสต๊อก): leaf = รับเข้า, cherry = จ่ายออก, cocoa = ปรับยอด, honey = รับคืน */
-  .choice.tone-leaf[aria-pressed='true'] { background-image: none; background-color: #2A7D50; border-color: #216641; }
-  .choice.tone-cherry[aria-pressed='true'] { background-image: none; background-color: #BF2B2B; border-color: #A12222; }
-  .choice.tone-cocoa[aria-pressed='true'] { background-image: none; background-color: #643947; border-color: #5E2D3E; }
-  .choice.tone-honey[aria-pressed='true'] { background-image: none; background-color: #9C5B0F; border-color: #874F0F; }
+  /* สีตามความหมาย (ประเภทสต๊อก) เมื่อถูกเลือก: พื้นอ่อน + เส้นเข้ม 2px + ตัวอักษรเข้ม
+     leaf = รับเข้า (เขียว), cherry = จ่ายออก (แดง), cocoa = ปรับยอด (เทา), honey = รับคืน (อำพัน) */
+  .choice.tone-leaf[aria-pressed='true'] { color: #1C5236; background-color: #DCF1E3; border-color: #2A7D50; box-shadow: inset 0 0 0 1px #2A7D50; }
+  .choice.tone-cherry[aria-pressed='true'] { color: #841E1E; background-color: #FFE1E1; border-color: #BF2B2B; box-shadow: inset 0 0 0 1px #BF2B2B; }
+  .choice.tone-cocoa[aria-pressed='true'] { color: #201B1D; background-color: #EFEDEE; border-color: #463E41; box-shadow: inset 0 0 0 1px #463E41; }
+  .choice.tone-honey[aria-pressed='true'] { color: #6E4010; background-color: #FDEBCD; border-color: #9C5B0F; box-shadow: inset 0 0 0 1px #9C5B0F; }
 
-  /* ชิป (ไซส์·สี, จำนวน, ตัวกรอง) — .chip-outline / .chip-strong ใช้เดี่ยวๆ ได้ หรือคู่กับ .chip ก็ได้ */
+  /* ป้าย/แท็ก (ไซส์·สี, จำนวน, บทบาท) — ทรงแคปซูลใช้ได้เฉพาะป้ายพวกนี้
+     .chip-outline / .chip-strong ใช้เดี่ยวๆ ได้ หรือคู่กับ .chip ก็ได้ */
   .chip,
   .chip-outline,
   .chip-strong {
-    @apply inline-flex items-center gap-1 h-7 px-3 rounded-full text-xs font-semibold leading-none whitespace-nowrap;
+    @apply inline-flex items-center gap-1 h-6 px-2.5 rounded-full border text-xs font-medium leading-none whitespace-nowrap;
   }
   .chip {
-    color: #7A2442;
-    background-color: #FCD9E1;
-    box-shadow: inset 0 -2px 0 #F6C1CE;
+    color: #463E41;
+    background-color: #F5F4F5;
+    border-color: #E8E6E6;
   }
   .chip-outline {
-    color: #9A2F52;
+    color: #463E41;
     background-color: #FFFFFF;
-    box-shadow: none;
-    border: 1.5px solid #FAD0DA;
+    border-color: #D5D2D3;
   }
+  /* ป้ายเด่น (จำนวนในตะกร้าบนการ์ดสินค้า) — พื้นโรสโกลด์ ตัวอักษรหมึก */
   .chip-strong {
-    color: #FFFFFF;
-    background-color: #B23A5E;
-    box-shadow: inset 0 -2px 0 rgba(92, 35, 54, 0.3);
+    font-weight: 600;
+    color: #201B1D;
+    background-color: #F0ADB9;
+    border-color: #F0ADB9;
   }
-  /* ชิปที่กดได้ (ตัวกรอง) — พื้นที่แตะ 44px บนมือถือ */
+  /* ตัวกรองที่กดได้ (ใช้คู่ aria-pressed) — มุม 8px ไม่ใช่แคปซูล · พื้นที่แตะ 44px บนมือถือ */
   .chip-toggle {
-    @apply inline-flex items-center justify-center gap-1.5 min-h-[44px] md:min-h-[36px] px-4 rounded-full text-sm font-semibold whitespace-nowrap select-none;
-    color: #7A2442;
+    @apply inline-flex items-center justify-center gap-1.5 min-h-[44px] md:min-h-[36px] px-3.5 rounded-lg text-sm font-medium whitespace-nowrap select-none;
+    color: #463E41;
     background-color: #FFFFFF;
-    border: 2px solid #FAD0DA;
-    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    border: 1px solid #D5D2D3;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   }
   @media (hover: hover) {
-    .chip-toggle:not([aria-pressed='true']):hover { background-color: #FFF6F8; border-color: #F4A7BB; }
+    .chip-toggle:not(:disabled):not([aria-pressed='true']):hover { background-color: #FAF9FA; border-color: #B9B3B5; }
   }
+  .chip-toggle:not(:disabled):not([aria-pressed='true']):active { background-color: #F5F4F5; }
   .chip-toggle[aria-pressed='true'] {
-    color: #FFFFFF;
-    background-color: #B23A5E;
-    border-color: #B23A5E;
+    font-weight: 600;
+    color: #201B1D;
+    background-color: #F0ADB9;
+    border-color: #F0ADB9;
   }
-  .chip-toggle:disabled { @apply cursor-not-allowed; opacity: 0.6; }
+  .chip-toggle:disabled { @apply cursor-not-allowed; opacity: 0.5; }
 
   /* สวิตช์ (ราง + ปุ่มกลม) — หน้าตาอย่างเดียว ใส่ aria-hidden เสมอ สถานะจริงอยู่ที่ปุ่มแม่ (role="switch" / ข้อความสถานะ)
      <span class="switch [switch-on] [switch-sm] [switch-leaf]"><span class="switch-knob" /></span>
-     ปกติ 46×26 (เมนู) · .switch-sm 38×22 (ในปุ่มแคปซูล) · .switch-leaf = เปิดเป็นสีเขียว (สถานะ "ใช้งาน") */
+     ปกติ 46×26 · .switch-sm 38×22 · ปิด = รางเทา, เปิด = รางโรสโกลด์เข้ม · .switch-leaf = เปิดเป็นสีเขียว (สถานะ "ใช้งาน") */
   .switch {
     @apply relative inline-flex shrink-0 rounded-full;
     width: 46px;
     height: 26px;
-    border: 2px solid #E3BAC6;
-    background-color: #FFFFFF;
-    transition: background-color 0.2s ease, border-color 0.2s ease;
+    border: 2px solid #D5D2D3;
+    background-color: #D5D2D3;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
   }
   .switch-knob {
     position: absolute;
@@ -593,17 +477,16 @@
     width: 18px;
     height: 18px;
     border-radius: 9999px;
-    background-color: #8C5D6B;
-    box-shadow: 0 1px 2px rgba(92, 35, 54, 0.2);
-    transition: transform 0.2s ease, background-color 0.2s ease;
+    background-color: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(32, 27, 29, 0.25);
+    transition: transform 0.15s ease;
   }
   .switch-on {
-    border-color: #B23A5E;
-    background-color: #B23A5E;
+    border-color: #C14E67;
+    background-color: #C14E67;
   }
   .switch-on .switch-knob {
     transform: translateX(20px);
-    background-color: #FFFFFF;
   }
   .switch-sm {
     width: 38px;
@@ -619,84 +502,58 @@
     background-color: #2A7D50;
   }
 
-  /* ป้ายประเภทสต๊อก — ต่างทั้งสีและความเข้ม (เข้ม → อ่อน: จ่ายออก, รับคืน, รับเข้า, ปรับยอด) */
+  /* ป้ายประเภทสต๊อก: พื้นอ่อน + เส้นบาง + ตัวอักษรเข้ม ตามความหมาย (คู่ไอคอน 14px เสมอ ไม่พึ่งสีอย่างเดียว) */
   .badge-in,
   .badge-out,
   .badge-adjust,
   .badge-return {
-    @apply inline-flex items-center gap-1 h-6 px-2.5 rounded-full text-xs font-semibold leading-none whitespace-nowrap;
+    @apply inline-flex items-center gap-1 h-6 px-2.5 rounded-full border text-xs font-medium leading-none whitespace-nowrap;
   }
-  .badge-in { color: #1C5236; background-color: #DCF1E3; box-shadow: inset 0 -2px 0 #BCE3C9; }
-  .badge-out { color: #FFFFFF; background-color: #BF2B2B; box-shadow: inset 0 -2px 0 rgba(61, 11, 11, 0.3); }
-  .badge-adjust { color: #643947; background-color: #FFFFFF; border: 1.5px dashed #E3BAC6; }
-  .badge-return { color: #6E4010; background-color: #F9D59C; box-shadow: inset 0 -2px 0 #F2BA62; }
+  .badge-in { color: #1C5236; background-color: #EFF8F2; border-color: #BCE3C9; }
+  .badge-out { color: #841E1E; background-color: #FFF1F1; border-color: #FDC7C7; }
+  .badge-adjust { color: #463E41; background-color: #F5F4F5; border-color: #D5D2D3; }
+  .badge-return { color: #6E4010; background-color: #FFF7EA; border-color: #F9D59C; }
 
-  /* ================= ไอคอนในฟองนม ================= */
+  /* ================= กล่องไอคอน ================= */
 
+  /* สี่เหลี่ยมมุมมนเล็ก พื้นโรสโกลด์อ่อนมาก + ไอคอนโรสโกลด์ (ไม่มีแสงวาว) — 40px / sm 32px / lg 56px */
   .icon-bubble {
-    @apply relative inline-grid place-items-center shrink-0 w-[42px] h-[42px] rounded-full;
-    isolation: isolate;
-    color: #A3304F;
-    background-color: #FCD9E1;
+    @apply relative inline-grid place-items-center shrink-0 w-10 h-10 rounded-lg;
+    color: #C14E67;
+    background-color: #FFF7F8;
   }
-  /* แสงวาวบนฟอง (อยู่ใต้ไอคอน) */
-  .icon-bubble::before {
-    content: '';
-    position: absolute;
-    left: 22%;
-    top: 14%;
-    width: 34%;
-    height: 18%;
-    z-index: -1;
-    pointer-events: none;
-    border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.75);
-  }
-  .icon-bubble-sm { width: 34px; height: 34px; }
-  .icon-bubble-lg { width: 68px; height: 68px; }
+  .icon-bubble-sm { width: 32px; height: 32px; }
+  .icon-bubble-lg { width: 56px; height: 56px; border-radius: 12px; }
+  /* เด่น (ไอคอนของการ์ดเด่น / สำเร็จ) — พื้นโรสโกลด์ชมพู ไอคอนหมึก */
   .icon-bubble-strong {
-    color: #FFFFFF;
-    background-image: linear-gradient(160deg, #C24A6E, #A3304F);
-    box-shadow: inset 0 -3px 0 rgba(92, 35, 54, 0.25), 0 10px 20px -12px rgba(178, 58, 94, 0.8);
+    color: #201B1D;
+    background-color: #F0ADB9;
   }
-  .icon-bubble-strong::before { background-color: rgba(255, 255, 255, 0.5); }
-  .icon-bubble-ok { color: #216641; background-color: #DCF1E3; }
-  .icon-bubble-warn { color: #874F0F; background-color: #FDEBCD; }
-  .icon-bubble-err { color: #A12222; background-color: #FFE1E1; }
-  /* แสงวาวกระโดดเบาๆ (ใส่ .hop ที่ฟอง, เหลื่อมจังหวะด้วย .hop-2/.hop-3/.hop-4) */
-  .hop::before { animation: hop 3.2s ease-in-out infinite; }
-  .hop-2::before { animation-delay: 0.8s; }
-  .hop-3::before { animation-delay: 1.6s; }
-  .hop-4::before { animation-delay: 2.4s; }
+  .icon-bubble-ok { color: #216641; background-color: #EFF8F2; }
+  .icon-bubble-warn { color: #874F0F; background-color: #FFF7EA; }
+  .icon-bubble-err { color: #A12222; background-color: #FFF1F1; }
 
   /* ================= หัวเรื่อง ================= */
 
   .page-header { @apply flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between; }
   .page-actions { @apply flex flex-wrap items-center gap-2 sm:justify-end; }
-  /* หัวเรื่องอยู่บนพื้นนมตรงที่กลีบกุหลาบลอยผ่าน → ขอบนมรอบตัวอักษร (text-shadow) ให้อ่านชัดเสมอ
-     คำอธิบายใช้ gray-600 (7:1 บนพื้นนม, ยังเกิน 4.5:1 ตอนกลีบลอยอยู่ข้างหลัง) */
-  .page-title {
-    @apply font-display text-2xl sm:text-[30px] font-bold leading-tight text-gray-900;
-    text-shadow: 0 0 2px #FFF3F5, 0 0 6px #FFF3F5;
-  }
-  .page-subtitle {
-    @apply mt-1 text-sm text-gray-600;
-    text-shadow: 0 0 2px #FFF3F5, 0 0 6px #FFF3F5;
-  }
-  .section-title { @apply flex items-center gap-2 font-display text-base sm:text-lg font-bold leading-snug text-gray-900; }
-  /* ป้ายหัวข้อเล็ก เช่น "ทำรายการด่วน" */
-  .section-kicker { @apply font-display text-[13px] font-bold tracking-wide text-gray-500; }
-  /* ลิงก์ข้อความ (เช่น "กลับไปรายการสินค้า" ที่วางบนพื้นนม) — ขอบนมแบบเดียวกับหัวเรื่อง */
+  .page-title { @apply text-[22px] sm:text-2xl font-semibold leading-tight text-gray-900; }
+  .page-subtitle { @apply mt-1 text-sm text-gray-500; }
+  /* หัวข้อในการ์ด (ไอคอนนำหน้าเป็นสีโรสโกลด์เอง) */
+  .section-title { @apply flex items-center gap-2 text-base sm:text-lg font-semibold leading-snug text-gray-900; }
+  .section-title > svg { color: #C14E67; }
+  /* ป้ายหัวข้อเล็ก เช่น "ทำรายการด่วน", "ตั้งค่า" ในเมนู */
+  .section-kicker { @apply text-[13px] font-semibold text-gray-500; }
+  /* ลิงก์ข้อความ (เช่น "ดูทั้งหมด", "กลับไปรายการสินค้า") */
   .link {
-    @apply inline-flex items-center gap-1 min-h-[44px] font-semibold text-brand-700 underline-offset-4;
-    text-shadow: 0 0 2px #FFF3F5, 0 0 6px #FFF3F5;
+    @apply inline-flex items-center gap-1 min-h-[44px] font-medium text-brand-700 underline-offset-4;
   }
   /* ขีดเส้นใต้เฉพาะอุปกรณ์ที่ชี้เมาส์ได้ (มือถือแตะแล้วไม่ค้างเส้นใต้) */
   @media (hover: hover) {
     .link:hover { text-decoration-line: underline; }
   }
-  /* ตัวเลขเงิน/จำนวนเด่น */
-  .money { @apply font-display font-bold tabular-nums; }
+  /* ตัวเลขเงิน/จำนวนเด่น (ตัวเลขกว้างเท่ากันทุกตัว เรียงตรงหลัก) */
+  .money { @apply font-semibold tabular-nums; }
 
   /* ================= ตาราง ================= */
 
@@ -714,23 +571,23 @@
     font-size: 14px;
   }
   .table-soft :where(thead th) {
-    padding: 12px 16px;
+    padding: 10px 16px;
     text-align: left;
     font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
-    color: #704453;
-    background-color: #FFF3F5;
-    border-bottom: 2px solid #FCE0E7;
+    color: #585053;
+    background-color: #FAF9FA;
+    border-bottom: 1px solid #E8E6E6;
   }
   .table-soft :where(tbody td) {
     padding: 12px 16px;
-    border-top: 1px solid #FCE0E7;
+    border-top: 1px solid #EFEDEE;
   }
   .table-soft :where(tbody tr:first-child td) { border-top: 0; }
   .table-soft :where(tbody tr) { transition: background-color 0.15s ease; }
   @media (hover: hover) {
-    .table-soft :where(tbody tr:hover) { background-color: #FFF6F8; }
+    .table-soft :where(tbody tr:hover) { background-color: #FAF9FA; }
   }
 
   /* ================= สถานะ / แจ้งเตือน ================= */
@@ -740,12 +597,13 @@
   .alert-err,
   .alert-warn,
   .alert-info {
-    @apply flex items-start gap-2.5 rounded-2xl border px-3.5 py-2.5 text-sm leading-relaxed;
+    @apply flex items-start gap-2.5 rounded-lg border px-3.5 py-2.5 text-sm leading-relaxed;
   }
   .alert-ok { @apply border-green-200 bg-green-50 text-green-800; }
   .alert-err { @apply border-red-200 bg-red-50 text-red-800; }
   .alert-warn { @apply border-amber-200 bg-amber-50 text-amber-800; }
-  .alert-info { @apply border-blush-line bg-milk text-brand-800; }
+  .alert-info { @apply border-brand-200 bg-brand-50 text-gray-800; }
+  .alert-info > svg { color: #C14E67; }
   .alert-ok > svg,
   .alert-err > svg,
   .alert-warn > svg,
@@ -754,172 +612,71 @@
     margin-top: 2px;
   }
 
-  /* โทสต์ลอย (ผลการเพิ่มสินค้า ฯลฯ) — .toast-icon = ฟองไอคอนด้านซ้าย */
+  /* โทสต์ลอย (ผลการเพิ่มสินค้า ฯลฯ) — การ์ดขาวลอย + เงาจาง · .toast-icon = วงไอคอนสถานะด้านซ้าย */
   .toast-ok,
   .toast-err {
-    @apply inline-flex items-center gap-3 max-w-md rounded-[26px] py-2 pl-2 pr-5 text-sm font-semibold leading-snug;
-    animation: pop-in 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+    @apply inline-flex items-center gap-3 max-w-md rounded-xl border py-2 pl-2 pr-4 text-sm font-medium leading-snug;
+    background-color: #FFFFFF;
+    box-shadow: 0 12px 32px -12px rgba(32, 27, 29, 0.2);
+    animation: pop-in 0.15s ease-out both;
   }
   .toast-ok {
-    color: #5C2336;
-    background-color: #FFFFFF;
-    border: 2px solid #FAD0DA;
-    box-shadow: inset 0 -4px 0 #FDEBF0, 0 16px 32px -20px rgba(178, 58, 94, 0.6);
+    color: #201B1D;
+    border-color: #E8E6E6;
   }
   .toast-err {
     color: #841E1E;
-    background-color: #FFF1F1;
-    border: 2px solid #FDC7C7;
-    box-shadow: inset 0 -4px 0 #FFE1E1, 0 16px 32px -20px rgba(191, 43, 43, 0.45);
+    border-color: #FDC7C7;
   }
   .toast-icon {
-    @apply relative inline-grid place-items-center shrink-0 w-[34px] h-[34px] rounded-full;
+    @apply relative inline-grid place-items-center shrink-0 w-8 h-8 rounded-full;
     color: #FFFFFF;
   }
-  .toast-ok .toast-icon { background-image: linear-gradient(160deg, #C24A6E, #A3304F); }
+  .toast-ok .toast-icon { background-color: #2A7D50; }
   .toast-err .toast-icon { background-color: #BF2B2B; }
 
   /* ว่างเปล่า / ไม่พบข้อมูล */
   .empty-state { @apply flex flex-col items-center justify-center gap-2 px-4 py-10 text-center text-sm text-gray-500; }
-  .empty-state-title { @apply font-display text-base font-semibold text-gray-900; }
+  .empty-state-title { @apply text-base font-semibold text-gray-900; }
 
-  /* โครงรอโหลด: บลัช + แสงวิ่ง (transform) */
+  /* โครงรอโหลด: เทาอ่อน กะพริบจางช้าๆ (ไม่มีแสงวิ่ง) */
   .skeleton {
-    position: relative;
-    overflow: hidden;
-    border-radius: 14px;
-    background-color: #FBE3EA;
-  }
-  .skeleton::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background-image: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.65) 50%, rgba(255, 255, 255, 0) 100%);
-    transform: translate3d(-100%, 0, 0);
-    animation: shimmer 1.4s ease-in-out infinite;
+    border-radius: 6px;
+    background-color: #EFEDEE;
+    animation: skeleton-pulse 1.6s ease-in-out infinite;
   }
 
-  /* ================= ลวดลายตกแต่ง (aria-hidden เสมอ) ================= */
+  /* ================= เส้นคั่น ================= */
 
+  /* เส้นคั่นบาง 1px (ใช้แทน <hr>/border-t) */
+  .divider {
+    display: block;
+    height: 0;
+    border: 0;
+    border-top: 1px solid #E8E6E6;
+  }
+  /* (เลิกใช้) เส้นลอนคลื่น / เส้นจุด → เป็นเส้นตรงบาง คงความสูง 12px เดิมไว้ ระยะห่างในหน้าเดิมไม่เปลี่ยน */
+  .wave-divider,
+  .divider-dotted {
+    display: block;
+    height: 12px;
+    border: 0;
+    background: linear-gradient(#E8E6E6, #E8E6E6) left center / 100% 1px no-repeat;
+  }
+
+  /* ================= ของตกแต่งจากธีมเก่า (เลิกใช้ทั้งหมด) ================= */
+  /* .decor = ตัวกันแตะของชิ้นตกแต่ง (ยังเหลือในบางหน้า) · กันสาด/ฟองนม ซ่อนแล้ว · ลายจุดไม่วาดแล้ว
+     candy / hop / bob / scallop / petal ไม่มีสไตล์แล้ว (ชื่อที่ยังค้างในหน้าไม่มีผลอะไร) → ลบออกจาก markup ได้เลย */
   .decor {
     pointer-events: none;
     -webkit-user-select: none;
     user-select: none;
   }
-  /* กันสาดลายทาง ขอบล่างหยัก (หัวการ์ดล็อกอิน) */
-  .awning {
-    height: 44px;
-    background-image: repeating-linear-gradient(90deg, #F4A7BB 0 22px, #FCD9E1 22px 44px);
-    -webkit-mask:
-      linear-gradient(#000 0 0) 0 0 / 100% calc(100% - 11px) no-repeat,
-      radial-gradient(circle 11px at 50% 0, #000 97%, transparent 100%) 0 100% / 22px 11px repeat-x;
-    mask:
-      linear-gradient(#000 0 0) 0 0 / 100% calc(100% - 11px) no-repeat,
-      radial-gradient(circle 11px at 50% 0, #000 97%, transparent 100%) 0 100% / 22px 11px repeat-x;
-  }
-  @media (min-width: 640px) {
-    .awning { height: 66px; }
-  }
-  /* ขอบหยักแบบลูกไม้ ใส่กับกล่องตกแต่ง: ล่าง / บน / ขวา */
-  .scallop-bottom {
-    -webkit-mask:
-      linear-gradient(#000 0 0) 0 0 / 100% calc(100% - 9px) no-repeat,
-      radial-gradient(circle 9px at 50% 0, #000 97%, transparent 100%) 0 100% / 18px 9px repeat-x;
-    mask:
-      linear-gradient(#000 0 0) 0 0 / 100% calc(100% - 9px) no-repeat,
-      radial-gradient(circle 9px at 50% 0, #000 97%, transparent 100%) 0 100% / 18px 9px repeat-x;
-  }
-  .scallop-top {
-    -webkit-mask:
-      linear-gradient(#000 0 0) 0 100% / 100% calc(100% - 9px) no-repeat,
-      radial-gradient(circle 9px at 50% 100%, #000 97%, transparent 100%) 0 0 / 18px 9px repeat-x;
-    mask:
-      linear-gradient(#000 0 0) 0 100% / 100% calc(100% - 9px) no-repeat,
-      radial-gradient(circle 9px at 50% 100%, #000 97%, transparent 100%) 0 0 / 18px 9px repeat-x;
-  }
-  .scallop-right {
-    -webkit-mask:
-      linear-gradient(#000 0 0) 0 0 / calc(100% - 12px) 100% no-repeat,
-      radial-gradient(circle 12px at 0 50%, #000 97%, transparent 100%) 100% 0 / 12px 24px repeat-y;
-    mask:
-      linear-gradient(#000 0 0) 0 0 / calc(100% - 12px) 100% no-repeat,
-      radial-gradient(circle 12px at 0 50%, #000 97%, transparent 100%) 100% 0 / 12px 24px repeat-y;
-  }
-  /* เส้นคั่นเป็นลอนคลื่น (ใช้แทน <hr>/border-t ในตะกร้า, ใต้หัวข้อ) */
-  .wave-divider {
-    display: block;
-    height: 12px;
-    border: 0;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='12' viewBox='0 0 22 12'%3E%3Cpath d='M0 6 Q5.5 0 11 6 T22 6' fill='none' stroke='%23F4A7BB' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
-    background-repeat: repeat-x;
-    background-position: left center;
-    background-size: 22px 12px;
-  }
-  .divider-dotted {
-    height: 0;
-    border: 0;
-    border-top: 2px dotted #F4A7BB;
-  }
-  /* ลายจุดนมบนพื้นผิวใดก็ได้ */
-  .dots-bg {
-    background-image: radial-gradient(rgba(178, 58, 94, 0.07) 1.6px, transparent 2.2px);
-    background-size: 24px 24px;
-  }
-  /* ฟองนมลอยเบาๆ (ตกแต่งมุมว่าง: .milk-bubble + .bob / .bob-2 / .bob-3) */
+  .awning,
   .milk-bubble {
-    display: block;
-    border-radius: 9999px;
-    pointer-events: none;
-    background-image: radial-gradient(circle at 32% 28%, #FFFFFF 0%, rgba(255, 255, 255, 0.4) 30%, rgba(244, 167, 187, 0.35) 75%, rgba(244, 167, 187, 0.12) 100%);
+    display: none;
   }
-  .bob { animation: bob 6s ease-in-out infinite alternate; }
-  .bob-2 { animation: bob 7.5s ease-in-out -2s infinite alternate; }
-  .bob-3 { animation: bob 5s ease-in-out -1s infinite alternate; }
-
-  /* ================= กลีบกุหลาบปลิว (ธีม 11) — components/theme/PetalLayer.tsx ================= */
-
-  /* ชั้นหลังสุด: z-index -1 = อยู่ใต้เนื้อหาทุกอย่าง, แตะทะลุ, จำกัดการวาดไว้ในกล่องตัวเอง */
-  .petal-layer {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100vh;
-    height: 100lvh; /* สูงคงที่ ไม่ขยับตามแถบเบราว์เซอร์มือถือ */
-    z-index: -1;
-    overflow: hidden;
-    pointer-events: none;
-    contain: strict;
-  }
-  .petal-layer * { pointer-events: none; }
-  .petal {
-    position: absolute;
-    display: block;
-  }
-  .petal > svg {
-    display: block;
-    opacity: var(--o, 0.9);
-    will-change: transform, opacity;
-    animation: petal-drift var(--t, 8s) ease-in-out var(--d, 0s) infinite;
-  }
-  /* หน้าระบบ (มีเมนู .app-shell) จอเล็กกว่า xl: หัวเรื่อง/คำอธิบายยาวเต็มแถบบน → ซ่อนกลีบแถบหัวเรื่อง
-     ไม่ให้ลอยทับตัวหนังสือ (หน้าเข้าสู่ระบบยังเห็นครบ, มือถือมีกลีบในแถบบนแทน) */
-  @media (max-width: 1279.98px) {
-    body:has(.app-shell) .petal-band { display: none; }
-  }
-  /* กลีบในแถบบนมือถือ: เฉพาะที่ว่างด้านขวา (เว้นปุ่มเมนู + ชื่อร้าน 220px) ตัดขอบในกล่อง */
-  .topbar-petals {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: max(0px, calc(100% - 220px));
-    overflow: hidden;
-    pointer-events: none;
-    contain: strict;
-  }
-  .topbar-petals * { pointer-events: none; }
+  .dots-bg { background-image: none; }
 }
 
 @layer utilities {
@@ -933,83 +690,37 @@
   .scrollbar-none::-webkit-scrollbar { display: none; }
 }
 
-/* ================= keyframes (ใช้เฉพาะ transform / opacity) ================= */
+/* ================= keyframes (เฉพาะที่มีหน้าที่ · opacity / transform เล็กน้อย) ================= */
 
-/* แถบลายลูกกวาดวิ่งผ่านปุ่ม (ธีม 16: candySlide 3.6s) */
-@keyframes candy-slide {
-  0% { transform: translate3d(-60%, 0, 0); }
-  100% { transform: translate3d(0, 0, 0); }
-}
-/* ไฮไลต์เงาเด้ง (ธีม 16: gloss 2.8s) */
-@keyframes candy-gloss {
-  0%, 100% { transform: translateY(0) scale(1, 1); }
-  35% { transform: translateY(-2px) scale(1.1, 0.88); }
-  55% { transform: translateY(1px) scale(0.94, 1.08); }
-  75% { transform: translateY(0) scale(1.02, 0.98); }
-}
-/* ฟองนมลอยขึ้นลง (ธีม 16: bob) */
-@keyframes bob {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(-10px); }
-}
-/* แสงวาวบนฟองกระโดด (ธีม 16: hop) */
-@keyframes hop {
-  0%, 60%, 100% { transform: translateY(0); }
-  72% { transform: translateY(-3px); }
-  84% { transform: translateY(0); }
-  92% { transform: translateY(-1px); }
-}
-/* กลีบกุหลาบลอยเฉียงพร้อมหมุน จางเข้า-จางออก (ธีม 11: t11Drift 8s) */
-@keyframes petal-drift {
-  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; }
-  12% { opacity: var(--o, 0.9); }
-  50% { transform: translate3d(calc(var(--dx, 150px) * 0.5), calc(var(--dy, 80px) * 0.42), 0) rotate(calc(var(--rot, 140deg) * 0.5)); }
-  86% { opacity: var(--o, 0.9); }
-  100% { transform: translate3d(var(--dx, 150px), var(--dy, 80px), 0) rotate(var(--rot, 140deg)); opacity: 0; }
-}
-@keyframes shimmer {
-  100% { transform: translate3d(100%, 0, 0); }
-}
+/* ป็อปอัป/โทสต์ปรากฏ: จางเข้า + ขยายจาก 98% (ไม่เด้ง) */
 @keyframes pop-in {
-  0% { opacity: 0; transform: translateY(8px) scale(0.96); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+  0% { opacity: 0; transform: scale(0.98); }
+  100% { opacity: 1; transform: scale(1); }
 }
+/* ชีตล่าง/ป็อปอัปเลื่อนขึ้นเล็กน้อย */
 @keyframes fade-up {
-  0% { opacity: 0; transform: translateY(6px); }
+  0% { opacity: 0; transform: translateY(8px); }
   100% { opacity: 1; transform: translateY(0); }
 }
-
-/* ================= สวิตช์ปิดการเคลื่อนไหว ================= */
-
-/* ผู้ใช้กดปิดในเมนู (MotionToggle) — หยุดทุกอย่าง ยกเว้นไอคอนหมุน "กำลังโหลด" (animate-spin) */
-html[data-motion='off'] *:not(.animate-spin),
-html[data-motion='off'] *::before,
-html[data-motion='off'] *::after {
-  animation: none !important;
-}
-html[data-motion='off'] .petal > svg {
-  opacity: calc(var(--o, 0.9) * 0.6);
-  will-change: auto;
+/* โครงรอโหลด */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
 }
 
-/* เครื่องตั้งค่า "ลดการเคลื่อนไหว" — หยุดทุกอย่างและตัดทรานซิชัน */
+/* เครื่องตั้งค่า "ลดการเคลื่อนไหว" — หยุดทุกอย่างและตัดทรานซิชัน (เว้นไอคอนหมุน "กำลังโหลด" ให้ยังเห็นว่ากำลังทำงาน) */
 @media (prefers-reduced-motion: reduce) {
-  *,
+  *:not(.animate-spin),
   *::before,
   *::after {
     animation: none !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  .petal > svg {
-    opacity: calc(var(--o, 0.9) * 0.6);
-    will-change: auto;
-  }
 }
 
 /* ================= พิมพ์ ================= */
 @media print {
-  .petal-layer,
   .decor,
   .milk-bubble,
   .awning {
@@ -1018,20 +729,11 @@ html[data-motion='off'] .petal > svg {
   body {
     background: #FFFFFF !important;
   }
-  .candy::before,
-  .candy::after,
-  .btn-primary::before,
-  .btn-primary::after,
-  .nav-item::before,
-  .nav-item::after,
-  .surface-topbar::before,
-  .surface-topbar::after,
-  .surface-sidebar::before {
-    display: none !important;
-  }
   .card,
   .stat-card,
-  .sheet {
+  .sheet,
+  .toast-ok,
+  .toast-err {
     box-shadow: none !important;
   }
 }
@@ -1065,10 +767,10 @@ html[data-gate='locked'] .entry-gate-cover {
   justify-content: center;
   gap: 12px;
   padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
-  background: #FFF3F5;
+  background: #FFFFFF;
   text-align: center;
 }
-/* ลิงก์สำรองโผล่หลังรอ 6 วินาที (ปกติถูกพาไปหน้าเข้าสู่ระบบก่อนแล้ว) — ปิดเอฟเฟกต์ = โผล่ทันที ไม่เป็นไร */
+/* ลิงก์สำรองโผล่หลังรอ 6 วินาที (ปกติถูกพาไปหน้าเข้าสู่ระบบก่อนแล้ว) — เครื่องที่ลดการเคลื่อนไหว = โผล่ทันที ไม่เป็นไร */
 .entry-gate-later {
   margin-top: 8px;
   animation: entry-gate-reveal 0.3s ease-out 6s backwards;

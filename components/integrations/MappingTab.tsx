@@ -313,7 +313,7 @@ export default function MappingTab({
       {rows.length === 0 ? (
         <div className="card empty-state">
           <span className="icon-bubble icon-bubble-lg">
-            {q || filter !== 'all' ? <SearchX size={30} strokeWidth={1.8} aria-hidden="true" /> : <Shirt size={30} strokeWidth={1.8} aria-hidden="true" />}
+            {q || filter !== 'all' ? <SearchX size={28} strokeWidth={1.75} aria-hidden="true" /> : <Shirt size={28} strokeWidth={1.75} aria-hidden="true" />}
           </span>
           <p className="empty-state-title">
             {q || filter !== 'all' ? 'ไม่พบรายการตามตัวกรองนี้' : 'ยังไม่มีรายการจากแพลตฟอร์ม'}
@@ -417,7 +417,7 @@ function ListingCard({
       </div>
 
       {/* สินค้าในแอป */}
-      <div className={clsx('rounded-2xl border px-3 py-2.5', mapped ? 'border-blush-hair bg-gray-50' : 'border-dashed border-strawberry bg-white')}>
+      <div className={clsx('rounded-lg border px-3 py-2.5', mapped ? 'border-gray-150 bg-gray-50' : 'border-dashed border-brand-400 bg-white')}>
         {mapped && l.product ? (
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -444,15 +444,15 @@ function ListingCard({
       <dl className="grid grid-cols-3 gap-2 text-center">
         <div className="panel px-2 py-1.5">
           <dt className="text-xs text-gray-500">บนแพลตฟอร์ม</dt>
-          <dd className="font-display font-bold tabular-nums text-gray-900">{l.platform_qty === null ? '-' : qty(l.platform_qty)}</dd>
+          <dd className="font-semibold tabular-nums text-gray-900">{l.platform_qty === null ? '-' : qty(l.platform_qty)}</dd>
         </div>
         <div className="panel px-2 py-1.5">
           <dt className="text-xs text-gray-500">ในแอป</dt>
-          <dd className="font-display font-bold tabular-nums text-gray-900">{l.product ? qty(l.product.stock_qty) : '-'}</dd>
+          <dd className="font-semibold tabular-nums text-gray-900">{l.product ? qty(l.product.stock_qty) : '-'}</dd>
         </div>
         <div className="panel px-2 py-1.5">
           <dt className="text-xs text-gray-500">จะส่ง</dt>
-          <dd className="font-display font-bold tabular-nums text-brand-700">{l.push_qty === null ? '-' : qty(l.push_qty)}</dd>
+          <dd className="font-semibold tabular-nums text-brand-700">{l.push_qty === null ? '-' : qty(l.push_qty)}</dd>
         </div>
       </dl>
       {owed > 0 && (
@@ -518,7 +518,7 @@ function ListingCard({
 
       {/* ส่งสต๊อกรายตัว + กันสต๊อกรายตัว (เฉพาะที่จับคู่แล้ว และแพลตฟอร์มส่งสต๊อกได้) */}
       {mapped && meta.capabilities.pushStock && (
-        <div className="grid gap-2 sm:grid-cols-2 border-t border-blush-hair pt-3">
+        <div className="grid gap-2 sm:grid-cols-2 border-t border-gray-150 pt-3">
           <button
             type="button"
             role="switch"
@@ -526,15 +526,15 @@ function ListingCard({
             onClick={onTogglePush}
             disabled={locked}
             className={clsx(
-              'flex w-full min-h-[44px] items-center justify-between gap-2 rounded-full border-2 px-3 text-sm font-semibold transition-colors active:scale-[0.98] disabled:opacity-60',
-              l.push_enabled ? 'border-green-200 bg-green-50 text-green-800' : 'border-blush-line bg-white text-gray-600',
+              'flex w-full min-h-[44px] items-center justify-between gap-2 rounded-lg border px-3 text-sm font-semibold transition-colors disabled:opacity-60',
+              l.push_enabled ? 'border-green-200 bg-green-50 text-green-800' : 'border-gray-300 bg-white text-gray-700 active:bg-gray-100',
             )}
           >
             <span className="min-w-0 truncate">ส่งสต๊อกรายการนี้</span>
             {busy === `push:${l.id}` ? (
               <Loader2 {...ICON_SM} className="animate-spin" />
             ) : (
-              <span aria-hidden="true" className={clsx('switch switch-sm switch-leaf', l.push_enabled ? 'switch-on' : 'bg-gray-100')}>
+              <span aria-hidden="true" className={clsx('switch switch-sm switch-leaf', l.push_enabled && 'switch-on')}>
                 <span className="switch-knob" />
               </span>
             )}

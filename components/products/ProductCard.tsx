@@ -49,7 +49,7 @@ export default function ProductCard({ group, categoryName, canManage, busy, onTo
   return (
     <article
       className={`card card-hover relative flex w-full min-w-0 flex-col overflow-hidden ${
-        group.is_active ? '' : 'card-milk border-dashed border-gray-300'
+        group.is_active ? '' : 'border-dashed border-gray-300'
       }`}
     >
       <Link
@@ -58,8 +58,8 @@ export default function ProductCard({ group, categoryName, canManage, busy, onTo
         prefetch={false}
         className="flex min-w-0 flex-1 flex-col rounded-[inherit] focus-visible:outline-offset-[-3px]"
       >
-        {/* รูปปก 4:5 (สัดส่วนรูปเสื้อผ้า) — ไม่มีรูป = ลายแทนรูปสีนมชมพู */}
-        <div className="relative aspect-[4/5] w-full overflow-hidden bg-milk">
+        {/* รูปปก 4:5 (สัดส่วนรูปเสื้อผ้า) — ไม่มีรูป = พื้นเทาอ่อนเรียบ + ไอคอนเทา */}
+        <div className="relative aspect-[4/5] w-full overflow-hidden border-b border-gray-150 bg-gray-50">
           {cover ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -71,14 +71,13 @@ export default function ProductCard({ group, categoryName, canManage, busy, onTo
               className={`h-full w-full object-cover ${group.is_active ? '' : 'opacity-60 grayscale'}`}
             />
           ) : (
-            <div className="relative flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-milk-soft to-blush-soft">
-              <span className="dots-bg decor absolute inset-0" aria-hidden="true" />
-              <span className="icon-bubble icon-bubble-lg">
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2">
+              <span className="inline-grid h-14 w-14 place-items-center rounded-xl border border-gray-200 bg-white text-gray-400">
                 {group.cover_path
-                  ? <ImageOff size={28} strokeWidth={1.8} aria-hidden="true" />
-                  : <Shirt size={30} strokeWidth={1.8} aria-hidden="true" />}
+                  ? <ImageOff size={26} strokeWidth={1.5} aria-hidden="true" />
+                  : <Shirt size={26} strokeWidth={1.5} aria-hidden="true" />}
               </span>
-              <span className="relative text-xs font-medium text-gray-500">{group.cover_path ? 'โหลดรูปไม่ได้' : 'ยังไม่มีรูป'}</span>
+              <span className="text-xs font-medium text-gray-500">{group.cover_path ? 'โหลดรูปไม่ได้' : 'ยังไม่มีรูป'}</span>
             </div>
           )}
 
@@ -90,7 +89,7 @@ export default function ProductCard({ group, categoryName, canManage, busy, onTo
             </span>
           )}
           {soldOut ? (
-            <span className="absolute right-2 top-2 inline-flex h-6 items-center rounded-full bg-red-600 px-2 text-xs font-bold text-white">
+            <span className="absolute right-2 top-2 inline-flex h-6 items-center rounded-full bg-red-600 px-2 text-xs font-semibold text-white">
               หมด
             </span>
           ) : low ? (
@@ -102,7 +101,7 @@ export default function ProductCard({ group, categoryName, canManage, busy, onTo
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-3">
-          <p className="font-display text-sm font-semibold leading-snug text-gray-900 line-clamp-2 break-words sm:text-[15px]">
+          <p className="text-sm font-semibold leading-snug text-gray-900 line-clamp-2 break-words sm:text-[15px]">
             {group.name}
           </p>
 
@@ -119,7 +118,7 @@ export default function ProductCard({ group, categoryName, canManage, busy, onTo
             </div>
           )}
 
-          <p className="money text-[15px] leading-tight text-brand-600 sm:text-base">
+          <p className="money text-[15px] leading-tight text-gray-900 sm:text-base">
             {range
               ? range.min === range.max
                 ? <span className="whitespace-nowrap">{baht(range.min)}</span>
@@ -129,7 +128,7 @@ export default function ProductCard({ group, categoryName, canManage, busy, onTo
 
           <p className="text-xs text-gray-500 tabular-nums">
             สต๊อก{' '}
-            <span className={low ? 'font-bold text-red-600' : 'font-semibold text-gray-900'}>
+            <span className={low ? 'font-semibold text-red-700' : 'font-semibold text-gray-900'}>
               {totalStock.toLocaleString('en-US')}
             </span>{' '}
             ชิ้น
@@ -149,7 +148,7 @@ export default function ProductCard({ group, categoryName, canManage, busy, onTo
                   ? 'border border-dashed border-gray-300 bg-white text-gray-500'
                   : sizeLow
                     ? 'border border-red-200 bg-red-50 text-red-700'
-                    : 'bg-blush text-brand-800'
+                    : 'border border-gray-200 bg-gray-100 text-gray-700'
                 return (
                   <li
                     key={v.id}
@@ -158,14 +157,14 @@ export default function ProductCard({ group, categoryName, canManage, busy, onTo
                       hit ? 'ring-2 ring-brand-600 ring-offset-1' : ''
                     }`}
                   >
-                    <span className={`min-w-0 truncate font-semibold ${sizeOff ? 'line-through' : ''}`}>{v.size ?? '-'}</span>
-                    <span className="font-bold tabular-nums">{v.stock_qty.toLocaleString('en-US')}</span>
+                    <span className={`min-w-0 truncate font-medium ${sizeOff ? 'line-through' : ''}`}>{v.size ?? '-'}</span>
+                    <span className="font-semibold tabular-nums">{v.stock_qty.toLocaleString('en-US')}</span>
                     {sizeOff && <span className="sr-only">(ปิดขาย)</span>}
                   </li>
                 )
               })}
               {hiddenChips > 0 && (
-                <li className="inline-flex h-6 items-center rounded-full border border-blush-line bg-white px-2 text-xs font-semibold text-brand-700">
+                <li className="inline-flex h-6 items-center rounded-full border border-gray-200 bg-white px-2 text-xs font-medium text-gray-600 tabular-nums">
                   +{hiddenChips}
                 </li>
               )}
@@ -176,7 +175,7 @@ export default function ProductCard({ group, categoryName, canManage, busy, onTo
           {single && (
             <p className="mt-auto pt-1">
               <span
-                className={`inline-flex h-6 max-w-full items-center rounded-full border border-blush-line bg-white px-2 font-mono text-xs text-gray-700 ${
+                className={`inline-flex h-6 max-w-full items-center rounded-full border border-gray-200 bg-white px-2 font-mono text-xs text-gray-700 ${
                   highlightIds?.has(single.id) ? 'ring-2 ring-brand-600 ring-offset-1' : ''
                 }`}
                 title={single.barcode ? `บาร์โค้ด ${single.barcode}` : undefined}
@@ -190,7 +189,7 @@ export default function ProductCard({ group, categoryName, canManage, busy, onTo
 
       {canManage && (
         <div className="px-3 pb-3">
-          {/* สวิตช์เปิดขายทั้งแบบ: รางเขียว = เปิดขาย / รางเทา = ปิดใช้งาน */}
+          {/* สวิตช์เปิดขายทั้งแบบ: รางเขียว = เปิดขาย / รางเทา = ปิดใช้งาน (แถวขาวเรียบ ไม่ย่อตอนกด) */}
           <button
             type="button"
             role="switch"
@@ -198,8 +197,8 @@ export default function ProductCard({ group, categoryName, canManage, busy, onTo
             onClick={() => onToggle(group)}
             disabled={busy}
             title={group.is_active ? 'กดเพื่อปิดใช้งานทั้งแบบ (ทุกไซส์)' : 'กดเพื่อเปิดขายทั้งแบบ'}
-            className={`relative z-[1] flex w-full min-h-[44px] items-center justify-between gap-2 rounded-full border-2 px-3 text-sm font-semibold leading-tight select-none transition-[transform,background-color,border-color,color] duration-200 active:scale-[0.97] disabled:cursor-wait disabled:opacity-70 disabled:active:scale-100 ${
-              group.is_active ? 'border-green-200 bg-green-50 text-green-800' : 'border-blush-line bg-white text-gray-600'
+            className={`relative z-[1] flex w-full min-h-[44px] items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium leading-tight select-none transition-colors duration-150 active:bg-gray-100 [@media(hover:hover)]:hover:bg-gray-50 disabled:cursor-wait disabled:opacity-70 ${
+              group.is_active ? 'text-green-800' : 'text-gray-600'
             }`}
           >
             <span className="min-w-0 truncate">
@@ -209,7 +208,7 @@ export default function ProductCard({ group, categoryName, canManage, busy, onTo
             {busy ? (
               <Loader2 {...ICON_SM} className="animate-spin" />
             ) : (
-              <span aria-hidden="true" className={`switch switch-sm switch-leaf ${group.is_active ? 'switch-on' : 'bg-gray-100'}`}>
+              <span aria-hidden="true" className={`switch switch-sm switch-leaf ${group.is_active ? 'switch-on' : ''}`}>
                 <span className="switch-knob" />
               </span>
             )}

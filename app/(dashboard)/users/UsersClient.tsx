@@ -5,7 +5,7 @@ import {
   AlertTriangle, CheckCircle2, Crown, Eye, EyeOff, Loader2, Lock, Pencil, PencilLine, Save, Trash2,
   UserPlus, UserRound, Users, X, XCircle,
 } from 'lucide-react'
-import { ICON, ICON_SM } from '@/components/theme/icons'
+import { ICON, ICON_SM, ICON_XS } from '@/components/theme/icons'
 import {
   type Permissions,
   type UserProfile,
@@ -303,7 +303,7 @@ export default function UsersClient({
         {users.length === 0 ? (
           <div className="card empty-state">
             <span className="icon-bubble icon-bubble-lg">
-              <Users size={30} strokeWidth={1.8} aria-hidden="true" />
+              <Users size={28} strokeWidth={1.75} aria-hidden="true" />
             </span>
             <p className="empty-state-title">ไม่มีผู้ใช้</p>
           </div>
@@ -324,7 +324,7 @@ export default function UsersClient({
                   </div>
                   {u.role === 'admin' ? (
                     <span className="chip shrink-0">
-                      <Crown size={14} strokeWidth={2} aria-hidden="true" />
+                      <Crown size={14} strokeWidth={2} aria-hidden="true" className="text-amber-600" />
                       Admin
                     </span>
                   ) : (
@@ -338,7 +338,7 @@ export default function UsersClient({
                 <p className="text-xs text-gray-500 mt-1 tabular-nums">สร้างเมื่อ {formatThaiDateTime(u.created_at)}</p>
                 {/* ปุ่มชิดล่างการ์ด (การ์ดสองคอลัมน์สูงไม่เท่ากันก็ยังตรงแนว) */}
                 <div className="mt-auto pt-3">
-                  <div className="flex gap-2 pt-3 border-t border-brand-100">
+                  <div className="flex gap-2 pt-3 border-t border-gray-150">
                     {canManage(u) ? (
                       <>
                         <button onClick={() => openEdit(u)} className="btn-secondary flex-1 min-w-0 px-3 text-sm">
@@ -388,7 +388,7 @@ export default function UsersClient({
                   <td colSpan={5}>
                     <div className="empty-state">
                       <span className="icon-bubble icon-bubble-lg">
-                        <Users size={30} strokeWidth={1.8} aria-hidden="true" />
+                        <Users size={28} strokeWidth={1.75} aria-hidden="true" />
                       </span>
                       <p className="empty-state-title">ไม่มีผู้ใช้</p>
                     </div>
@@ -407,10 +407,10 @@ export default function UsersClient({
                   </td>
                   <td className="px-4 xl:px-6 text-gray-700">{u.full_name || '-'}</td>
                   <td className="px-4 xl:px-6">
-                    {/* Admin = ชิปบลัช + มงกุฎ / Staff = ชิปขอบ + รูปคน */}
+                    {/* Admin = ชิปเทา + มงกุฎ / Staff = ชิปขอบ + รูปคน */}
                     {u.role === 'admin' ? (
                       <span className="chip">
-                        <Crown size={14} strokeWidth={2} aria-hidden="true" />
+                        <Crown size={14} strokeWidth={2} aria-hidden="true" className="text-amber-600" />
                         Admin
                       </span>
                     ) : (
@@ -427,23 +427,23 @@ export default function UsersClient({
                   <td className="px-4 xl:px-6 text-right whitespace-nowrap">
                     {canManage(u) ? (
                       <div className="inline-flex items-center gap-2">
-                        <button onClick={() => openEdit(u)} className="btn-ghost px-3 text-sm">
-                          <Pencil {...ICON_SM} />
+                        <button onClick={() => openEdit(u)} className="btn-ghost min-h-[36px] px-2.5 text-sm">
+                          <Pencil {...ICON_XS} />
                           แก้ไข
                         </button>
                         {u.id !== currentUserId && (
                           <button onClick={() => handleDelete(u)} disabled={deletingId !== null}
-                            className="btn-danger-soft px-3 text-sm">
+                            className="btn-danger-soft min-h-[36px] px-2.5 text-sm">
                             {deletingId === u.id
-                              ? <Loader2 {...ICON_SM} className="animate-spin" />
-                              : <Trash2 {...ICON_SM} />}
+                              ? <Loader2 {...ICON_XS} className="animate-spin" />
+                              : <Trash2 {...ICON_XS} />}
                             {deletingId === u.id ? 'กำลังลบ...' : 'ลบ'}
                           </button>
                         )}
                       </div>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
-                        <Lock {...ICON_SM} />
+                        <Lock {...ICON_XS} />
                         {lockedReason(u)}
                       </span>
                     )}
@@ -461,15 +461,15 @@ export default function UsersClient({
           className="fixed inset-0 z-50 !mt-0 flex items-end sm:items-center justify-center scrim sm:p-4"
           role="dialog" aria-modal="true" aria-labelledby="user-modal-title"
         >
-          <div className="sheet w-full max-w-lg lg:max-w-2xl max-h-[90dvh] overflow-y-auto overscroll-contain rounded-b-none border-b-0 sm:rounded-4xl sm:border-b-2 animate-fade-up">
+          <div className="sheet w-full max-w-lg lg:max-w-2xl max-h-[90dvh] overflow-y-auto overscroll-contain rounded-b-none border-b-0 sm:rounded-4xl sm:border-b animate-fade-up">
             {/* Header (ติดด้านบนเวลาเลื่อน) */}
-            <div className="sticky top-0 z-10 bg-white border-b border-blush-hair px-5 py-3 flex items-center justify-between gap-3">
+            <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <span className="icon-bubble icon-bubble-strong">
+                <span className="icon-bubble">
                   {editing.id ? <Pencil {...ICON} /> : <UserPlus {...ICON} />}
                 </span>
                 <div className="min-w-0">
-                  <h3 id="user-modal-title" className="font-bold text-gray-900 text-lg leading-snug">
+                  <h3 id="user-modal-title" className="text-lg font-semibold leading-snug text-gray-900">
                     {editing.id ? 'แก้ไขผู้ใช้' : 'เพิ่มผู้ใช้ใหม่'}
                   </h3>
                   {isSelf && (
@@ -490,13 +490,13 @@ export default function UsersClient({
               {/* คอม (lg+): ช่องกรอกวาง 2 คอลัมน์ / มือถือ: เรียงลงมา */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-x-4">
                 <div>
-                  <label htmlFor="user-login" className="block text-sm font-medium text-gray-700 mb-1">ชื่อผู้ใช้ *</label>
+                  <label htmlFor="user-login" className="field-label">ชื่อผู้ใช้ *</label>
                   <input id="user-login" className="input" type="text" maxLength={254}
                     autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false}
                     placeholder="เช่น max" aria-describedby="user-login-hint"
                     value={editing.login}
                     onChange={e => setEditing({ ...editing, login: e.target.value })} />
-                  <p id="user-login-hint" className="text-xs text-gray-500 mt-1">a-z, 0-9, จุด, ขีด — หรือใส่อีเมลก็ได้</p>
+                  <p id="user-login-hint" className="field-hint">a-z, 0-9, จุด, ขีด — หรือใส่อีเมลก็ได้</p>
                   {loginChanged && (
                     <p className="flex items-start gap-1.5 text-xs font-medium text-amber-700 mt-1">
                       <AlertTriangle {...ICON_SM} />
@@ -505,13 +505,13 @@ export default function UsersClient({
                   )}
                 </div>
                 <div>
-                  <label htmlFor="user-name" className="block text-sm font-medium text-gray-700 mb-1">ชื่อ-นามสกุล</label>
+                  <label htmlFor="user-name" className="field-label">ชื่อ-นามสกุล</label>
                   <input id="user-name" className="input" maxLength={100} autoComplete="off"
                     value={editing.fullName}
                     onChange={e => setEditing({ ...editing, fullName: e.target.value })} />
                 </div>
                 <div>
-                  <label htmlFor="user-password" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="user-password" className="field-label">
                     รหัสผ่าน {!editing.id && <span>*</span>}
                   </label>
                   <div className="relative">
@@ -522,7 +522,7 @@ export default function UsersClient({
                       value={editing.password}
                       onChange={e => setEditing({ ...editing, password: e.target.value })} />
                     <button type="button" onClick={() => setShowPassword(s => !s)}
-                      className="absolute inset-y-0 right-0 inline-flex items-center gap-1 rounded-full px-3 min-w-[44px] text-xs font-semibold text-brand-700 [@media(hover:hover)]:hover:text-brand-900 active:opacity-70"
+                      className="absolute inset-y-0 right-0 inline-flex items-center gap-1 rounded-lg px-3 min-w-[44px] text-xs font-semibold text-brand-700 [@media(hover:hover)]:hover:text-brand-900 active:opacity-70"
                       aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}>
                       {showPassword ? <EyeOff {...ICON_SM} /> : <Eye {...ICON_SM} />}
                       {showPassword ? 'ซ่อน' : 'แสดง'}
@@ -531,8 +531,8 @@ export default function UsersClient({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">บทบาท</label>
-                  {/* ตัวเลือกบทบาท: ที่เลือกอยู่ = แคปซูลสตรอว์เบอร์รี (ถ้ากดไม่ได้ก็ยังเห็นชัดว่าเป็นบทบาทไหน) */}
+                  <label className="field-label">บทบาท</label>
+                  {/* ตัวเลือกบทบาท: ที่เลือกอยู่ = พื้นโรสโกลด์ (ถ้ากดไม่ได้ก็ยังเห็นชัดว่าเป็นบทบาทไหน) */}
                   <div className="grid grid-cols-2 gap-2">
                     <button type="button" onClick={() => setRole('staff')} disabled={rolePermsLocked}
                       aria-pressed={editing.role === 'staff'}
@@ -559,9 +559,9 @@ export default function UsersClient({
               </div>
 
               <div className="space-y-3">
-                <div className="wave-divider decor" aria-hidden="true" />
+                <hr className="divider my-1.5" />
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">สิทธิ์การใช้งาน</label>
+                  <label className="field-label mb-2">สิทธิ์การใช้งาน</label>
                   {editing.role === 'admin' && (
                     <p className="flex items-center gap-1.5 text-xs font-medium text-brand-700 mb-2">
                       <Crown {...ICON_SM} />
@@ -594,9 +594,9 @@ export default function UsersClient({
                               className="peer sr-only"
                             />
                             <span aria-hidden="true"
-                              className="block h-7 w-12 rounded-full border-2 border-blush-line bg-blush transition-colors peer-checked:border-brand-600 peer-checked:bg-brand-600 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-berry" />
+                              className="block h-7 w-12 rounded-full border border-gray-300 bg-gray-300 transition-colors peer-checked:border-brand-600 peer-checked:bg-brand-600 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600" />
                             <span aria-hidden="true"
-                              className="pointer-events-none absolute left-1 top-1 h-5 w-5 rounded-full border border-blush-deep bg-white shadow-sm transition-transform peer-checked:translate-x-5 peer-checked:border-white" />
+                              className="pointer-events-none absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
                           </span>
                         </label>
                       )
@@ -608,7 +608,7 @@ export default function UsersClient({
 
             {/* Footer (ติดด้านล่างเวลาเลื่อน — ปุ่มบันทึกและข้อความผิดพลาดมองเห็นเสมอ) */}
             <div
-              className="sticky bottom-0 z-10 bg-white border-t border-blush-hair px-5 pt-3 space-y-2"
+              className="sticky bottom-0 z-10 bg-white border-t border-gray-200 px-5 pt-3 space-y-2"
               style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
             >
               {error && (
@@ -623,8 +623,10 @@ export default function UsersClient({
                   <span className="min-w-0">{success}</span>
                 </p>
               )}
-              <div className="flex gap-2">
-                <button onClick={handleSave} disabled={loading || !!success} className="btn-primary flex-1">
+              {/* ปุ่มหลักอยู่ขวาสุด (ยกเลิก → บันทึก) */}
+              <div className="flex gap-2 sm:justify-end">
+                <button onClick={close} disabled={loading} className="btn-secondary">ยกเลิก</button>
+                <button onClick={handleSave} disabled={loading || !!success} className="btn-primary flex-1 sm:flex-none sm:min-w-[160px]">
                   {loading
                     ? <Loader2 {...ICON_SM} className="animate-spin" />
                     : success
@@ -632,7 +634,6 @@ export default function UsersClient({
                       : editing.id ? <Save {...ICON_SM} /> : <UserPlus {...ICON_SM} />}
                   {loading ? 'กำลังบันทึก...' : success ? 'สำเร็จ' : (editing.id ? 'บันทึก' : 'เพิ่มผู้ใช้')}
                 </button>
-                <button onClick={close} disabled={loading} className="btn-secondary">ยกเลิก</button>
               </div>
             </div>
           </div>

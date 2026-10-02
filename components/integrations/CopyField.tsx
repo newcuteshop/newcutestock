@@ -38,7 +38,7 @@ export default function CopyField({ label, value, help }: { label: string; value
 
   return (
     <div className="min-w-0">
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label htmlFor={id} className="field-label">{label}</label>
       <div className="flex items-center gap-2">
         <input
           ref={inputRef}
@@ -59,7 +59,7 @@ export default function CopyField({ label, value, help }: { label: string; value
           {copied ? <Check {...ICON_SM} className="text-green-700" /> : <Copy {...ICON_SM} />}
         </button>
       </div>
-      <p className="text-xs mt-1 min-h-[1rem] text-gray-500" aria-live="polite">
+      <p className="field-hint min-h-[1rem]" aria-live="polite">
         {copied ? 'คัดลอกแล้ว' : help ?? ''}
       </p>
     </div>

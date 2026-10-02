@@ -127,7 +127,7 @@ export default function OptionsForm({ channel }: { channel: ChannelJson }) {
 
       <form onSubmit={onSave} className="space-y-4" noValidate>
         <div>
-          <label htmlFor={`${formId}-name`} className="block text-sm font-medium text-gray-700 mb-1">ชื่อที่แสดง</label>
+          <label htmlFor={`${formId}-name`} className="field-label">ชื่อที่แสดง</label>
           <input
             id={`${formId}-name`}
             className="input"
@@ -279,7 +279,7 @@ function NumberRow({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label htmlFor={id} className="field-label">{label}</label>
       <input
         id={id}
         type="text"
@@ -291,7 +291,7 @@ function NumberRow({
         aria-invalid={invalid ? true : undefined}
         onChange={e => onChange(e.target.value.replace(/[^\d]/g, '').slice(0, 5))}
       />
-      {help && <p className="text-xs text-gray-500 mt-1">{help}</p>}
+      {help && <p className="field-hint">{help}</p>}
     </div>
   )
 }
@@ -308,7 +308,7 @@ function ChoiceRow({
 }) {
   return (
     <div>
-      <p className="block text-sm font-medium text-gray-700 mb-1.5">{label}</p>
+      <p className="field-label">{label}</p>
       <div className="grid grid-cols-2 gap-2" role="group" aria-label={label}>
         {options.map(o => (
           <button
@@ -323,7 +323,7 @@ function ChoiceRow({
           </button>
         ))}
       </div>
-      {help && <p className="text-xs text-gray-500 mt-1">{help}</p>}
+      {help && <p className="field-hint">{help}</p>}
     </div>
   )
 }

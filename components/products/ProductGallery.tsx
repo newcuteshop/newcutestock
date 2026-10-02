@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, ImageOff, ImagePlus, Loader2, MoveLeft, MoveRight,
-  RotateCcw, Shirt, Star, Trash2, X, XCircle,
+  RotateCcw, Star, Trash2, X, XCircle,
 } from 'lucide-react'
 import { ICON, ICON_SM } from '@/components/theme/icons'
 import { formatBytes, productImageUrl } from '@/lib/products'
@@ -157,7 +157,7 @@ export default function ProductGallery({
 
   return (
     <section
-      className={`card p-4 sm:p-5 space-y-3 min-w-0 ${dragOver ? 'ring-4 ring-strawberry' : ''}`}
+      className={`card p-4 sm:p-5 space-y-3 min-w-0 ${dragOver ? 'ring-2 ring-brand-400' : ''}`}
       aria-labelledby="pf-sec-images"
       onDragOver={e => { if (disabled) return; e.preventDefault(); setDragOver(true) }}
       onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragOver(false) }}
@@ -170,7 +170,7 @@ export default function ProductGallery({
     >
       <div className="flex items-center justify-between gap-2">
         <h2 id="pf-sec-images" className="section-title">
-          <span className="icon-bubble icon-bubble-sm"><ImagePlus {...ICON_SM} /></span>
+          <ImagePlus {...ICON} />
           รูปสินค้า
         </h2>
         <span className="text-xs text-gray-500 tabular-nums">
@@ -184,10 +184,10 @@ export default function ProductGallery({
           type="button"
           onClick={pickFiles}
           disabled={disabled}
-          className="mx-auto flex h-48 w-full max-w-md flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-strawberry bg-blush-soft px-4 text-center text-sm text-gray-600 transition-colors active:bg-blush disabled:cursor-not-allowed disabled:opacity-60 sm:h-56"
+          className="mx-auto flex h-48 w-full max-w-md flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 text-center text-sm text-gray-600 transition-colors active:bg-gray-100 [@media(hover:hover)]:hover:border-brand-400 [@media(hover:hover)]:hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-60 sm:h-56"
         >
-          <span className="icon-bubble icon-bubble-lg"><Shirt size={30} strokeWidth={1.8} aria-hidden="true" /></span>
-          <span className="font-display text-base font-semibold text-gray-900">ยังไม่มีรูปสินค้า</span>
+          <span className="icon-bubble icon-bubble-lg"><ImagePlus size={28} strokeWidth={1.75} aria-hidden="true" /></span>
+          <span className="text-base font-semibold text-gray-900">ยังไม่มีรูปสินค้า</span>
           <span>แตะเพื่อเลือกรูป หรือถ่ายรูปจากกล้อง</span>
         </button>
       ) : (
@@ -202,7 +202,7 @@ export default function ProductGallery({
               role="region"
               aria-roledescription="แกลเลอรี"
               aria-label={`รูปสินค้า ${count} รูป — ใช้ปุ่มลูกศรซ้ายขวาเพื่อเลื่อน`}
-              className="flex aspect-square w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-3xl bg-blush-soft scrollbar-none focus-visible:outline-offset-2"
+              className="flex aspect-square w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-xl bg-gray-50 ring-1 ring-gray-200 scrollbar-none focus-visible:outline-offset-2"
             >
               {slides.map((s, i) => (
                 <div
@@ -236,7 +236,7 @@ export default function ProductGallery({
                     </span>
                   )}
                   {s.kind === 'queued' && (
-                    <div className="absolute inset-x-3 bottom-3 rounded-2xl bg-white/95 px-3 py-2 shadow-soft-sm space-y-1.5">
+                    <div className="absolute inset-x-3 bottom-3 rounded-lg border border-gray-200 bg-white/95 px-3 py-2 space-y-1.5">
                       <p className={`flex items-center gap-1.5 text-xs font-medium ${s.item.status === 'error' ? 'text-red-700' : 'text-gray-700'}`}>
                         {s.item.status === 'error'
                           ? <AlertCircle size={14} strokeWidth={2} aria-hidden="true" />
@@ -262,7 +262,7 @@ export default function ProductGallery({
                   type="button"
                   onClick={() => scrollToIndex(Math.max(0, index - 1))}
                   disabled={index <= 0}
-                  className="btn-icon absolute left-2 top-[calc(50%-22px)] hidden sm:inline-grid shadow-soft-sm disabled:hidden"
+                  className="btn-icon absolute left-2 top-[calc(50%-22px)] hidden sm:inline-grid disabled:hidden"
                   aria-label="ดูรูปก่อนหน้า"
                 >
                   <ChevronLeft {...ICON} />
@@ -271,7 +271,7 @@ export default function ProductGallery({
                   type="button"
                   onClick={() => scrollToIndex(Math.min(count - 1, index + 1))}
                   disabled={index >= count - 1}
-                  className="btn-icon absolute right-2 top-[calc(50%-22px)] hidden sm:inline-grid shadow-soft-sm disabled:hidden"
+                  className="btn-icon absolute right-2 top-[calc(50%-22px)] hidden sm:inline-grid disabled:hidden"
                   aria-label="ดูรูปถัดไป"
                 >
                   <ChevronRight {...ICON} />
@@ -292,7 +292,7 @@ export default function ProductGallery({
                     onClick={() => scrollToIndex(i)}
                     aria-label={`ดูรูปที่ ${i + 1}${s.kind === 'image' && s.index === 0 ? ' (รูปปก)' : ''}`}
                     aria-current={on ? 'true' : undefined}
-                    className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-2 bg-blush-soft transition-colors ${on ? 'border-brand-600' : 'border-transparent'}`}
+                    className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-gray-50 transition-colors ${on ? 'border-brand-600' : 'border-gray-150'}`}
                   >
                     {broken[s.key] ? (
                       <span className="grid h-full w-full place-items-center text-gray-400"><ImageOff size={18} strokeWidth={1.8} aria-hidden="true" /></span>
@@ -302,7 +302,7 @@ export default function ProductGallery({
                         className={`h-full w-full object-cover ${s.kind === 'queued' ? 'opacity-60' : ''}`} />
                     )}
                     {s.kind === 'image' && s.index === 0 && (
-                      <span className="absolute left-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-brand-600 text-white" aria-hidden="true">
+                      <span className="absolute left-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-brand-400 text-gray-900" aria-hidden="true">
                         <Star size={11} strokeWidth={2.4} />
                       </span>
                     )}

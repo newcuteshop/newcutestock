@@ -12,15 +12,16 @@ import type {
   AttentionReason, ChannelStatus, MappingStatus, OrderStatus, Platform,
 } from '@/lib/integrations/types'
 
-const PILL = 'inline-flex items-center gap-1 h-7 px-2.5 rounded-full border text-xs font-semibold leading-none whitespace-nowrap'
+// ป้ายสถานะ (แคปซูลเล็ก สูง 24px เท่า .chip / .badge-*)
+const PILL = 'inline-flex items-center gap-1 h-6 px-2.5 rounded-full border text-xs font-medium leading-none whitespace-nowrap'
 
-// ----- อักษรย่อแพลตฟอร์มในฟองนม (ไม่ใช้โลโก้แบรนด์) -----
+// ----- อักษรย่อแพลตฟอร์มในกล่องโรสโกลด์อ่อน (ไม่ใช้โลโก้แบรนด์) -----
 export function PlatformBadge({ platform, size = 'md' }: { platform: Platform; size?: 'sm' | 'md' }) {
   return (
     <span
       aria-hidden="true"
       className={clsx(
-        'icon-bubble font-display font-bold text-berry',
+        'icon-bubble font-semibold text-gray-900',
         size === 'sm' ? 'icon-bubble-sm text-sm' : 'text-base',
       )}
     >
@@ -86,7 +87,7 @@ const ORDER_TONE: Partial<Record<OrderStatus, string>> = {
 
 export function OrderStatusPill({ status }: { status: OrderStatus }) {
   return (
-    <span className={clsx(PILL, ORDER_TONE[status] ?? 'border-blush-line bg-white text-brand-800')}>
+    <span className={clsx(PILL, ORDER_TONE[status] ?? 'border-brand-200 bg-brand-50 text-brand-800')}>
       {ORDER_STATUS_LABELS[status] ?? status}
     </span>
   )
@@ -114,7 +115,7 @@ export function MiniStat({ label, value, tone = 'normal' }: { label: string; val
       <p className="text-xs text-gray-500 truncate">{label}</p>
       <p
         className={clsx(
-          'font-display font-bold tabular-nums leading-tight text-base truncate',
+          'font-semibold tabular-nums leading-tight text-base truncate',
           tone === 'bad' ? 'text-red-700' : tone === 'warn' ? 'text-amber-700' : 'text-gray-900',
         )}
       >

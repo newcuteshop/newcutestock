@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import clsx from 'clsx'
 import { ArrowLeft, CheckCircle2, History, Link2, Settings2, ShoppingBag, XCircle, type LucideIcon } from 'lucide-react'
-import { ICON_SM } from '@/components/theme/icons'
+import { ICON_SM, ICON_XS } from '@/components/theme/icons'
 import { PLATFORM_META } from '@/lib/integrations/platforms'
 import type { ChannelJson } from '@/lib/integrations/types'
 import { ChannelStatusPill, EnvPill, PlatformBadge } from './bits'
@@ -70,9 +70,9 @@ export default function ChannelHeader({
         </div>
       )}
 
-      {/* แท็บ = ลิงก์ (สถานะอยู่ใน URL) — มือถือ 2×2 ปุ่มใหญ่ */}
+      {/* แท็บ = ลิงก์ (สถานะอยู่ใน URL) — มือถือ 2×2 ปุ่มใหญ่ · แท็บที่เลือก = พื้นโรสโกลด์อ่อน + ตัวอักษรโรสโกลด์เข้ม (แบบเมนูข้าง) */}
       <nav aria-label="เมนูของช่องทาง">
-        <ul className="grid grid-cols-2 gap-1 rounded-[26px] border-2 border-blush-line bg-white p-1 sm:inline-flex sm:rounded-full">
+        <ul className="grid grid-cols-2 gap-1 rounded-xl border border-gray-200 bg-white p-1 sm:inline-flex">
           {TABS.map(t => {
             const active = t.value === tab
             const Icon = t.icon
@@ -83,17 +83,19 @@ export default function ChannelHeader({
                   href={t.value === 'settings' ? basePath : `${basePath}?tab=${t.value}`}
                   aria-current={active ? 'page' : undefined}
                   className={clsx(
-                    'flex min-h-[44px] items-center justify-center gap-1.5 rounded-full px-4 text-sm font-semibold whitespace-nowrap transition-[transform,background-color] duration-200 active:scale-[0.97]',
-                    active ? 'bg-brand-600 text-white' : 'text-brand-800 hover:bg-gray-50',
+                    'flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg px-4 text-sm whitespace-nowrap transition-colors duration-150',
+                    active
+                      ? 'bg-brand-100 font-semibold text-brand-700'
+                      : 'font-medium text-gray-700 active:bg-gray-150 [@media(hover:hover)]:hover:bg-gray-100 [@media(hover:hover)]:hover:text-gray-900',
                   )}
                 >
-                  <Icon size={16} strokeWidth={2} aria-hidden="true" />
+                  <Icon {...ICON_XS} />
                   <span className="sm:hidden">{t.short}</span>
                   <span className="hidden sm:inline">{t.label}</span>
                   {n > 0 && (
                     <span
                       className={clsx(
-                        'inline-grid min-w-[1.5rem] place-items-center rounded-full px-1.5 text-xs font-bold tabular-nums leading-5',
+                        'inline-grid min-w-[1.5rem] place-items-center rounded-full px-1.5 text-xs font-semibold tabular-nums leading-5',
                         active ? 'bg-white text-brand-700' : 'bg-red-600 text-white',
                       )}
                     >
