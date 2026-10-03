@@ -17,7 +17,7 @@ const BarcodeScanner = dynamic(() => import('@/components/BarcodeScanner'), { ss
 
 type Msg = { ok: boolean; text: string }
 
-// แสดงทีละ 60 แบบ (หารลงตัวทั้ง 2/3/4/5/6 คอลัมน์ แถวสุดท้ายเต็มเสมอ) แล้วกด "แสดงเพิ่ม"
+// แสดงทีละ 60 แบบ (หารลงตัวทั้ง 2/3/4 คอลัมน์ แถวสุดท้ายเต็มเสมอ) แล้วกด "แสดงเพิ่ม"
 const PAGE_STEP = 60
 // จำตัวกรองไว้ระหว่างเปิดแท็บนี้ (กดเข้าไปแก้สินค้าแล้วย้อนกลับมา ยังอยู่หมวดเดิม/คำค้นเดิม)
 const STORE_KEY = 'newcute:products-list'
@@ -346,10 +346,10 @@ export default function ProductsClient({
         </div>
       ) : (
         <>
-          {/* การ์ด 1 ใบ = 1 แบบ: มือถือ 2 · จอเล็ก 3 · iPad แนวนอน 4 · คอม 5-6 คอลัมน์
+          {/* การ์ด 1 ใบ = 1 แบบ: มือถือ 2 · จอเล็ก 3 · iPad แนวนอน/คอม 4 คอลัมน์ (สูงสุด 4 ใบต่อแถว — บอสสั่ง)
               (เมนูข้างกินที่ 240px ตั้งแต่ md → ใช้ 4 คอลัมน์ตั้งแต่ lg ไม่ใช่ md การ์ดจะได้ไม่แคบเกิน) */}
           <ul
-            className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 min-[1152px]:grid-cols-5 xl:grid-cols-6"
+            className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4"
             aria-label="รายการสินค้า"
           >
             {visible.map(g => {

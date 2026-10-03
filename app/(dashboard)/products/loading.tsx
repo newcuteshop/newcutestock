@@ -27,7 +27,7 @@ export default function Loading() {
       </div>
 
       {/* การ์ดสินค้า (คอลัมน์เท่ากับหน้าจริง) — ป้ายไซส์เป็นแคปซูลเหมือนป้ายจริง (.chip) */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 min-[1152px]:grid-cols-5 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
         {[...Array(12)].map((_, i) => (
           <div key={i} className="card overflow-hidden">
             <div className="skeleton aspect-[4/5] w-full rounded-none" />
