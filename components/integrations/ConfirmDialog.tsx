@@ -44,9 +44,10 @@ export default function ConfirmDialog({
   if (!open) return null
   const canConfirm = !busy && (!requireAck || ack)
 
+  // !mt-0: ผู้เรียกมักวางป็อปอัปนี้ใน space-y-* — margin-top ที่ได้มาดันฉากหลังลงจากขอบบนจอ (เหลือแถบสว่าง/ป็อปอัปไม่กลาง)
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center scrim p-3 sm:p-4"
+      className="fixed inset-0 z-50 !mt-0 flex items-end sm:items-center justify-center scrim p-3 sm:p-4"
       onClick={e => { if (e.target === e.currentTarget && !busy) onCancel() }}
     >
       <div

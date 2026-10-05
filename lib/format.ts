@@ -46,6 +46,9 @@ const MSG_SESSION = 'หมดเวลาเข้าสู่ระบบ ก�
 const MSG_NEGATIVE_STOCK = 'สต๊อกสินค้านี้ติดลบค้างจากระบบเก่า — ไปที่เมนู รับ-จ่ายสต๊อก กด "ปรับยอด" ให้ตรงกับของจริงก่อน แล้วค่อยแก้ไขหรือปิดใช้งานสินค้า'
 const MSG_NEGATIVE_VALUE = 'บันทึกไม่ได้: ราคาทุน ราคาขาย และสต๊อกขั้นต่ำต้องไม่ติดลบ — ถ้าสินค้านี้มีค่าติดลบค้างจากระบบเก่า ให้แก้ค่านั้นในหน้าแก้ไขสินค้าก่อน'
 const MSG_CHECK = 'ข้อมูลไม่ถูกต้อง: มีค่าที่ไม่ผ่านเงื่อนไขของระบบ'
+// PGRST203 = ฐานข้อมูลมีฟังก์ชันชื่อเดียวกันหลายแบบ แล้ว PostgREST เลือกไม่ได้ว่าจะเรียกแบบไหน
+// เกิดจริงเมื่อรัน supabase-fix-03 ซ้ำหลัง fix-04 (record_sale แบบ 6 ช่องกลับมาอยู่คู่กับแบบ 7 ช่อง) — แก้ได้ด้วยการรัน fix-04 อีกรอบ
+const MSG_AMBIGUOUS_FUNCTION = 'ฐานข้อมูลมีฟังก์ชันซ้ำกัน 2 แบบ (มักเกิดจากรันไฟล์ SQL รุ่นเก่าซ้ำ) — ให้แอดมินรันไฟล์ supabase-fix-04-pos.sql ใน Supabase SQL Editor อีกครั้ง แล้วลองใหม่'
 
 const THAI_RE = /[฀-๿]/
 
@@ -87,6 +90,7 @@ export function thaiError(err: unknown): string {
     if (/price|min_stock/i.test(text)) return MSG_NEGATIVE_VALUE
     return MSG_CHECK
   }
+  if (code === 'PGRST203' || /could not choose the best candidate function/i.test(text)) return MSG_AMBIGUOUS_FUNCTION
 
   if (/permission denied|row-level security|row level security/i.test(text)) return MSG_NO_PERMISSION
   if (name === 'AuthRetryableFetchError' || NETWORK_RE.test(text)) return MSG_NETWORK
@@ -171,4 +175,97 @@ export function formatThaiDateTime(iso: string | Date | null | undefined): strin
   let hour = pad2(p.hour)
   if (hour === '24') hour = '00'
   return `${pad2(p.day)}/${pad2(p.month)}/${year} ${hour}:${pad2(p.minute)}`
+}
+
+// ===== วัน (day key) ตามปฏิทินเวลาไทย — ใช้กับหน้าประวัติบิล / ปิดยอด / ตรวจนับ / ส่งออก CSV =====
+// day key = 'YYYY-MM-DD' (ปี ค.ศ.) ของวันตามเวลาไทย (Asia/Bangkok = +07:00 ตลอดปี ไม่มีเวลาออมแสง)
+// คำนวณบวก/ลบวันด้วย Date.UTC ล้วน → ไม่ขึ้นกับโซนเวลาของเครื่อง (server อยู่ UTC, เครื่องลูกค้าอยู่ +07)
+
+const DAY_KEY_RE = /^(\d{4})-(\d{2})-(\d{2})$/
+const THAI_WEEKDAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
+const THAI_MONTHS_SHORT = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+
+// แยก day key เป็น {y, m, d} — ต้องเป็นวันที่มีจริง (กัน '2026-02-30')
+function splitDayKey(key: string): { y: number; m: number; d: number } | null {
+  const mm = DAY_KEY_RE.exec(String(key ?? '').trim())
+  if (!mm) return null
+  const y = Number(mm[1])
+  const m = Number(mm[2])
+  const d = Number(mm[3])
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null
+  const t = new Date(Date.UTC(y, m - 1, d))
+  if (t.getUTCFullYear() !== y || t.getUTCMonth() !== m - 1 || t.getUTCDate() !== d) return null
+  return { y, m, d }
+}
+
+function keyFromUTCDate(t: Date): string {
+  return `${('0000' + t.getUTCFullYear()).slice(-4)}-${('0' + (t.getUTCMonth() + 1)).slice(-2)}-${('0' + t.getUTCDate()).slice(-2)}`
+}
+
+// รับได้ทั้ง day key และเวลา ISO/Date (แปลงเป็นวันตามเวลาไทยก่อน) ; ไม่ถูกต้อง → null
+function dayPartsOf(v: string | Date | null | undefined): { y: number; m: number; d: number } | null {
+  if (v === null || v === undefined || v === '') return null
+  if (typeof v === 'string') {
+    const direct = splitDayKey(v)
+    if (direct) return direct
+  }
+  const key = bangkokDateKey(v)
+  return key ? splitDayKey(key) : null
+}
+
+/** เป็น day key 'YYYY-MM-DD' ที่เป็นวันที่มีจริงหรือไม่ (ใช้ตรวจค่าจาก URL / ช่องเลือกวันที่) */
+export function isDayKey(v: unknown): v is string {
+  return typeof v === 'string' && splitDayKey(v) !== null
+}
+
+/** day key ของ "วันนี้" ตามเวลาไทย เช่น '2026-10-05' */
+export function bangkokTodayKey(): string {
+  return bangkokDateKey(new Date())
+}
+
+/** เลื่อน day key ไป n วัน (ติดลบ = ย้อนหลัง) เช่น addDaysToKey('2026-10-31', 1) = '2026-11-01' ; key ไม่ถูกต้อง → '' */
+export function addDaysToKey(dayKey: string, n: number): string {
+  const p = splitDayKey(dayKey)
+  if (!p) return ''
+  const step = Number.isFinite(n) ? Math.trunc(n) : 0
+  return keyFromUTCDate(new Date(Date.UTC(p.y, p.m - 1, p.d + step)))
+}
+
+/** จำนวนวันจาก fromKey ถึง toKey (วันเดียวกัน = 0, toKey ก่อน fromKey = ติดลบ) ; key ไม่ถูกต้อง → NaN */
+export function daysBetweenKeys(fromKey: string, toKey: string): number {
+  const a = splitDayKey(fromKey)
+  const b = splitDayKey(toKey)
+  if (!a || !b) return NaN
+  return Math.round((Date.UTC(b.y, b.m - 1, b.d) - Date.UTC(a.y, a.m - 1, a.d)) / 86400000)
+}
+
+/**
+ * ช่วงเวลาของวันนั้นตามเวลาไทย สำหรับกรองตาราง: .gte('created_at', startISO).lt('created_at', endISO)
+ * startISO = 00:00 น. ของวันนั้น, endISO = 00:00 น. ของวันถัดไป (ไม่รวม) — ทั้งคู่มี +07:00
+ * day key ไม่ถูกต้อง → ใช้วันนี้แทน (ตรวจค่าด้วย isDayKey ก่อนถ้าต้องการแจ้งผู้ใช้)
+ */
+export function bangkokDayRangeISO(dayKey: string): { startISO: string; endISO: string } {
+  const key = isDayKey(dayKey) ? String(dayKey).trim() : bangkokTodayKey()
+  return { startISO: `${key}T00:00:00+07:00`, endISO: `${addDaysToKey(key, 1)}T00:00:00+07:00` }
+}
+
+/** 'dd/MM/yyyy' ปี พ.ศ. — รับ day key ('2026-10-05' → '05/10/2569') หรือเวลา ISO/Date (แปลงเป็นวันตามเวลาไทยก่อน) ; ไม่ถูกต้อง → '-' */
+export function formatThaiDate(dayKeyOrIso: string | Date | null | undefined): string {
+  const p = dayPartsOf(dayKeyOrIso)
+  if (!p) return '-'
+  return `${('0' + p.d).slice(-2)}/${('0' + p.m).slice(-2)}/${p.y + 543}`
+}
+
+/** 'วันจันทร์ที่ 5 ต.ค. 2569' — รับ day key หรือเวลา ISO/Date ; ไม่ถูกต้อง → '-' */
+export function formatThaiDayLong(dayKey: string | Date | null | undefined): string {
+  const p = dayPartsOf(dayKey)
+  if (!p) return '-'
+  const weekday = THAI_WEEKDAYS[new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay()]
+  return `วัน${weekday}ที่ ${p.d} ${THAI_MONTHS_SHORT[p.m - 1]} ${p.y + 543}`
+}
+
+/** 'HH:mm' เวลาไทย (เช่น เวลาในแถวบิลของวันที่เลือกอยู่แล้ว) ; ไม่ถูกต้อง → '-' */
+export function formatThaiTime(iso: string | Date | null | undefined): string {
+  const full = formatThaiDateTime(iso)
+  return full === '-' ? '-' : full.slice(-5)
 }

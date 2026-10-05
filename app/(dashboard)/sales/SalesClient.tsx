@@ -1,18 +1,25 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import { baht, formatThaiDateTime, productLabel, thaiError, variantText } from '@/lib/format'
 import { codeCandidates, findByCode, normalizeScannedCode } from '@/lib/barcode'
 import {
-  AlertTriangle, Banknote, Camera, Check, CheckCircle2, CreditCard, History, Info, Loader2, Minus, Plus,
-  Receipt, Search, SearchCheck, SearchX, Shirt, ShoppingBag, ShoppingCart, Smartphone, Trash2, Wallet, X,
+  AlertTriangle, Banknote, Camera, Check, CheckCircle2, ChevronRight, CreditCard, History, Info, Loader2, Minus, Plus,
+  Printer, Receipt, Search, SearchCheck, SearchX, Shirt, ShoppingBag, ShoppingCart, Smartphone, Trash2, Wallet, X,
   XCircle, type LucideIcon,
 } from 'lucide-react'
-import { ICON, ICON_SM } from '@/components/theme/icons'
+import { ICON, ICON_SM, ICON_XS } from '@/components/theme/icons'
 import { MANUAL_SALE_CHANNEL_OPTIONS, PAYMENT_METHOD_LABELS, SALE_CHANNEL_LABELS, saleChannelLabel } from '@/lib/integrations/labels'
 import type { ManualSaleChannel } from '@/lib/integrations/types'
+import { parseMoneyInput } from '@/lib/money'
+import { isMigrationMissing } from '@/lib/migration'
+import { DEFAULT_SHOP_SETTINGS, billStatus, type ShopSettings } from '@/lib/pos'
+import PrintPortal from '@/components/pos/PrintPortal'
+import ReceiptPrint from '@/components/pos/Receipt'
+import BillDetailDialog from '@/components/pos/BillDetailDialog'
 
 export interface PosProduct {
   id: string
@@ -32,7 +39,9 @@ export interface RecentSale {
   payment_method: string
   created_at: string
   channel?: string | null      // ช่องทางขาย ('store' = หน้าร้าน)
-  voided_at?: string | null    // บิลออเดอร์แพลตฟอร์มที่ถูกยกเลิกก่อนส่ง (คืนสต๊อกแล้ว ไม่นับยอด)
+  voided_at?: string | null    // บิลที่ถูกยกเลิก (ยกเลิกที่ร้าน หรือออเดอร์แพลตฟอร์มยกเลิกก่อนส่ง) — คืนสต๊อกแล้ว ไม่นับยอด
+  refunded_amount?: number | string | null  // คืนเงินแล้วรวม (คอลัมน์จาก fix-04 — ยังไม่รันไม่มีค่า)
+  sale_returns?: readonly unknown[] | null  // ใบคืนของบิล (มีใบคืนแต่ยอดคืน 0 บาทก็ยังนับว่ามีคืนสินค้า)
 }
 
 type PaymentMethod = 'cash' | 'transfer' | 'credit'
@@ -53,6 +62,7 @@ interface SavedCart {
   note: string
   clientId: string
   pending: PendingCheckout | null
+  cashReceived: string   // ข้อความในช่อง "รับเงินมา" (ว่าง = ไม่ระบุ) — ตะกร้าที่จำไว้รุ่นเก่าไม่มี = ''
 }
 
 // ผลจาก RPC record_sale (ยอดเงินทุกตัวมาจากฝั่งเซิร์ฟเวอร์)
@@ -79,11 +89,17 @@ interface SavedSale {
   already_saved: boolean
   items: SavedSaleItem[]
   channel: string   // ช่องทางขายของบิล ('store' = หน้าร้าน) — ไม่มีในผลเก่า = ''
+  cash_received: number | null   // รับเงินมา/เงินทอน/พนักงาน (fix-04) — ไม่มีในผลเก่า = null
+  change_amount: number | null
+  cashier_name: string | null
+  // ผลจากเซิร์ฟเวอร์มีช่อง cash_received ไหม (มี = fix-04 แล้ว ค่า null คือ "บิลนี้ไม่ได้บันทึกเงินที่รับมา" จริง ๆ)
+  has_cash_field: boolean
 }
 interface SuccessInfo {
   sale: SavedSale
   shownNet: number | null  // ยอดที่หน้าจอแสดงตอนกดชำระ (null = กดตรวจบิลค้าง ไม่ได้แสดงยอด)
   cartMismatch: boolean  // บิลที่บันทึกไว้แล้วไม่ตรงกับตะกร้าตอนกดล่าสุด
+  cashGiven: number | null  // เงินที่ใส่ในช่อง "รับเงินมา" ตอนกดชำระ (ใช้คิดเงินทอนเองเมื่อฐานข้อมูลยังไม่ได้รัน fix-04)
 }
 
 interface CartView {
@@ -98,7 +114,12 @@ interface CartView {
 const STORAGE_KEY = 'newcute-pos-v1'
 const MAX_CARDS = 200
 const CHECKOUT_TIMEOUT_MS = 30000
-const EMPTY_CART: SavedCart = { lines: [], discount: 0, paymentMethod: 'cash', note: '', clientId: '', pending: null }
+const EMPTY_CART: SavedCart = { lines: [], discount: 0, paymentMethod: 'cash', note: '', clientId: '', pending: null, cashReceived: '' }
+const MAX_CASH = 99999999.99   // เพดานเงินรับมา (numeric(10,2) ฝั่งฐานข้อมูล)
+// รับเงินมาเกินยอดสุทธิได้ไม่เกินนี้ — ลูกค้าจ่ายเกินจริงไม่ถึงหลักหมื่น ตัวเลขที่เกินมักเป็นรหัสสินค้า/บาร์โค้ด
+// ที่เครื่องสแกนพิมพ์ใส่ช่องนี้ตอนโฟกัสค้าง (ถ้าปล่อยไป บิลจะเก็บเงินรับ/เงินทอนหลักล้านลงฐานข้อมูลและไฟล์ส่งออก)
+const MAX_CASH_OVER_NET = 10000
+const MAX_CASH_TEXT = 20
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const TIMEOUT_MSG = 'เซิร์ฟเวอร์ตอบช้าเกินไป — บิลอาจบันทึกไปแล้วหรือยังก็ได้ กด "ชำระเงิน" อีกครั้งได้เลย ระบบจะไม่ตัดสต๊อกซ้ำ'
 const UNSURE_MSG = 'ไม่แน่ใจว่าบิลบันทึกแล้วหรือยัง (เน็ตหลุดระหว่างส่ง) — กด "ชำระเงิน" อีกครั้งเพื่อตรวจสอบ ระบบจะไม่ตัดสต๊อกซ้ำ'
@@ -245,6 +266,7 @@ function parseSavedCart(raw: string | null): SavedCart | null {
         ? pending.clientId
         : typeof o.clientId === 'string' && UUID_RE.test(o.clientId) ? o.clientId : '',
       pending,
+      cashReceived: typeof o.cashReceived === 'string' ? o.cashReceived.slice(0, MAX_CASH_TEXT) : '',
     }
   } catch {
     return null
@@ -283,6 +305,10 @@ function parseSavedSale(data: unknown): SavedSale | null {
     already_saved: o.already_saved === true,
     items,
     channel: toStr(o.channel),
+    cash_received: o.cash_received == null || o.cash_received === '' ? null : toNum(o.cash_received),
+    change_amount: o.change_amount == null || o.change_amount === '' ? null : toNum(o.change_amount),
+    cashier_name: toStrOrNull(o.cashier_name),
+    has_cash_field: 'cash_received' in o,
   }
 }
 
@@ -364,8 +390,15 @@ function NumberField({
   )
 }
 
-export default function SalesClient({ products, recentSales }: {
+export default function SalesClient({
+  products, recentSales, shop = DEFAULT_SHOP_SETTINGS, canRefund = false, cashArgReady = false,
+}: {
   products: PosProduct[]; recentSales: RecentSale[]
+  shop?: ShopSettings      // ข้อมูลร้านสำหรับพิมพ์ใบเสร็จ (โหลดไม่ได้ = ค่าเริ่มต้น)
+  canRefund?: boolean      // สิทธิ์ยกเลิกบิล/คืนสินค้า (เซิร์ฟเวอร์ตรวจซ้ำเสมอ)
+  // ฐานข้อมูลรัน fix-04 แล้วแน่นอน → ส่ง p_cash_received ทุกบิล (null = ไม่ระบุ) ให้ชื่อพารามิเตอร์ชี้ record_sale แบบ 7 ช่องตัวเดียว
+  // กันกรณีรัน fix-03 ซ้ำจน record_sale แบบ 6 ช่องกลับมาอยู่คู่กัน — ส่งแค่ 6 ช่องจะได้ PGRST203 (เลือกฟังก์ชันไม่ได้) ขายไม่ได้
+  cashArgReady?: boolean
 }) {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
@@ -381,6 +414,10 @@ export default function SalesClient({ products, recentSales }: {
   const [hydrated, setHydrated] = useState(false)
   const [saleChannel, setSaleChannel] = useState<ManualSaleChannel>('store')
   const [channelLoaded, setChannelLoaded] = useState(false)
+  const [cashText, setCashText] = useState('')   // ช่อง "รับเงินมา" (เฉพาะเงินสด) — ว่าง = ไม่ระบุ
+  const [printing, setPrinting] = useState(false)   // กำลังพิมพ์ใบเสร็จของบิลที่เพิ่งขาย
+  const [detailSaleId, setDetailSaleId] = useState<string | null>(null)   // บิลที่เปิดดูรายละเอียดจากรายการขายล่าสุด
+  const closeDetail = useCallback(() => setDetailSaleId(null), [])
 
   const [search, setSearch] = useState('')
   const [showScanner, setShowScanner] = useState(false)
@@ -410,6 +447,7 @@ export default function SalesClient({ products, recentSales }: {
     setNote(s.note)
     setClientId(s.clientId)
     setPending(s.pending)
+    setCashText(s.cashReceived)
   }, [updateLines])
 
   // ----- กู้ตะกร้าจาก localStorage ตอน mount (ไม่ทำตอน render กัน hydration mismatch) -----
@@ -432,10 +470,10 @@ export default function SalesClient({ products, recentSales }: {
   useEffect(() => {
     if (!hydrated) return
     try {
-      const data: SavedCart = { lines, discount, paymentMethod, note, clientId, pending }
+      const data: SavedCart = { lines, discount, paymentMethod, note, clientId, pending, cashReceived: cashText }
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
     } catch { /* storage เต็ม/ถูกปิด — ขายต่อได้ปกติ แค่ไม่จำตะกร้า */ }
-  }, [hydrated, lines, discount, paymentMethod, note, clientId, pending])
+  }, [hydrated, lines, discount, paymentMethod, note, clientId, pending, cashText])
 
   // ----- ช่องทางขาย: กู้ค่าที่เลือกไว้ตอน mount แล้วจำทุกครั้งที่เปลี่ยน (ค่าเสีย/อ่านไม่ได้ = หน้าร้าน) -----
   useEffect(() => {
@@ -506,7 +544,8 @@ export default function SalesClient({ products, recentSales }: {
   // ไม่งั้นตัวอักษรหาย และ Enter ท้ายรหัสไปกดปุ่มที่โฟกัสค้างอยู่ (เพิ่มสินค้าตัวก่อนซ้ำ)
   useEffect(() => {
     function onKeyDown(e: globalThis.KeyboardEvent) {
-      if (showScanner || e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return
+      // ป็อปอัปรายละเอียดบิลเปิดอยู่ = ผู้ใช้ทำงานในป็อปอัป ห้ามดึงโฟกัสไปช่องค้นหาด้านหลัง
+      if (showScanner || detailSaleId !== null || e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return
       const el = document.activeElement
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement
         || (el instanceof HTMLElement && el.isContentEditable)) return
@@ -517,7 +556,7 @@ export default function SalesClient({ products, recentSales }: {
     }
     document.addEventListener('keydown', onKeyDown, true)
     return () => document.removeEventListener('keydown', onKeyDown, true)
-  }, [showScanner, success])
+  }, [showScanner, success, detailSaleId])
 
   // ----- สินค้าจาก props (ห้าม copy ลง state — router.refresh() ต้องอัปเดตราคา/สต๊อกได้) -----
   const catalog = useMemo<PosProduct[]>(() => products.map(p => ({
@@ -580,6 +619,29 @@ export default function SalesClient({ products, recentSales }: {
   const total = round2(payable.reduce((s, v) => s + v.lineTotal, 0))
   const effDiscount = round2(Math.min(Math.max(0, discount), total))
   const net = round2(Math.max(0, total - effDiscount))
+
+  // ----- รับเงินมา / เงินทอน (เฉพาะเงินสด และมีสินค้าที่คิดเงินได้) — ช่องว่าง = ไม่ระบุ ขายได้ตามปกติ -----
+  const cashMode = paymentMethod === 'cash' && payable.length > 0 && net > 0
+  const cashTrim = cashText.trim()
+  const cashParsed = cashTrim === '' ? null : parseMoneyInput(cashTrim)
+  // ไม่ใช่ตัวเลข / ติดลบ → "พิมพ์เป็นตัวเลข" ; เป็นตัวเลขแต่ใหญ่เกิน (แม้เกินเพดานฐานข้อมูล) → ข้อความ "มากผิดปกติ" ด้านล่าง
+  // (บาร์โค้ด 13 หลักที่สแกนหลุดเข้าช่องนี้เป็นตัวเลขอยู่แล้ว บอกให้ "พิมพ์เป็นตัวเลข" จะงง)
+  const cashInvalid = cashMode && cashTrim !== '' && (cashParsed === null || cashParsed < 0)
+  // มากผิดปกติ (ทอนเกินหลักหมื่น หรือเกินเพดานฐานข้อมูล) — มักเป็นรหัสที่สแกนเข้าช่องนี้ ต้องแก้หรือลบให้ว่างก่อนจึงชำระได้
+  const cashTooBig = cashMode && !cashInvalid && cashParsed !== null && (cashParsed > MAX_CASH || cashParsed > net + MAX_CASH_OVER_NET)
+  const cashValue = cashMode && !cashInvalid && !cashTooBig ? cashParsed : null
+  const cashShort = cashValue !== null && cashValue < net ? round2(net - cashValue) : 0
+  const cashChange = cashValue !== null && cashValue >= net ? round2(cashValue - net) : null
+  const cashBlocked = cashInvalid || cashTooBig || cashShort > 0   // พิมพ์ผิด / มากผิดปกติ / รับเงินไม่พอ → ยังกดชำระไม่ได้
+  // ปุ่มลัด: พอดี + แบงก์ 100/500/1,000 ที่ไม่น้อยกว่ายอด (+ หลักพันถัดไปเมื่อยอดเกิน 1,000)
+  const cashQuick: { label: string; value: number }[] = [{ label: 'พอดี', value: net }]
+  if (cashMode) {
+    const steps = [100, 500, 1000]
+    if (net > 1000) steps.push(Math.ceil(net / 1000) * 1000)
+    steps.forEach(v => {
+      if (v > net && !cashQuick.some(q => q.value === v)) cashQuick.push({ label: baht(v), value: v })
+    })
+  }
 
   // ส่วนลดต้องไม่เกินยอดรวม (เช่น เอาสินค้าออกหลังใส่ส่วนลด) — เฉพาะแท็บที่เปิดดูอยู่ (เหตุผลเดียวกับด้านบน)
   useEffect(() => {
@@ -673,6 +735,7 @@ export default function SalesClient({ products, recentSales }: {
   function removeLine(id: string) {
     if (savingRef.current) return
     updateLines(prev => prev.filter(l => l.id !== id))
+    if (linesRef.current.length === 0) setCashText('')   // ตะกร้าว่างแล้ว — เงินที่รับมาของบิลนี้ไม่ใช้แล้ว
     setCheckoutError('')
   }
 
@@ -687,6 +750,7 @@ export default function SalesClient({ products, recentSales }: {
     updateLines(() => [])
     setDiscount(0)
     setNote('')
+    setCashText('')
     setClientId(newClientId())
     setPending(null)
     setCheckoutError('')
@@ -698,6 +762,7 @@ export default function SalesClient({ products, recentSales }: {
 
   function startNewBill() {
     setSuccess(null)
+    setPrinting(false)
     try {
       if (window.matchMedia && window.matchMedia('(pointer: fine)').matches) searchRef.current?.focus()
     } catch { /* ignore */ }
@@ -708,6 +773,7 @@ export default function SalesClient({ products, recentSales }: {
     // ตะกร้าคิดเงินไม่ได้ แต่มีบิลค้างตรวจ (เช่นบิลนั้นขายชิ้นสุดท้ายไปแล้ว สต๊อกเลยเป็น 0) → ส่งบิลเดิมไปตรวจ
     const retryPending = payable.length === 0 ? pending : null
     if (payable.length === 0 && !retryPending) return
+    if (!retryPending && cashBlocked) return   // รับเงินมาไม่พอ/พิมพ์ผิด (ปุ่มถูกปิดอยู่แล้ว — กันกด Enter)
     savingRef.current = true
     setSaving(true)
     setCheckoutError('')
@@ -718,11 +784,15 @@ export default function SalesClient({ products, recentSales }: {
     const sent: SentItem[] = retryPending ? retryPending.items : payable.map(v => ({ product_id: v.id, qty: v.qty }))
     const sentDiscount = retryPending ? retryPending.discount : effDiscount
     const shownNet = retryPending ? null : net
+    // เงินที่รับมา: ส่งเฉพาะเงินสดที่ใส่ไว้ (ตรวจบิลค้างที่ไม่รู้ยอดจริง = ไม่ส่ง — เทียบกับยอดไม่ได้)
+    const sentCash = retryPending ? null : cashValue
     const nextPending: PendingCheckout = { clientId: cid, items: sent, discount: sentDiscount }
     setPending(nextPending)
     // จำลงเครื่องทันทีก่อนส่ง (ไม่รอ effect) — แอปถูกปิด/รีโหลดกลางทางก็ยังรู้ว่ามีบิลค้างตรวจ
     try {
-      const data: SavedCart = { lines: linesRef.current, discount, paymentMethod, note, clientId: cid, pending: nextPending }
+      const data: SavedCart = {
+        lines: linesRef.current, discount, paymentMethod, note, clientId: cid, pending: nextPending, cashReceived: cashText,
+      }
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
     } catch { /* storage ใช้ไม่ได้ — ยังจำใน state ของหน้านี้ */ }
 
@@ -734,7 +804,7 @@ export default function SalesClient({ products, recentSales }: {
 
     try {
       // ราคาไม่ส่งไป — เซิร์ฟเวอร์ใช้ราคาในระบบเอง, ล็อกสต๊อก, กันขายเกิน, กันบันทึกซ้ำด้วย client_id
-      let req = supabase.rpc('record_sale', {
+      const baseArgs = {
         p_client_id: cid,
         p_items: sent,
         p_discount: sentDiscount,
@@ -742,9 +812,21 @@ export default function SalesClient({ products, recentSales }: {
         p_note: note.trim() || null,
         // หน้าร้าน = ไม่ส่ง (ฐานข้อมูลใช้ค่าเริ่มต้น 'store' เอง — ขายหน้าร้านได้แม้ยังไม่ได้รัน fix-03)
         ...(saleChannel !== 'store' ? { p_channel: saleChannel } : {}),
-      })
+      }
+      // รับเงินมา: เงินสดที่ใส่ค่าไว้ (เซิร์ฟเวอร์ตรวจว่าพอ แล้วเก็บเงินทอนในบิล)
+      // ฐานข้อมูลมี fix-04 แน่นอน → ส่งช่องนี้ทุกบิล (null = ไม่ระบุ; บิลโอน/บัตรเซิร์ฟเวอร์ไม่สนใจค่านี้)
+      // ชื่อพารามิเตอร์ครบ 7 ช่องชี้ได้ฟังก์ชันเดียวเสมอ แม้มี record_sale แบบ 6 ช่องค้างอยู่จากการรัน fix-03 ซ้ำ
+      const withCash = sentCash !== null || cashArgReady
+      let req = supabase.rpc('record_sale', withCash ? { ...baseArgs, p_cash_received: sentCash } : baseArgs)
       if (ctrl) req = req.abortSignal(ctrl.signal)
-      const { data, error } = await req
+      let { data, error } = await req
+      // ฐานข้อมูลยังไม่ได้รัน fix-04 (ไม่รู้จัก p_cash_received) → ส่งซ้ำทันทีครั้งเดียวโดยไม่มีช่องนี้
+      // ปลอดภัย: ครั้งแรกถูกปฏิเสธตั้งแต่หาฟังก์ชัน ยังไม่ได้บันทึกอะไร และใช้รหัสบิล (client_id) เดิม
+      if (error && withCash && isMigrationMissing(error)) {
+        let retry = supabase.rpc('record_sale', baseArgs)
+        if (ctrl) retry = retry.abortSignal(ctrl.signal)
+        ;({ data, error } = await retry)
+      }
       if (error) throw error
       const sale = parseSavedSale(data)
       if (!sale) {
@@ -756,10 +838,13 @@ export default function SalesClient({ products, recentSales }: {
         sale,
         shownNet,
         cartMismatch: sale.already_saved && sale.items.length > 0 && !sameItems(sent, sale.items),
+        cashGiven: sentCash,
       })
+      setPrinting(false)
       updateLines(() => [])
       setDiscount(0)
       setNote('')
+      setCashText('')
       setClientId(newClientId())
       setPending(null)
       setCheckoutError('')
@@ -790,6 +875,21 @@ export default function SalesClient({ products, recentSales }: {
   const priceChanged = !!success && !success.sale.already_saved && success.shownNet !== null
     && Math.abs(success.sale.net_amount - success.shownNet) >= 0.005
   const checkingPending = payable.length === 0 && pending !== null
+  // รับเงิน/เงินทอนของบิลที่เพิ่งบันทึก: เซิร์ฟเวอร์มี fix-04 (ผลมีช่อง cash_received) → ใช้ค่าในบิลเท่านั้น
+  // (null = บิลนี้ไม่ได้เก็บเงินที่รับมา เช่นบิลเดิมที่บันทึกไปแล้วตอนเน็ตหลุด แล้วกดชำระซ้ำพร้อมใส่เงินใหม่ —
+  //  ห้ามโชว์/พิมพ์ค่าที่เพิ่งพิมพ์ เพราะใบพิมพ์ซ้ำจากประวัติบิลจะไม่ตรงกัน)
+  // ยังไม่รัน fix-04 (ไม่มีช่องนี้เลย) จึงใช้ค่าที่ใส่ตอนกดชำระแทน
+  const successCash = successSale
+    ? successSale.has_cash_field
+      ? successSale.cash_received
+      : successSale.payment_method === 'cash' ? success?.cashGiven ?? null : null
+    : null
+  const successChange = successSale && successCash !== null
+    ? successSale.change_amount ?? (successCash >= successSale.net_amount ? round2(successCash - successSale.net_amount) : null)
+    : null
+  const successShort = successSale && successCash !== null && successChange === null && successCash < successSale.net_amount
+    ? round2(successSale.net_amount - successCash)
+    : 0
 
   return (
     <div className="pb-28 lg:pb-0">
@@ -1055,6 +1155,73 @@ export default function SalesClient({ products, recentSales }: {
               </div>
             </div>
 
+            {cashMode && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="pos-cash" className="text-sm text-gray-600 shrink-0">รับเงินมา (บาท)</label>
+                  <div className="flex-1">
+                    <input
+                      id="pos-cash"
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      maxLength={MAX_CASH_TEXT}
+                      placeholder="ไม่ระบุก็ได้"
+                      className="input text-right tabular-nums"
+                      value={cashText}
+                      disabled={saving}
+                      aria-invalid={cashBlocked}
+                      aria-describedby="pos-cash-status"
+                      onChange={e => setCashText(e.target.value)}
+                      onFocus={e => e.currentTarget.select()}
+                      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2" role="group" aria-label="จำนวนเงินที่รับมา">
+                  {cashQuick.map(q => (
+                    <button
+                      key={q.label}
+                      type="button"
+                      onClick={() => setCashText(String(q.value))}
+                      disabled={saving}
+                      aria-pressed={cashValue !== null && cashValue === q.value}
+                      className="chip-toggle flex-1 px-2 tabular-nums"
+                    >
+                      {q.label}
+                    </button>
+                  ))}
+                </div>
+                <div
+                  id="pos-cash-status"
+                  aria-live="polite"
+                  className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-2 ${
+                    cashBlocked ? 'border-red-200 bg-red-50' : cashChange !== null ? 'border-green-200 bg-green-50' : 'border-transparent bg-gray-50'
+                  }`}
+                >
+                  {cashInvalid ? (
+                    <span className="text-sm font-medium text-red-700">จำนวนเงินไม่ถูกต้อง — พิมพ์เป็นตัวเลข เช่น 500</span>
+                  ) : cashTooBig ? (
+                    <span className="text-sm font-medium text-red-700">
+                      รับเงินมามากผิดปกติ (ทอนเกิน {baht(MAX_CASH_OVER_NET)}) — ตรวจตัวเลขอีกครั้ง หรือลบช่องนี้ให้ว่าง
+                    </span>
+                  ) : cashShort > 0 ? (
+                    <>
+                      <span className="font-semibold text-red-700">ยังขาด</span>
+                      <span className="money text-xl text-red-700">{baht(cashShort)}</span>
+                    </>
+                  ) : cashChange !== null ? (
+                    <>
+                      <span className="font-semibold text-green-800">เงินทอน</span>
+                      <span className="money text-2xl text-green-700">{baht(cashChange)}</span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-gray-500">ใส่เงินที่รับมาเพื่อให้ระบบคิดเงินทอน</span>
+                  )}
+                </div>
+              </div>
+            )}
+
             <input
               className="input"
               placeholder="หมายเหตุ (ถ้ามี)"
@@ -1102,7 +1269,7 @@ export default function SalesClient({ products, recentSales }: {
               ref={payButtonRef}
               type="button"
               onClick={handleCheckout}
-              disabled={(payable.length === 0 && !pending) || saving}
+              disabled={(payable.length === 0 && !pending) || saving || cashBlocked}
               className="btn-primary w-full min-h-[52px] text-base"
             >
               {saving ? (
@@ -1128,11 +1295,15 @@ export default function SalesClient({ products, recentSales }: {
 
       {/* ===== รายการขายล่าสุด ===== */}
       <section className="card overflow-hidden mt-4 sm:mt-6">
-        <div className="card-header">
+        <div className="card-header flex-wrap gap-y-0">
           <h2 className="section-title">
             <History {...ICON} />
             รายการขายล่าสุด
           </h2>
+          <Link href="/sales/bills" className="link text-sm shrink-0">
+            ดูประวัติบิลทั้งหมด
+            <ChevronRight {...ICON_XS} />
+          </Link>
         </div>
         <div className="table-wrap">
           <table className="table-soft min-w-[480px]">
@@ -1151,13 +1322,22 @@ export default function SalesClient({ products, recentSales }: {
               {recentSales.map(s => {
                 const voided = !!s.voided_at
                 const channel = s.channel && s.channel !== 'store' ? saleChannelLabel(s.channel) : ''
+                const status = billStatus({ ...s, returns: s.sale_returns })
                 return (
-                  <tr key={s.id}>
+                  // แตะทั้งแถวเพื่อดูรายละเอียดบิล (ปุ่มเลขที่บิลไว้ให้ใช้คีย์บอร์ด/โปรแกรมอ่านจอ)
+                  <tr key={s.id} onClick={() => setDetailSaleId(s.id)} className="cursor-pointer">
                     <td className={`font-mono text-xs whitespace-nowrap ${voided ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {s.sale_no}
-                      {voided && (
-                        <span className="chip-outline mt-1 flex w-fit" title="ออเดอร์ถูกยกเลิกก่อนส่ง — คืนสต๊อกแล้ว ไม่นับในยอดขาย">
-                          ยกเลิก
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); setDetailSaleId(s.id) }}
+                        className="text-left underline-offset-4 [@media(hover:hover)]:hover:underline"
+                        aria-label={`ดูรายละเอียดบิล ${s.sale_no}`}
+                      >
+                        {s.sale_no}
+                      </button>
+                      {status.key !== 'normal' && (
+                        <span className={`${status.chipClass} mt-1 flex w-fit font-sans`} title={voided ? 'คืนสต๊อกแล้ว ไม่นับในยอดขาย' : undefined}>
+                          {status.label}
                         </span>
                       )}
                     </td>
@@ -1323,18 +1503,78 @@ export default function SalesClient({ products, recentSales }: {
               </div>
             </div>
 
-            <button
-              type="button"
-              autoFocus
-              onClick={startNewBill}
-              className="btn-primary w-full min-h-[52px] text-base"
-            >
-              <Receipt {...ICON} />
-              ขายบิลใหม่
-            </button>
+            {/* รับเงิน / เงินทอน (เงินสดที่ใส่จำนวนรับมา) — ตัวใหญ่ให้เห็นชัดตอนทอนเงิน */}
+            {successCash !== null && (
+              <div
+                className={`rounded-lg border px-4 py-3 space-y-1 ${successShort > 0 ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}
+                aria-live="polite"
+              >
+                <div className="flex justify-between items-center gap-3 text-gray-700">
+                  <span>รับเงิน</span>
+                  <span className="money text-lg text-gray-900">{baht(successCash)}</span>
+                </div>
+                {successShort > 0 ? (
+                  <div className="flex justify-between items-center gap-3">
+                    <span className="font-semibold text-red-700">ยังขาด</span>
+                    <span className="money min-w-0 break-words text-right text-2xl text-red-700">{baht(successShort)}</span>
+                  </div>
+                ) : successChange !== null && (
+                  <div className="flex justify-between items-center gap-3">
+                    <span className="text-base font-semibold text-green-800">เงินทอน</span>
+                    <span className="money min-w-0 break-words text-right text-3xl sm:text-4xl text-green-700">{baht(successChange)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPrinting(true)}
+                disabled={printing}
+                className="btn-secondary min-h-[52px] px-4 text-base shrink-0"
+              >
+                {printing ? <Loader2 {...ICON} className="animate-spin" /> : <Printer {...ICON} />}
+                พิมพ์ใบเสร็จ
+              </button>
+              <button
+                type="button"
+                autoFocus
+                onClick={startNewBill}
+                className="btn-primary flex-1 min-h-[52px] text-base"
+              >
+                <Receipt {...ICON} />
+                ขายบิลใหม่
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* พิมพ์ใบเสร็จของบิลที่เพิ่งขาย (วาดลง #print-root ตอนสั่งพิมพ์เท่านั้น — บนจอไม่เห็น) */}
+      <PrintPortal open={printing && successSale !== null} paper={shop.receipt_paper} onDone={() => setPrinting(false)}>
+        {successSale && (
+          <ReceiptPrint
+            shop={shop}
+            // รับเงินน้อยกว่ายอดสุทธิ (ราคาเปลี่ยนระหว่างขาย บนฐานข้อมูลที่ยังไม่มี fix-04) = ไม่พิมพ์บรรทัดรับเงิน/ทอน
+            // ใบเสร็จต้องไม่บอกว่ารับเงินต่ำกว่ายอดที่ต้องจ่าย — หน้าจอยังโชว์ "ยังขาด" ให้เก็บเงินเพิ่ม
+            sale={{
+              ...successSale,
+              cash_received: successShort > 0 ? null : successCash,
+              change_amount: successShort > 0 ? null : successChange,
+            }}
+          />
+        )}
+      </PrintPortal>
+
+      {/* รายละเอียดบิลจากรายการขายล่าสุด (พิมพ์ซ้ำ / ยกเลิกบิล / คืนสินค้า) */}
+      <BillDetailDialog
+        saleId={detailSaleId}
+        open={detailSaleId !== null}
+        onClose={closeDetail}
+        canRefund={canRefund}
+        shop={shop}
+      />
     </div>
   )
 }

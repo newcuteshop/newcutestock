@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { ICON } from '@/components/theme/icons'
 import type { CategoryOption } from '@/components/products/CategoryBar'
+import ProductCsvButtons from '@/components/products/ProductCsvButtons'
 import ProductsClient from './ProductsClient'
 
 // แถวจาก product_groups + ไซส์ปัจจุบัน (products ที่ไม่ถูกเก็บเข้าคลัง) + รูปปก 1 รูป — CONTRACT §5.2
@@ -95,6 +96,8 @@ export default async function ProductsPage() {
   if (categoriesRes.error) throw new Error(thaiError(categoriesRes.error))
 
   const groups = rows.map(toCard)
+  // ส่ง array ชุดเดียวกันให้ทั้งปุ่มส่งออกและรายการสินค้า (ส่งออกสร้างไฟล์จากข้อมูลนี้ในเครื่อง ไม่ query ซ้ำ)
+  const categories = (categoriesRes.data ?? []) as CategoryOption[]
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -104,6 +107,7 @@ export default async function ProductsPage() {
           <p className="page-subtitle">จัดการข้อมูลสินค้าทั้งหมด</p>
         </div>
         <div className="page-actions">
+          <ProductCsvButtons groups={groups} categories={categories} canManage={session.permissions.products} />
           <Link href="/products/new" className="btn-primary w-full sm:w-auto">
             <Plus {...ICON} />
             เพิ่มสินค้า
@@ -112,7 +116,7 @@ export default async function ProductsPage() {
       </div>
       <ProductsClient
         initialGroups={groups}
-        categories={(categoriesRes.data ?? []) as CategoryOption[]}
+        categories={categories}
         canManage={session.permissions.products}
       />
     </div>

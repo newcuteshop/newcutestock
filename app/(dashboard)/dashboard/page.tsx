@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import {
-  AlertTriangle, ArrowDownToLine, ArrowRight, ChevronRight, Coins, Lock, Package, Plus, ReceiptText, ShoppingBag,
+  AlertTriangle, ArrowDownToLine, ArrowRight, Calculator, ChevronRight, Coins, Lock, Package, Plus, ReceiptText, ShoppingBag,
   type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
@@ -9,6 +9,8 @@ import { getSession } from '@/lib/auth/permissions'
 import { baht, bangkokDayStartISO, productLabel } from '@/lib/format'
 import { fetchAllRows } from '@/lib/fetchAllRows'
 import { isMissingSalesColumn } from '@/lib/salesCompat'
+import { isMigrationMissing } from '@/lib/migration'
+import { num, round2, sumBy } from '@/lib/money'
 import { ICON, ICON_SM } from '@/components/theme/icons'
 
 type ProductRow = {
@@ -22,6 +24,7 @@ type ProductRow = {
   cost_price: number
 }
 type SaleRow = { net_amount: number }
+type RefundRow = { refund_amount: number }
 
 type StatCard = {
   label: string
@@ -29,6 +32,8 @@ type StatCard = {
   // หน่วยตัวเล็กต่อท้ายตัวเลข (เช่น "รายการ") — แยกไว้เพื่อให้ตัวเลขเด่น ข้อความรวมยังเหมือนเดิม
   unit?: string
   sub?: string
+  // บรรทัดเล็กใต้ตัวเลข (เช่น "คืนเงิน ฿x (หักแล้ว)" ของยอดขายวันนี้)
+  note?: string
   icon: LucideIcon
   // คลาสกล่องไอคอนตามความหมาย ('' = โรสโกลด์ปกติ, -warn = เตือน, -strong = การ์ดเด่น)
   bubble: string
@@ -39,15 +44,6 @@ type StatCard = {
 
 type QuickAction = { href: string; label: string; icon: LucideIcon; variant: 'btn-primary' | 'btn-soft' | 'btn-secondary' }
 
-function num(v: unknown): number {
-  const n = Number(v)
-  return Number.isFinite(n) ? n : 0
-}
-
-function round2(n: number): number {
-  return Math.round(n * 100) / 100
-}
-
 // wide = การ์ดใบสุดท้ายเมื่อจำนวนเป็นเลขคี่ → มือถือ/iPad กินเต็มแถว (ไม่เหลือช่องว่างครึ่งแถว)
 function StatCardView({ card, wide }: { card: StatCard; wide: boolean }) {
   const Icon = card.icon
@@ -57,13 +53,16 @@ function StatCardView({ card, wide }: { card: StatCard; wide: boolean }) {
         <span className={`stat-label min-w-0 pt-1 ${card.hot ? 'text-gray-600' : ''}`}>{card.label}</span>
         <span className={`icon-bubble ${card.bubble}`}><Icon {...ICON} /></span>
       </div>
-      <p className="stat-value">
-        {/* ตัวเลขห้ามแยกบรรทัดกลางจำนวน (อ่านเป็นยอดอื่นได้) — หน่วย/บิลขึ้นบรรทัดใหม่ได้
-            แต่ "· 7 บิล" ต้องไปทั้งก้อน (การ์ดครึ่งจอมือถือเคยเหลือ "บิล" ตกบรรทัดเดียว) */}
-        <span className="whitespace-nowrap">{card.value}</span>
-        {card.unit && <span className={`stat-sub ${card.hot ? 'text-gray-600' : ''}`}> {card.unit}</span>}
-        {card.sub && <span className={`stat-sub ${card.hot ? 'text-gray-600' : ''}`}> <span className="whitespace-nowrap">· {card.sub}</span></span>}
-      </p>
+      <div className="min-w-0">
+        <p className="stat-value">
+          {/* ตัวเลขห้ามแยกบรรทัดกลางจำนวน (อ่านเป็นยอดอื่นได้) — หน่วย/บิลขึ้นบรรทัดใหม่ได้
+              แต่ "· 7 บิล" ต้องไปทั้งก้อน (การ์ดครึ่งจอมือถือเคยเหลือ "บิล" ตกบรรทัดเดียว) */}
+          <span className="whitespace-nowrap">{card.value}</span>
+          {card.unit && <span className={`stat-sub ${card.hot ? 'text-gray-600' : ''}`}> {card.unit}</span>}
+          {card.sub && <span className={`stat-sub ${card.hot ? 'text-gray-600' : ''}`}> <span className="whitespace-nowrap">· {card.sub}</span></span>}
+        </p>
+        {card.note && <p className={`stat-sub mt-1 ${card.hot ? 'text-gray-600' : ''}`}>{card.note}</p>}
+      </div>
     </>
   )
   const cls = `stat-card ${card.hot ? 'stat-card-hot' : ''} ${wide ? 'col-span-2 lg:col-span-1' : ''}`
@@ -103,7 +102,7 @@ export default async function DashboardPage() {
   const supabase = createClient()
   // เริ่มวันตามเวลาไทย (ไม่ใช่ UTC) — ยอดขายวันนี้ตั้งแต่ 00:00 น. เวลาไทย
   const todayStart = bangkokDayStartISO()
-  // บิลออเดอร์แพลตฟอร์มที่ยกเลิกก่อนส่ง (voided_at) ไม่นับเป็นยอดขายวันนี้
+  // บิลที่ยกเลิก (voided_at — ออเดอร์แพลตฟอร์มที่ยกเลิกก่อนส่ง หรือยกเลิกบิลหน้าร้าน) ไม่นับเป็นยอดขายวันนี้
   //   ฐานข้อมูลที่ยังไม่ได้รัน fix-03 ไม่มีคอลัมน์นี้ (และไม่มีบิลยกเลิก) → ดึงแบบเดิม
   const loadTodaySales = (skipVoided: boolean) => fetchAllRows<SaleRow>((from, to) => {
     const q = supabase
@@ -116,7 +115,21 @@ export default async function DashboardPage() {
       .range(from, to)
   })
 
-  const [products, todaySales] = await Promise.all([
+  // เงินคืนสินค้าวันนี้ (นับตามวันที่คืน — บิลอาจขายวันก่อน) หักออกจากยอดขายวันนี้
+  //   ฐานข้อมูลที่ยังไม่ได้รัน supabase-fix-04-pos.sql ไม่มีตารางนี้ (และยังคืนสินค้าไม่ได้) → ถือว่าไม่มีการคืน
+  const loadTodayRefunds = () => fetchAllRows<RefundRow>((from, to) => supabase
+    .from('sale_returns')
+    .select('refund_amount, created_at')
+    .gte('created_at', todayStart)
+    .order('created_at')
+    .order('id')
+    .range(from, to))
+    .catch((e: unknown) => {
+      if (isMigrationMissing(e)) return [] as RefundRow[]
+      throw e
+    })
+
+  const [products, todaySales, todayRefundRows] = await Promise.all([
     fetchAllRows<ProductRow>((from, to) => supabase
       .from('products')
       .select('id, name, sku, size, color, stock_qty, min_stock, cost_price')
@@ -127,6 +140,7 @@ export default async function DashboardPage() {
       if (isMissingSalesColumn(e)) return loadTodaySales(false)
       throw e
     }),
+    loadTodayRefunds(),
   ])
 
   // คำนวณใน JS — PostgREST เทียบคอลัมน์กับคอลัมน์ (stock_qty <= min_stock) ไม่ได้
@@ -149,7 +163,9 @@ export default async function DashboardPage() {
       if (row.group_id) groupIdOf.set(row.id, row.group_id)
     }
   }
-  const todayRevenue = round2(todaySales.reduce((s, x) => s + num(x.net_amount), 0))
+  // ยอดขายวันนี้ = ยอดสุทธิบิลที่ไม่ถูกยกเลิก − เงินคืนสินค้าวันนี้ (จำนวนบิลยังนับบิลที่คืนบางส่วน/ทั้งบิล เพราะขายจริงไปแล้ว)
+  const todayRefunds = sumBy(todayRefundRows, r => r.refund_amount)
+  const todayRevenue = round2(sumBy(todaySales, x => x.net_amount) - todayRefunds)
   const todayBills = todaySales.length
 
   const statCards: StatCard[] = [
@@ -185,6 +201,7 @@ export default async function DashboardPage() {
       label: 'ยอดขายวันนี้',
       value: baht(todayRevenue),
       sub: `${todayBills.toLocaleString('en-US')} บิล`,
+      note: todayRefunds > 0 ? `คืนเงิน ${baht(todayRefunds)} (หักแล้ว)` : undefined,
       icon: ShoppingBag,
       bubble: 'icon-bubble-strong',
       hot: true,
@@ -197,6 +214,8 @@ export default async function DashboardPage() {
   if (permissions.sales) quickActions.push({ href: '/sales', label: 'บันทึกการขาย', icon: ReceiptText, variant: 'btn-primary' })
   if (permissions.stock) quickActions.push({ href: '/stock?action=in', label: 'รับสินค้าเข้า', icon: ArrowDownToLine, variant: 'btn-soft' })
   if (permissions.products) quickActions.push({ href: '/products/new', label: 'เพิ่มสินค้าใหม่', icon: Plus, variant: 'btn-secondary' })
+  // ปิดยอดท้ายวัน — ปุ่มรองขาว ต่อท้ายสุด (ใช้วันละครั้ง ไม่แย่งที่ปุ่มขายที่ใช้บ่อย)
+  if (permissions.sales) quickActions.push({ href: '/sales/close', label: 'ปิดยอดวันนี้', icon: Calculator, variant: 'btn-secondary' })
 
   const lowStockHref = permissions.stock ? '/stock' : permissions.reports ? '/reports' : null
   // คอมจอกว้าง (xl+): ทำรายการด่วน (1 ส่วน) กับ สต๊อกใกล้หมด (2 ส่วน) วางข้างกัน — มีแค่อย่างเดียวให้เต็มแถว

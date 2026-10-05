@@ -5,13 +5,17 @@ import { useState } from 'react'
 import {
   ArrowDownUp,
   BarChart3,
+  Calculator,
+  ClipboardCheck,
   Crown,
+  History,
   LayoutDashboard,
   LogOut,
   PlugZap,
   ReceiptText,
   ScanBarcode,
   Shirt,
+  Store,
   UserRound,
   Users,
   type LucideIcon,
@@ -33,15 +37,21 @@ export type NavItem = {
   group?: 'settings'
 }
 
+// เมนูย่อยที่ path ซ้อนกัน (/stock กับ /stock/count, /sales กับ /sales/bills) — เมนูที่ตรงยาวที่สุดเท่านั้นที่ถูกเลือก (activeNavHref)
+// ประวัติบิล/ปิดยอดใช้สิทธิ์ sales (ปุ่มยกเลิกบิล/คืนสินค้าข้างในต้องมีสิทธิ์ refunds เพิ่ม)
 export const NAV_ITEMS: NavItem[] = [
-  { href: '/dashboard',  label: 'ภาพรวม',         icon: LayoutDashboard, perm: null },
-  { href: '/products',   label: 'สินค้า',           icon: Shirt,           perm: 'products' },
-  { href: '/stock',      label: 'รับ-จ่ายสต๊อก',   icon: ArrowDownUp,     perm: 'stock' },
-  { href: '/sales',      label: 'บันทึกการขาย',     icon: ReceiptText,     perm: 'sales' },
-  { href: '/labels',     label: 'พิมพ์บาร์โค้ด',   icon: ScanBarcode,     perm: 'labels' },
-  { href: '/reports',    label: 'รายงาน',           icon: BarChart3,       perm: 'reports' },
-  { href: '/users',      label: 'จัดการผู้ใช้',    icon: Users,           perm: 'users' },
+  { href: '/dashboard',    label: 'ภาพรวม',               icon: LayoutDashboard, perm: null },
+  { href: '/products',     label: 'สินค้า',                 icon: Shirt,           perm: 'products' },
+  { href: '/stock',        label: 'รับ-จ่ายสต๊อก',         icon: ArrowDownUp,     perm: 'stock' },
+  { href: '/stock/count',  label: 'ตรวจนับสต๊อก',          icon: ClipboardCheck,  perm: 'stock' },
+  { href: '/sales',        label: 'บันทึกการขาย',           icon: ReceiptText,     perm: 'sales' },
+  { href: '/sales/bills',  label: 'ประวัติบิล / คืนสินค้า', icon: History,         perm: 'sales' },
+  { href: '/sales/close',  label: 'ปิดยอดประจำวัน',         icon: Calculator,      perm: 'sales' },
+  { href: '/labels',       label: 'พิมพ์บาร์โค้ด',         icon: ScanBarcode,     perm: 'labels' },
+  { href: '/reports',      label: 'รายงาน',                 icon: BarChart3,       perm: 'reports' },
+  { href: '/users',        label: 'จัดการผู้ใช้',          icon: Users,           perm: 'users' },
   { href: '/settings/integrations', label: 'ตั้งค่าการเชื่อมต่อ', icon: PlugZap, perm: null, adminOnly: true, group: 'settings' },
+  { href: '/settings/shop', label: 'ข้อมูลร้าน / ใบเสร็จ', icon: Store, perm: null, adminOnly: true, group: 'settings' },
 ]
 
 // props ที่ layout ส่งให้ทั้งเมนูเดสก์ท็อป (Sidebar) และมือถือ (MobileNav)
@@ -68,6 +78,7 @@ export function NavLinks({
 }) {
   const main = items.filter(item => !item.group)
   const settings = items.filter(item => item.group === 'settings')
+  const activeHref = activeNavHref(items, pathname)
   const link = (item: NavItem) => {
     const Icon = item.icon
     return (
@@ -75,7 +86,7 @@ export function NavLinks({
         key={item.href}
         href={item.href}
         onClick={onNavigate}
-        aria-current={isActivePath(pathname, item.href) ? 'page' : undefined}
+        aria-current={item.href === activeHref ? 'page' : undefined}
         className={className ? `nav-item ${className}` : 'nav-item'}
       >
         <Icon {...ICON} />
@@ -99,6 +110,15 @@ export function NavLinks({
 export function isActivePath(pathname: string | null, href: string): boolean {
   if (!pathname) return false
   return pathname === href || pathname.startsWith(href + '/')
+}
+
+// เมนูที่ถูกเลือก = เมนูที่ path ตรงและ href ยาวที่สุด (อยู่หน้า /sales/bills → "ประวัติบิล" ไม่ใช่ "บันทึกการขาย" ด้วย)
+export function activeNavHref(items: NavItem[], pathname: string | null): string | null {
+  let best: string | null = null
+  for (const item of items) {
+    if (isActivePath(pathname, item.href) && (best === null || item.href.length > best.length)) best = item.href
+  }
+  return best
 }
 
 // ไอคอนบทบาทแสดงแยกใน UserPill (มงกุฎ = ผู้ดูแลระบบ, คน = พนักงาน)

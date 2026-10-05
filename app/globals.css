@@ -416,11 +416,12 @@
   .choice.tone-honey[aria-pressed='true'] { color: #6E4010; background-color: #FDEBCD; border-color: #9C5B0F; box-shadow: inset 0 0 0 1px #9C5B0F; }
 
   /* ป้าย/แท็ก (ไซส์·สี, จำนวน, บทบาท) — ทรงแคปซูลใช้ได้เฉพาะป้ายพวกนี้
-     .chip-outline / .chip-strong ใช้เดี่ยวๆ ได้ หรือคู่กับ .chip ก็ได้ */
+     .chip-outline / .chip-strong ใช้เดี่ยวๆ ได้ หรือคู่กับ .chip ก็ได้
+     leading-normal (18px ในกล่องสูง 24px): leading-none (12px) + ข้อความ truncate ตัดวรรณยุกต์ที่ซ้อนบนสระ ("เสื้อ" เหลือ "เสือ") */
   .chip,
   .chip-outline,
   .chip-strong {
-    @apply inline-flex items-center gap-1 h-6 px-2.5 rounded-full border text-xs font-medium leading-none whitespace-nowrap;
+    @apply inline-flex items-center gap-1 h-6 px-2.5 rounded-full border text-xs font-medium leading-normal whitespace-nowrap;
   }
   .chip {
     color: #463E41;
@@ -778,4 +779,99 @@ html[data-gate='locked'] .entry-gate-cover {
 @keyframes entry-gate-reveal {
   from { opacity: 0; visibility: hidden; }
   to { opacity: 1; visibility: visible; }
+}
+
+/* ================= ใบเสร็จ / ใบคืนสินค้า / สรุปยอด (พิมพ์ผ่าน components/pos/PrintPortal.tsx) ================= */
+/* โครง: <div class="receipt"> … <div class="receipt-row"><span>ชื่อ</span><span>฿120</span></div> … <hr class="receipt-sep"> …
+   ความกว้างตามกระดาษจาก data-paper บน <body> (PrintPortal ใส่ให้) หรือบนกล่องครอบ (ตัวอย่างใบเสร็จในหน้าตั้งค่าร้าน):
+   58 มม. → พิมพ์ได้กว้าง 48 มม. · 80 มม. → 72 มม. · a4 → เต็มหน้า ไม่เกิน 180 มม.
+   เครื่องพิมพ์ใบเสร็จ (ความร้อน) พิมพ์ได้แต่สีดำ → ตัวอักษรดำล้วน ไม่มีพื้นหลัง/เงา · ใช้ฟอนต์เดียวกับระบบ (ไม่ใช่ monospace)
+   ใช้ชื่อคลาสตรงๆ ในโค้ด (ห้ามประกอบชื่อคลาสจากตัวแปร — Tailwind ตัดคลาสที่หาไม่เจอทิ้ง) */
+@layer components {
+  .receipt {
+    width: 72mm;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 0;
+    color: #000000;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .receipt * {
+    color: #000000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  [data-paper='58'] .receipt { width: 48mm; font-size: 11px; }
+  [data-paper='80'] .receipt { width: 72mm; font-size: 12px; }
+  [data-paper='a4'] .receipt { width: 100%; max-width: 180mm; font-size: 13px; }
+
+  /* แถว ซ้าย-ขวา (ชื่อ ↔ จำนวนเงิน) — ช่องขวาไม่ตัดบรรทัด */
+  .receipt-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    break-inside: avoid;
+  }
+  .receipt-row > :first-child { min-width: 0; }
+  .receipt-row > :last-child:not(:first-child) { flex: none; text-align: right; white-space: nowrap; }
+  /* เส้นคั่นประ (ใช้กับ <hr class="receipt-sep"> หรือ <div class="receipt-sep">) */
+  .receipt-sep {
+    height: 0;
+    margin: 6px 0;
+    border: 0;
+    border-top: 1px dashed #000000;
+  }
+  .receipt-center { text-align: center; }
+  .receipt-right { text-align: right; }
+  .receipt-shop { text-align: center; font-size: 1.25em; font-weight: 700; line-height: 1.3; }
+  .receipt-title { text-align: center; font-size: 1.1em; font-weight: 700; margin: 4px 0; }
+  .receipt-small { font-size: 0.85em; }
+  .receipt-bold { font-weight: 700; }
+  /* ยอดสุทธิ — ตัวใหญ่ หนา */
+  .receipt-total { font-size: 1.3em; font-weight: 700; }
+  /* ป้ายใหญ่ 'ยกเลิกแล้ว' / 'พิมพ์ซ้ำ' — กรอบดำ ไม่ใช้พื้นสี */
+  .receipt-banner {
+    margin: 6px 0;
+    padding: 4px 6px;
+    border: 2px solid #000000;
+    text-align: center;
+    font-size: 1.3em;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .receipt-item { break-inside: avoid; margin: 2px 0; }
+  .receipt-item + .receipt-item { margin-top: 4px; }
+}
+
+/* ================= สั่งพิมพ์เฉพาะเนื้อหาใน #print-root (PrintPortal) ================= */
+/* อยู่นอก @layer และท้ายไฟล์ เพื่อชนะกฎอื่นทั้งหมด · บนจอ #print-root ซ่อนเสมอ */
+#print-root {
+  display: none;
+}
+@media print {
+  /* ตอนพิมพ์ด้วย PrintPortal: ซ่อนทั้งแอป (รวมป็อปอัป/เมนู) เหลือแต่ #print-root */
+  body.printing > *:not(#print-root) {
+    display: none !important;
+  }
+  body.printing #print-root {
+    display: block;
+  }
+  /* body ปกติสูงเต็มจอ (min-height: 100dvh) → ตอนพิมพ์ต้องสูงเท่าเนื้อหา ไม่งั้นกระดาษม้วนเปลืองเป็นหน้าเปล่า */
+  body.printing {
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #FFFFFF !important;
+  }
+  @page {
+    margin: 4mm;
+  }
 }

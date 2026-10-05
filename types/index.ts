@@ -65,6 +65,13 @@ export interface Sale {
   channel_id?: string | null        // ช่องทางที่เชื่อมต่อ (บิลจากออเดอร์แพลตฟอร์ม)
   external_order_id?: string | null // เลขออเดอร์บนแพลตฟอร์ม
   voided_at?: string | null         // ออเดอร์ยกเลิกก่อนส่ง = ยกเลิกทั้งใบ (คืนสต๊อกแล้ว ไม่นับยอด)
+  // ----- จาก supabase-fix-04-pos.sql (ยังไม่รัน = ไม่มีคีย์เหล่านี้ จึงเป็น optional ทั้งหมด) -----
+  cash_received?: number | null     // เงินที่รับมาจากลูกค้า (เฉพาะเงินสดที่กรอก; ไม่กรอก/โอน/บัตร = null)
+  change_amount?: number | null     // เงินทอน = cash_received - net_amount
+  voided_by?: string | null         // ผู้กดยกเลิกบิล (บิลยกเลิกจากแพลตฟอร์ม = null)
+  void_reason?: string | null       // เหตุผลที่ยกเลิกบิล
+  refunded_amount?: number          // ยอดคืนเงินสะสมของบิลนี้ (คืนสินค้าได้หลายครั้ง) — 0 = ยังไม่เคยคืน
+  created_by_name?: string | null   // ชื่อพนักงานขาย ณ ตอนบันทึก (บิลเก่าก่อน fix-04 = null)
 }
 
 export interface SaleItem {
@@ -93,6 +100,7 @@ export interface Permissions {
   labels: boolean
   reports: boolean
   users: boolean
+  refunds: boolean   // ยกเลิกบิล / คืนสินค้า (ต้องมี sales ด้วยจึงจะเข้าหน้าประวัติบิลได้)
 }
 
 export const DEFAULT_PERMISSIONS: Permissions = {
@@ -102,6 +110,7 @@ export const DEFAULT_PERMISSIONS: Permissions = {
   labels: true,
   reports: true,
   users: false,
+  refunds: false, // ยกเลิกบิล/คืนเงินกระทบยอดเงิน — ผู้ใช้ใหม่ไม่ได้สิทธิ์นี้จนกว่าจะเปิดให้เอง
 }
 
 export const ADMIN_PERMISSIONS: Permissions = {
@@ -111,6 +120,7 @@ export const ADMIN_PERMISSIONS: Permissions = {
   labels: true,
   reports: true,
   users: true,
+  refunds: true,
 }
 
 // ไม่มีสิทธิ์อะไรเลย — ใช้เป็นค่าเริ่มต้นแบบ fail-closed (หาโปรไฟล์ไม่เจอ / อ่านไม่ได้)
@@ -121,6 +131,7 @@ export const NO_PERMISSIONS: Permissions = {
   labels: false,
   reports: false,
   users: false,
+  refunds: false,
 }
 
 export const PERMISSION_LABELS: Record<keyof Permissions, string> = {
@@ -130,6 +141,7 @@ export const PERMISSION_LABELS: Record<keyof Permissions, string> = {
   labels: 'พิมพ์บาร์โค้ด',
   reports: 'ดูรายงาน',
   users: 'จัดการผู้ใช้',
+  refunds: 'ยกเลิกบิล / คืนสินค้า',
 }
 
 export interface UserProfile {

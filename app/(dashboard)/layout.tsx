@@ -41,8 +41,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
           {/* มือถือ: แถบบน + ลิ้นชักเมนู */}
           <MobileNav {...nav} />
 
-          {/* โปร่งใสเสมอ (ห้ามใส่ bg-*) · overscroll-y-contain = เลื่อนสุดแล้วไม่ลากทั้งหน้า */}
-          <main className="flex-1 overflow-y-auto overscroll-y-contain pb-safe pl-safe pr-safe md:pl-0">
+          {/* โปร่งใสเสมอ (ห้ามใส่ bg-*) · overscroll-y-contain = เลื่อนสุดแล้วไม่ลากทั้งหน้า
+              relative = กรอบอ้างอิงของ position:absolute ข้างใน (เช่น .sr-only ที่ไม่มีแม่ relative) — ไม่งั้นมันอ้างอิง <body>
+              หลุดออกนอกกล่องเลื่อนนี้ ทำให้ทั้งหน้าเอกสารยาวขึ้นและเลื่อนได้ แถบบน/เมนูข้างถูกเลื่อนหายไป */}
+          <main className="relative flex-1 overflow-y-auto overscroll-y-contain pb-safe pl-safe pr-safe md:pl-0">
             {/* คอม: ใช้ความกว้างเต็มจอ (ไม่บีบเป็นคอลัมน์แคบกลางจอ)
                 มือถือ: ขอบซ้าย-ขวา px-3 / sm:px-4 ต้องเท่ากับ -mx-3 sm:-mx-4 ของแถบบันทึกใน ProductForm (แถบยืดชนขอบจอ) */}
             <div className="w-full px-3 pt-4 pb-3 sm:px-4 sm:pt-5 sm:pb-4 md:p-6 xl:p-8">

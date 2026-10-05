@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { thaiError } from '@/lib/format'
 import { fetchAllRows } from '@/lib/fetchAllRows'
+import ExportMovementsButton from '@/components/pos/ExportMovementsButton'
 import StockClient, { type MoveType, type StockProduct, type StockMovementRow } from './StockClient'
 
 // ?action=in|out|adjust|return เลือกประเภทรายการให้ตั้งแต่เปิดหน้า (ค่าเริ่มต้น = รับเข้า)
@@ -41,6 +42,10 @@ export default async function StockPage({ searchParams }: {
         <div className="min-w-0">
           <h1 className="page-title">รับ-จ่ายสต๊อก</h1>
           <p className="page-subtitle">บันทึกการเคลื่อนไหวของสินค้า</p>
+        </div>
+        {/* ส่งออกประวัติทั้งช่วงวันที่เป็น CSV (หน้านี้บังคับสิทธิ์ stock อยู่แล้ว ซึ่ง RPC ส่งออกยอมรับ) */}
+        <div className="page-actions">
+          <ExportMovementsButton />
         </div>
       </div>
       <StockClient products={products} movements={movements} initialType={initialType} />
