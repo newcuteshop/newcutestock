@@ -110,7 +110,8 @@ export default function LoginPage() {
         // จำว่าหน้าต่างนี้เข้าสู่ระบบเองแล้ว — ต้องตั้งก่อนเปลี่ยนหน้า ไม่งั้นหน้าระบบจะพากลับมาหน้านี้
         markEnteredThisWindow()
         // โหลดหน้าใหม่ทั้งหน้า เพื่อให้ cookie session ใหม่ถูกใช้ทันที
-        window.location.href = '/dashboard'
+        // ไปหน้าเลือกร้านก่อน (/select) — มีสิทธิ์ร้านเดียว หน้านั้นพาเข้าร้านนั้นให้เองทันที
+        window.location.href = '/select'
       }
     } catch (err: unknown) {
       // เรียก server action ไม่ได้ (เน็ตหลุด ฯลฯ)

@@ -5,19 +5,27 @@ import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { LogOut, Menu, X } from 'lucide-react'
 import { displayLogin } from '@/lib/auth/credentials'
-import BrandMark from '@/components/theme/BrandMark'
 import { ICON, ICON_LG } from '@/components/theme/icons'
-import { NavLinks, useLogout, UserPill, visibleNavItems, type NavProps } from './Sidebar'
+import {
+  NavLinks, ShopBrand, shopHomeHref, SwitchShopLink, useLogout, UserPill, visibleNavItems, type NavProps,
+} from './Sidebar'
 
 const DRAWER_ID = 'mobile-nav-drawer'
 
 // แถบบน + ลิ้นชักเมนูสำหรับมือถือ (ซ่อนตั้งแต่ md ขึ้นไป ซึ่งใช้ Sidebar แทน)
-export default function MobileNav({ email, fullName, role, permissions }: NavProps) {
+export default function MobileNav({
+  email, fullName, role, permissions, shop = 'newcute', shopName, canSwitchShop = false, badges,
+}: NavProps) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const { loggingOut, logout } = useLogout()
-  const items = visibleNavItems(permissions, role)
+  const items = visibleNavItems(permissions, role, shop)
   const login = displayLogin(email)
+  // มีตัวเลขแจ้งเตือนบนเมนูที่มองเห็นอยู่ไหม → จุดเล็กบนปุ่มเปิดเมนู (ตัวเลขจริงอยู่ในลิ้นชัก)
+  const hasBadge = items.some(item => {
+    const n = item.badge ? badges?.[item.badge] : undefined
+    return typeof n === 'number' && Number.isFinite(n) && n > 0
+  })
 
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
@@ -96,20 +104,19 @@ export default function MobileNav({ email, fullName, role, permissions }: NavPro
             ref={menuButtonRef}
             type="button"
             onClick={() => setOpen(true)}
-            aria-label="เปิดเมนู"
+            aria-label={hasBadge ? 'เปิดเมนู (มีรายการรอดำเนินการ)' : 'เปิดเมนู'}
             aria-expanded={open}
             aria-controls={DRAWER_ID}
-            className="btn-icon btn-icon-plain"
+            className="btn-icon btn-icon-plain relative"
           >
             <Menu {...ICON_LG} />
+            {hasBadge && (
+              <span aria-hidden="true" className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-brand-600 ring-2 ring-white" />
+            )}
           </button>
-          <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0 min-h-[44px] pr-3 rounded-lg">
-            <BrandMark size="sm" />
+          <Link href={shopHomeHref(shop)} className="flex items-center gap-2.5 min-w-0 min-h-[44px] pr-3 rounded-lg">
             {/* ชื่อร้าน 2 บรรทัด (บรรทัดล่างตัดด้วย … เมื่อจอแคบ) */}
-            <span className="min-w-0">
-              <span className="block text-base font-semibold leading-tight tracking-wide text-gray-900">NEWCUTE</span>
-              <span className="block truncate text-xs text-gray-500">ระบบสต๊อกสินค้าเสื้อผ้า</span>
-            </span>
+            <ShopBrand shop={shop} shopName={shopName} compact />
           </Link>
         </div>
       </header>
@@ -151,11 +158,7 @@ export default function MobileNav({ email, fullName, role, permissions }: NavPro
           {/* Header */}
           <div className="h-16 flex items-center justify-between gap-2 pl-4 pr-2 shrink-0">
             <div className="flex items-center gap-2.5 min-w-0">
-              <BrandMark />
-              <div className="min-w-0">
-                <p className="text-lg font-semibold leading-tight tracking-wide text-gray-900">NEWCUTE</p>
-                <p className="truncate text-xs text-gray-500">ระบบสต๊อกสินค้าเสื้อผ้า</p>
-              </div>
+              <ShopBrand shop={shop} shopName={shopName} />
             </div>
             <button
               ref={closeButtonRef}
@@ -175,11 +178,12 @@ export default function MobileNav({ email, fullName, role, permissions }: NavPro
 
           {/* Nav — เมนูที่เลือกอยู่ (aria-current) = พื้นโรสโกลด์อ่อน + ตัวอักษรโรสโกลด์เข้ม (มาจาก .nav-item เอง) */}
           <nav aria-label="เมนูหลัก" className="flex-1 overflow-y-auto overscroll-contain px-3 py-1 space-y-1">
-            <NavLinks items={items} pathname={pathname} className="text-base" onNavigate={() => setOpen(false)} />
+            <NavLinks items={items} pathname={pathname} className="text-base" onNavigate={() => setOpen(false)} badges={badges} />
           </nav>
 
-          {/* ออกจากระบบ (คั่นจากเมนูด้วยเส้นบาง) */}
-          <div className="shrink-0 border-t border-gray-150 px-3 pt-3 pb-4">
+          {/* เปลี่ยนร้าน + ออกจากระบบ (คั่นจากเมนูด้วยเส้นบาง) */}
+          <div className="shrink-0 border-t border-gray-150 px-3 pt-3 pb-4 space-y-1">
+            {canSwitchShop && <SwitchShopLink className="text-base" onNavigate={() => setOpen(false)} />}
             <button
               type="button"
               onClick={logout}

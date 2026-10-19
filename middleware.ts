@@ -1,10 +1,15 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { sessionCookieOptions } from '@/lib/supabase/cookies'
+import { isPublicPath } from '@/lib/auth/entry-gate'
 
 type PendingCookie = { name: string; value: string; options: CookieOptions }
 
 export async function middleware(request: NextRequest) {
+  // หน้าจองออนไลน์สาธารณะ (/book, /book/..., /api/book/...) ไม่ต้อง login — matcher ด้านล่างข้ามอยู่แล้ว
+  // กันไว้อีกชั้นเผื่อ matcher ถูกแก้ภายหลัง: ไม่แตะ session ไม่ redirect
+  if (isPublicPath(request.nextUrl.pathname)) return NextResponse.next()
+
   // เก็บทุก cookie ที่ Supabase ตั้ง/ลบระหว่าง request นี้
   // session ถูกแบ่งเป็นหลายชิ้น (sb-xxx-auth-token.0, .1, ...) — ถ้าไม่เก็บไว้ครบ
   // ชิ้นก่อนหน้าจะหายตอนสร้าง response ใหม่ แล้วผู้ใช้จะหลุดออกจากระบบ
@@ -72,7 +77,9 @@ export async function middleware(request: NextRequest) {
 export const config = {
   // ไม่ต้องตรวจ login กับไฟล์ static และ cron (Vercel Cron ไม่มี cookie ผู้ใช้)
   // /api/integrations/* (webhook / OAuth callback / worker) และ /api/feed/* ยืนยันตัวตนเอง (ลายเซ็น / state / Bearer / โทเคนฟีด)
+  // หน้าจองออนไลน์สาธารณะ: book(?:/|$) = '/book' หรือ '/book/...' เท่านั้น ('/booking' ยังผ่าน middleware ตามปกติ)
+  //   และ api/book/ = API อัปโหลดสลิปของลูกค้า (ตรวจโทเคนการจองเอง) — ต้องตรงกับ isPublicPath ใน lib/auth/entry-gate.ts
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|api/cron|api/integrations/|api/feed/|.*\\.(?:svg|png|jpg|jpeg|gif|ico|webp|webmanifest)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|api/cron|api/integrations/|api/feed/|api/book/|book(?:/|$)|.*\\.(?:svg|png|jpg|jpeg|gif|ico|webp|webmanifest)$).*)',
   ],
 }

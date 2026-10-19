@@ -84,3 +84,50 @@ export async function getAdminSessionOrError(): Promise<AppSession | null> {
     return null
   }
 }
+
+// ===== ร้านเช่าชุด + ตัวเลือกร้าน (/select) =====
+// ระบบมี 2 ร้านในฐานข้อมูล/ผู้ใช้ชุดเดียวกัน — สิทธิ์แยกตามร้าน (types/index.ts PERMISSION_GROUPS)
+// rental_manage ครอบ rental เสมอ (ตรงกับ rental_staff() ในฐานข้อมูล = has_perm('rental') หรือ has_perm('rental_manage'))
+
+type PermSource = Pick<AppSession, 'role' | 'permissions'>
+
+// คีย์ที่นับว่า "เข้าร้าน NEWCUTE ได้" (users = จัดการผู้ใช้ อยู่ในหน้าระบบของ NEWCUTE)
+const NEWCUTE_KEYS: readonly (keyof Permissions)[] = ['products', 'stock', 'sales', 'refunds', 'labels', 'reports', 'users']
+
+/** พนักงานร้านเช่าชุด (จอง/รับ-คืน/รับเงิน) — admin หรือ rental หรือ rental_manage */
+export function isRentalStaff(s: PermSource | null | undefined): boolean {
+  if (!s) return false
+  return s.role === 'admin' || s.permissions.rental === true || s.permissions.rental_manage === true
+}
+
+/** ผู้จัดการร้านเช่าชุด (จัดการชุด/ราคา/ตั้งค่า/รายงาน) — admin หรือ rental_manage */
+export function isRentalManager(s: PermSource | null | undefined): boolean {
+  if (!s) return false
+  return s.role === 'admin' || s.permissions.rental_manage === true
+}
+
+/** ผู้ใช้นี้เข้าร้านไหนได้บ้าง — ใช้ตัดสินใจหน้า /select และการแสดงลิงก์ "เปลี่ยนร้าน" */
+export function shopAccess(s: PermSource | null | undefined): { newcute: boolean; rental: boolean } {
+  if (!s) return { newcute: false, rental: false }
+  const admin = s.role === 'admin'
+  return {
+    newcute: admin || NEWCUTE_KEYS.some(k => s.permissions[k] === true),
+    rental: isRentalStaff(s),
+  }
+}
+
+// ใช้บนหน้า server component ของร้านเช่าชุด: ไม่ได้ login → /login, ไม่มีสิทธิ์ร้านเช่าชุด → /select
+export async function requireRental(): Promise<AppSession> {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  if (!isRentalStaff(session)) redirect('/select')
+  return session
+}
+
+// หน้าเฉพาะผู้จัดการร้านเช่าชุด (ตั้งค่า/รายงาน/จัดการชุด): ไม่ได้ login → /login, ไม่มีสิทธิ์ร้านเช่าชุด → /select,
+// เป็นพนักงานร้านเช่าแต่ไม่ใช่ผู้จัดการ → /rental (หน้าภาพรวมร้านเช่า)
+export async function requireRentalManager(): Promise<AppSession> {
+  const session = await requireRental()
+  if (!isRentalManager(session)) redirect('/rental')
+  return session
+}

@@ -13,6 +13,7 @@ import {
   ADMIN_PERMISSIONS,
   NO_PERMISSIONS,
   PERMISSION_LABELS,
+  PERMISSION_GROUPS,
 } from '@/types'
 import { formatThaiDateTime, thaiError } from '@/lib/format'
 import { checkRawPassword, displayLogin, loginToEmail } from '@/lib/auth/credentials'
@@ -32,6 +33,13 @@ type UserForm = {
 type Msg = { ok: boolean; text: string }
 
 const PERM_KEYS = Object.keys(PERMISSION_LABELS) as (keyof Permissions)[]
+
+// สวิตช์สิทธิ์แยกกลุ่มตามร้าน (types/index.ts PERMISSION_GROUPS) — คีย์ที่ไม่อยู่ในกลุ่มไหน (เพิ่มใหม่ภายหลัง) ไปอยู่กลุ่ม "อื่นๆ" ไม่หายไปเงียบๆ
+const GROUPED_KEYS = new Set<keyof Permissions>(PERMISSION_GROUPS.flatMap(g => g.keys))
+const PERM_GROUPS: { title: string; keys: (keyof Permissions)[] }[] = [
+  ...PERMISSION_GROUPS.map(g => ({ title: g.title, keys: g.keys.filter(k => PERM_KEYS.includes(k)) })),
+  { title: 'อื่นๆ', keys: PERM_KEYS.filter(k => !GROUPED_KEYS.has(k)) },
+].filter(g => g.keys.length > 0)
 
 // สิทธิ์ที่บันทึกไว้จริง (fail-closed: ไม่ใช่ true = ไม่มีสิทธิ์)
 function storedPermissions(u: UserProfile): Permissions {
@@ -568,39 +576,46 @@ export default function UsersClient({
                       <span className="min-w-0">Admin ได้ทุกสิทธิ์โดยอัตโนมัติ</span>
                     </p>
                   )}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                    {PERM_KEYS.map(key => {
-                      const disabled = permDisabled(key)
-                      return (
-                        <label key={key}
-                          className={`panel flex items-center justify-between gap-3 px-4 py-2 min-h-[52px] ${
-                            disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
-                          }`}>
-                          <span className="min-w-0 text-sm font-medium text-gray-700">
-                            {PERMISSION_LABELS[key]}
-                            {!callerIsAdmin && !rolePermsLocked && editing.role !== 'admin' && disabled && (
-                              <span className="block text-xs font-normal text-gray-500">
-                                {key === 'users' ? ' (เฉพาะ Admin ให้ได้)' : ' (คุณไม่มีสิทธิ์นี้ จึงให้คนอื่นไม่ได้)'}
-                              </span>
-                            )}
-                          </span>
-                          {/* สวิตช์เปิด/ปิด: ตัวจริงยังเป็น checkbox (โปรแกรมอ่านจอ/คีย์บอร์ดใช้ได้เหมือนเดิม) ลายสวิตช์เป็นแค่หน้าตา */}
-                          <span className="relative inline-flex shrink-0">
-                            <input
-                              type="checkbox"
-                              checked={editing.permissions[key]}
-                              disabled={disabled}
-                              onChange={() => togglePerm(key)}
-                              className="peer sr-only"
-                            />
-                            <span aria-hidden="true"
-                              className="block h-7 w-12 rounded-full border border-gray-300 bg-gray-300 transition-colors peer-checked:border-brand-600 peer-checked:bg-brand-600 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600" />
-                            <span aria-hidden="true"
-                              className="pointer-events-none absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
-                          </span>
-                        </label>
-                      )
-                    })}
+                  <div className="space-y-4">
+                    {PERM_GROUPS.map(group => (
+                      <div key={group.title} role="group" aria-label={group.title}>
+                        <p aria-hidden="true" className="section-kicker mb-2">{group.title}</p>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                          {group.keys.map(key => {
+                            const disabled = permDisabled(key)
+                            return (
+                              <label key={key}
+                                className={`panel flex items-center justify-between gap-3 px-4 py-2 min-h-[52px] ${
+                                  disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                                }`}>
+                                <span className="min-w-0 text-sm font-medium text-gray-700">
+                                  {PERMISSION_LABELS[key]}
+                                  {!callerIsAdmin && !rolePermsLocked && editing.role !== 'admin' && disabled && (
+                                    <span className="block text-xs font-normal text-gray-500">
+                                      {key === 'users' ? ' (เฉพาะ Admin ให้ได้)' : ' (คุณไม่มีสิทธิ์นี้ จึงให้คนอื่นไม่ได้)'}
+                                    </span>
+                                  )}
+                                </span>
+                                {/* สวิตช์เปิด/ปิด: ตัวจริงยังเป็น checkbox (โปรแกรมอ่านจอ/คีย์บอร์ดใช้ได้เหมือนเดิม) ลายสวิตช์เป็นแค่หน้าตา */}
+                                <span className="relative inline-flex shrink-0">
+                                  <input
+                                    type="checkbox"
+                                    checked={editing.permissions[key]}
+                                    disabled={disabled}
+                                    onChange={() => togglePerm(key)}
+                                    className="peer sr-only"
+                                  />
+                                  <span aria-hidden="true"
+                                    className="block h-7 w-12 rounded-full border border-gray-300 bg-gray-300 transition-colors peer-checked:border-brand-600 peer-checked:bg-brand-600 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600" />
+                                  <span aria-hidden="true"
+                                    className="pointer-events-none absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
+                                </span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>

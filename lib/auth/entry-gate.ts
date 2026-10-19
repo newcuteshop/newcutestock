@@ -8,8 +8,30 @@
 
 export const ENTRY_FLAG_KEY = 'newcute-entered'
 
-// รันใน <head> ก่อนหน้าเว็บแสดงผล (ต่อท้าย MOTION_BOOT_SCRIPT ในสคริปต์เดียวกัน) — ทุกหน้ายกเว้น /login
-export const ENTRY_GATE_BOOT_SCRIPT = `(function(){var p=location.pathname,ok=false;if(p==='/login'||p.indexOf('/login/')===0)return;try{ok=window.sessionStorage.getItem('${ENTRY_FLAG_KEY}')==='1'}catch(e){}if(!ok)document.documentElement.setAttribute('data-gate','locked')})()`
+// รันใน <head> ก่อนหน้าเว็บแสดงผล (ต่อท้าย MOTION_BOOT_SCRIPT ในสคริปต์เดียวกัน) — ทุกหน้ายกเว้น /login และหน้าจองออนไลน์สาธารณะ
+// /book (ลูกค้าเปิดจาก LINE/โซเชียล ไม่มีบัญชี) — เทียบทั้งท่อน: '/book' หรือขึ้นต้น '/book/' เท่านั้น (/booking, /bookx ยังถูกล็อก)
+// ต้องตรงกับ isPublicPath ด้านล่าง และ matcher ใน middleware.ts
+export const ENTRY_GATE_BOOT_SCRIPT = `(function(){var p=location.pathname,ok=false;if(p==='/login'||p.indexOf('/login/')===0||p==='/book'||p.indexOf('/book/')===0)return;try{ok=window.sessionStorage.getItem('${ENTRY_FLAG_KEY}')==='1'}catch(e){}if(!ok)document.documentElement.setAttribute('data-gate','locked')})()`
+
+// เบราว์เซอร์ปิด JavaScript = สคริปต์ประตูเข้าระบบไม่ทำงาน (ไม่ล็อกหน้าจอ ไม่พาไปหน้าเข้าสู่ระบบ)
+// → ซ่อนหน้าระบบทั้งหมดแทน (fail closed) แล้วบอกให้เปิด JavaScript — ใช้ใน <noscript> ของ layout หน้าที่ต้องเข้าสู่ระบบ
+// (ชุดเดียวกับที่ app/(dashboard)/layout.tsx เขียนไว้เอง) ตัวห่อหน้าต้องมีคลาส .app-shell
+export const NOSCRIPT_LOCK_HTML =
+  '<style>.app-shell{display:none!important}</style>' +
+  '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;text-align:center">' +
+  '<p style="margin:0;max-width:22rem;font-size:15px;line-height:1.7;color:#201B1D">' +
+  'ต้องเปิด JavaScript ก่อนจึงจะใช้ระบบได้<br><a href="/login" style="color:#A43D56;font-weight:600">ไปหน้าเข้าสู่ระบบ</a>' +
+  '</p></div>'
+
+/**
+ * หน้าสาธารณะ (ไม่ต้องเข้าสู่ระบบ ไม่มีประตูเข้าระบบ): '/book', '/book/...' และ API '/api/book/...'
+ * เทียบทั้งท่อนของ path — '/booking', '/bookx', '/api/book' (ไม่มี / ท้าย) ไม่นับเป็นสาธารณะ
+ * ใช้ได้ทั้ง middleware (edge), server และ client (ไม่มีโค้ดเบราว์เซอร์)
+ */
+export function isPublicPath(pathname: string | null | undefined): boolean {
+  if (typeof pathname !== 'string') return false
+  return pathname === '/book' || pathname.startsWith('/book/') || pathname.startsWith('/api/book/')
+}
 
 // หน้าต่างนี้เข้าสู่ระบบเองแล้วหรือยัง
 export function hasEnteredThisWindow(): boolean {
