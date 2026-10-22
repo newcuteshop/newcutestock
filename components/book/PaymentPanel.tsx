@@ -4,6 +4,7 @@ import { CheckCircle2, Download, Info, Landmark, QrCode, Upload, Wallet } from '
 import { ICON_SM, ICON_XS } from '@/components/theme/icons'
 import { baht } from '@/lib/format'
 import { round2 } from '@/lib/money'
+import { cssColor } from '@/lib/shopTheme'
 import { formatPromptPayId, isValidPromptPayId, parsePromptPayId, promptPayPayload } from '@/lib/promptpay'
 import type { PublicBooking } from '@/lib/rental'
 import QrImage from '@/components/rental/QrImage'
@@ -79,21 +80,23 @@ async function composeQrImage(qrUrl: string, lines: { shop: string; amount: stri
     // ใช้ฟอนต์เดียวกับหน้าเว็บ (ภาษาไทยไม่เป็นสี่เหลี่ยม)
     if (document.fonts?.ready) await document.fonts.ready
     const family = getComputedStyle(document.body).fontFamily || 'sans-serif'
+    // สีตัวอักษรจากตัวแปร CSS ของร้าน (หน้า /book = ร้านเช่า ธีม #18 ฟ้าใส 22/10/2569) — อ่านตอนวาด · fallback = ค่าของร้านเช่า
+    const ink = cssColor('--c-ink', '#15232A')
     ctx.fillStyle = '#FFFFFF'
     ctx.fillRect(0, 0, W, H)
     ctx.textAlign = 'center'
     ctx.textBaseline = 'alphabetic'
-    ctx.fillStyle = '#201B1D'
+    ctx.fillStyle = ink
     centerText(ctx, lines.shop, 84, 40, 600, family, W - 80)
-    ctx.fillStyle = '#675F62'
+    ctx.fillStyle = cssColor('--c-gray-500', '#51636E')
     centerText(ctx, 'สแกนจ่ายด้วยแอปธนาคาร (พร้อมเพย์)', 134, 28, 400, family, W - 80)
     ctx.drawImage(qr, 110, 170, 500, 500)
-    ctx.fillStyle = '#201B1D'
+    ctx.fillStyle = ink
     centerText(ctx, lines.amount, 750, 56, 700, family, W - 80)
-    ctx.fillStyle = '#463E41'
+    ctx.fillStyle = cssColor('--c-gray-700', '#34454E')
     centerText(ctx, lines.target, 812, 28, 400, family, W - 80)
     centerText(ctx, `เลขที่การจอง ${lines.bookingNo}`, 860, 28, 400, family, W - 80)
-    ctx.fillStyle = '#776E71'
+    ctx.fillStyle = cssColor('--c-gray-400', '#5E707A')
     centerText(ctx, 'โอนแล้วกรุณาส่งสลิปในหน้าสถานะการจอง', 930, 24, 400, family, W - 80)
     return canvas.toDataURL('image/png')
   } finally {

@@ -12,6 +12,7 @@ import {
   windowStorageWorks,
 } from '@/lib/auth/entry-gate'
 import BrandMark from '@/components/theme/BrandMark'
+import ShopThemeSync from '@/components/theme/ShopThemeSync'
 import { ICON_SM } from '@/components/theme/icons'
 
 // รอออกจากระบบเดิมไม่เกินเท่านี้ แล้วเปิดปุ่มเข้าสู่ระบบเลย (กันฟอร์มค้าง)
@@ -123,6 +124,8 @@ export default function LoginPage() {
   return (
     // ไม่ใส่พื้นหลัง: พื้นเทาอ่อนมาจาก body · ขอบบน/ล่างเผื่อรอยบากและแถบ home
     <div className="min-h-screen min-h-[100dvh] flex items-center justify-center px-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      {/* หน้าเข้าสู่ระบบเป็นของ NEWCUTE (โรสโกลด์) เสมอ — แม้มาจากหน้าร้านเช่า */}
+      <ShopThemeSync shop="newcute" />
       {/* การ์ดขาวเรียบ มุม 12px เส้นบาง 1px (.card) */}
       <div className="card w-full max-w-sm">
         <div className="px-6 py-7 sm:px-8 sm:py-8">

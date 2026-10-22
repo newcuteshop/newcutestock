@@ -4,6 +4,7 @@ import { DEFAULT_RENTAL_SHOP_NAME } from '@/lib/rental'
 import { getPublicInfo } from '@/components/book/server'
 import BookHeader from '@/components/book/BookHeader'
 import BookFooter from '@/components/book/BookFooter'
+import ShopThemeSync from '@/components/theme/ShopThemeSync'
 
 // หน้าจองชุดออนไลน์สาธารณะ /book/** — ลูกค้าเปิดจาก LINE/โซเชียล ไม่ต้องมีบัญชี
 // - ไม่มีประตูเข้าระบบ (EntryGate) ไม่มีเมนูหลังร้าน: middleware ข้ามเส้นทางนี้ และสคริปต์ล็อกหน้าจอใน <head> ข้าม /book แล้ว
@@ -36,7 +37,11 @@ export default async function BookLayout({ children }: { children: React.ReactNo
   const year = Number(bangkokTodayKey().slice(0, 4)) || new Date().getFullYear()
 
   return (
-    <div className="flex min-h-screen min-h-[100dvh] flex-col">
+    // data-shop="rental" ใน HTML จากเซิร์ฟเวอร์เลย: ลูกค้าที่ปิด/บล็อก JavaScript ก็ยังเห็นธีมฟ้าใส (ไม่มีสคริปต์ใน <head> มาตั้ง <html data-shop>)
+    // + bg-canvas = พื้นฟ้าอ่อนของร้านเช่าทับพื้น body (ตอนเปิด JavaScript เป็นสีเดียวกันอยู่แล้ว ไม่เปลี่ยนหน้าตา)
+    <div data-shop="rental" className="flex min-h-screen min-h-[100dvh] flex-col bg-canvas">
+      {/* หน้าจองออนไลน์เป็นของร้านเช่าชุด → ธีม #18 ฟ้าใส (บอสเลือก 22/10/2569) · <html data-shop> สำหรับ body/ป็อปอัปที่ portal ไปนอกกล่องนี้ */}
+      <ShopThemeSync shop="rental" />
       <a
         href="#book-main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold"

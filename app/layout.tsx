@@ -2,11 +2,14 @@ import type { Metadata, Viewport } from 'next'
 import { IBM_Plex_Sans_Thai } from 'next/font/google'
 import EntryGateCover from '@/components/auth/EntryGateCover'
 import { ENTRY_GATE_BOOT_SCRIPT } from '@/lib/auth/entry-gate'
+import { SHOP_THEME_BOOT_SCRIPT } from '@/lib/shopTheme'
 import './globals.css'
 
 // สคริปต์ใน <head> รันก่อนหน้าเว็บแสดงผล: ล็อกหน้าจอถ้าหน้าต่างนี้ยังไม่ได้เข้าสู่ระบบเอง (ดู lib/auth/entry-gate.ts)
 // (สวิตช์ "เอฟเฟกต์เคลื่อนไหว" เลิกแล้ว — ธีมทางการไม่มีแอนิเมชันตกแต่งให้ปิด จึงไม่มีสคริปต์ตั้ง data-motion อีก)
-const BOOT_SCRIPT = ENTRY_GATE_BOOT_SCRIPT
+// + ตั้ง <html data-shop> (newcute / rental) ก่อนวาด → ร้านเช่าชุดเป็นธีมฟ้าใส (#18 ที่บอสเลือก 22/10/2569) ตั้งแต่เฟรมแรก
+//   NEWCUTE ได้โรสโกลด์เดิม (ดู lib/shopTheme.ts และตัวแปรสีใน app/globals.css)
+const BOOT_SCRIPT = ENTRY_GATE_BOOT_SCRIPT + ';' + SHOP_THEME_BOOT_SCRIPT
 
 // ฟอนต์เดียวทั้งระบบ: IBM Plex Sans Thai (ไทยแบบไม่มีหัว อ่านง่าย ดูเป็นทางการ + ตัวเลขละตินคมชัด)
 // 400 เนื้อหา · 500 ป้าย/เมนู · 600 หัวเรื่อง/ปุ่ม/ตัวเลขเด่น · 700 เผื่อที่ยังใช้ font-bold
@@ -51,12 +54,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // data-gate ถูกตั้งจากสคริปต์ด้านล่างก่อน React เริ่มทำงาน → ไม่ต้องเตือนว่าแอตทริบิวต์ไม่ตรง
+    // data-gate / data-shop ถูกตั้งจากสคริปต์ด้านล่างก่อน React เริ่มทำงาน → ไม่ต้องเตือนว่าแอตทริบิวต์ไม่ตรง
     <html lang="th" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
       </head>
-      {/* พื้นหลังเทาอ่อน (#F7F6F6) อยู่ใน globals.css (body) */}
+      {/* พื้นหลัง (NEWCUTE เทาอ่อน #F7F6F6 / ร้านเช่า ฟ้าจาง #F5F9FB) อยู่ใน globals.css (body → --c-canvas) */}
       <body className={`${plexThai.variable} font-sans text-gray-900 antialiased`}>
         {/* แผ่นปิดตอนล็อกหน้าจอ (ต้องเป็นลูกชั้นแรกของ body) — ปกติซ่อน */}
         <EntryGateCover />

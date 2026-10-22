@@ -25,7 +25,9 @@ const ROSE_LIGHT = '#FCDCE1' // brand-200
 export default function BrandMark({ size = 'md', ring = false, className }: BrandMarkProps) {
   const mark = (
     // มุมมน 22% เท่ากับไอคอนแอป
+    // data-shop="newcute" = โลโก้ NEWCUTE เป็นโรสโกลด์เสมอ แม้วางในหน้าร้านเช่า (ธีมฟ้าใส 22/10/2569) — bg-brand-100 อ่านตัวแปรของ NEWCUTE
     <span
+      data-shop="newcute"
       aria-hidden="true"
       className={clsx(
         'inline-block shrink-0 overflow-hidden rounded-[22%] bg-brand-100 ring-1 ring-inset ring-brand-200',

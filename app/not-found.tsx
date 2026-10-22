@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Home, SearchX } from 'lucide-react'
 import { ICON_SM } from '@/components/theme/icons'
 import EntryGate from '@/components/auth/EntryGate'
+import { PathShopThemeSync } from '@/components/theme/ShopThemeSync'
 
 // ที่อยู่เว็บที่ไม่มีอยู่จริง — แทนหน้า 404 ภาษาอังกฤษของ Next.js
 // หน้าเดี่ยว (ไม่มีเมนู) หน้าตาชุดเดียวกับหน้าเข้าสู่ระบบ: การ์ดขาวเรียบบนพื้นเทาอ่อน
@@ -10,6 +11,8 @@ export default function NotFound() {
   return (
     <div className="min-h-[100dvh] flex items-center justify-center px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
       <EntryGate />
+      {/* ไม่อยู่ใต้ layout ร้านไหน → ตั้ง <html data-shop> ตามที่อยู่เว็บเอง (ไม่งั้นเปลี่ยนหน้ามาจากร้านเช่าแล้วค้างสีฟ้า) */}
+      <PathShopThemeSync />
       <div className="card w-full max-w-md p-5 sm:p-6 flex flex-col items-center text-center">
         <span className="icon-bubble icon-bubble-lg mb-3" aria-hidden="true">
           <SearchX size={28} strokeWidth={1.75} aria-hidden="true" />

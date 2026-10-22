@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Sidebar, { type NavProps } from '@/components/layout/Sidebar'
 import MobileNav from '@/components/layout/MobileNav'
 import EntryGate from '@/components/auth/EntryGate'
+import ShopThemeSync from '@/components/theme/ShopThemeSync'
 import { getSession, shopAccess } from '@/lib/auth/permissions'
 
 // เบราว์เซอร์ปิด JavaScript = สคริปต์ประตูเข้าระบบไม่ทำงาน (ไม่ล็อกหน้าจอ ไม่พาไปหน้าเข้าสู่ระบบ)
@@ -39,6 +40,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <div className="app-shell flex h-[100dvh] overflow-hidden">
         {/* หน้าต่างใหม่ที่ยังไม่ได้เข้าสู่ระบบเอง → ออกจากระบบ + ไปหน้าเข้าสู่ระบบ (อยู่ใน layout = ไม่ mount ใหม่ตอนเปลี่ยนหน้า) */}
         <EntryGate />
+        {/* หลังร้าน NEWCUTE = ธีมโรสโกลด์เดิม (เปลี่ยนหน้ามาจากร้านเช่า → สลับสีกลับก่อนวาด) */}
+        <ShopThemeSync shop="newcute" />
 
         {/* เดสก์ท็อป/iPad แนวนอน (md+) */}
         <Sidebar {...nav} />

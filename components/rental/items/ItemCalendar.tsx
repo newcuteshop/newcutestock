@@ -24,9 +24,10 @@ const CELL = 34 // px ต่อวัน
 const LOAD_TIMEOUT_MS = 20000
 
 // สีแถบวันเช่าตามสถานะ (คู่ข้อความในแถบเสมอ ไม่พึ่งสีอย่างเดียว)
+// ธีมฟ้าใส (#18): จองแล้ว = ฟ้า brand-400 ทึบ + เส้น brand-700 · ส่งซ่อม = เทากลางไม่อมฟ้า (bg-off) — ไม่ให้ต่างกันแค่ความสว่าง (22/10/2569)
 const RENT_TONE: Record<RentalBookingStatus, string> = {
   pending: 'border border-dashed border-amber-500 bg-amber-50 text-amber-900',
-  confirmed: 'border border-brand-500 bg-brand-200 text-gray-900',
+  confirmed: 'border border-brand-700 bg-brand-400 text-gray-900',
   picked_up: 'border border-green-600 bg-green-100 text-green-900',
   returned: 'border border-gray-400 bg-gray-150 text-gray-800',
   completed: 'border border-gray-300 bg-gray-100 text-gray-600',
@@ -35,10 +36,10 @@ const RENT_TONE: Record<RentalBookingStatus, string> = {
   no_show: 'border border-gray-300 bg-white text-gray-500',
 }
 
-// ลายขีดของวันกันไว้ (เตรียม/ซัก)
+// ลายขีดของวันกันไว้ (เตรียม/ซัก) — สีจากตัวแปร CSS ของร้าน (gray-300 / gray-50) → ร้านเช่าเป็นโทนฟ้าใส ธีม #18 (22/10/2569)
 const HATCH: React.CSSProperties = {
-  backgroundImage: 'repeating-linear-gradient(135deg, #D5D2D3 0, #D5D2D3 2px, transparent 2px, transparent 6px)',
-  backgroundColor: '#FAF9FA',
+  backgroundImage: 'repeating-linear-gradient(135deg, rgb(var(--c-gray-300)) 0, rgb(var(--c-gray-300)) 2px, transparent 2px, transparent 6px)',
+  backgroundColor: 'rgb(var(--c-gray-50))',
 }
 
 function monthStart(key: string): string {
@@ -190,7 +191,7 @@ export default function ItemCalendar({ itemId }: { itemId: string }) {
         <li className="inline-flex items-center gap-1.5"><span className={clsx('h-3 w-5 rounded-sm', RENT_TONE.picked_up)} aria-hidden="true" />กำลังเช่า</li>
         <li className="inline-flex items-center gap-1.5"><span className={clsx('h-3 w-5 rounded-sm', RENT_TONE.returned)} aria-hidden="true" />คืนแล้ว</li>
         <li className="inline-flex items-center gap-1.5"><span className="h-3 w-5 rounded-sm border border-gray-300" style={HATCH} aria-hidden="true" />วันเตรียม/ซักชุด</li>
-        <li className="inline-flex items-center gap-1.5"><span className="h-3 w-5 rounded-sm bg-gray-200" aria-hidden="true" />ส่งซ่อม (จองไม่ได้)</li>
+        <li className="inline-flex items-center gap-1.5"><span className="h-3 w-5 rounded-sm border border-off-line bg-off" aria-hidden="true" />ส่งซ่อม (จองไม่ได้)</li>
       </ul>
 
       {missing ? (
@@ -265,7 +266,7 @@ export default function ItemCalendar({ itemId }: { itemId: string }) {
                         {maint ? ' · ส่งซ่อม' : retired ? ' · เลิกใช้' : unit.needs_cleaning ? ' · รอซัก' : ''}
                       </p>
                     </div>
-                    <div className={clsx('relative h-11 shrink-0', maint && 'bg-gray-200')} style={{ width: gridWidth }}>
+                    <div className={clsx('relative h-11 shrink-0', maint && 'bg-off')} style={{ width: gridWidth }}>
                       {/* เส้นแบ่งวัน + วันนี้ */}
                       {days.map((d, i) => (
                         <span

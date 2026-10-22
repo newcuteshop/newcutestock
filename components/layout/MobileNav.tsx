@@ -143,7 +143,7 @@ export default function MobileNav({
           )}
         />
 
-        {/* Panel — พื้นขาว + เส้นขวาบาง แบบเดียวกับเมนูข้าง (.surface-sidebar) */}
+        {/* Panel — พื้น + เส้นขวาบาง แบบเดียวกับเมนูข้าง (.surface-sidebar: NEWCUTE ขาว · ร้านเช่าฟ้าจาง ธีม #18) */}
         <div
           ref={panelRef}
           role="dialog"
@@ -182,7 +182,7 @@ export default function MobileNav({
           </nav>
 
           {/* เปลี่ยนร้าน + ออกจากระบบ (คั่นจากเมนูด้วยเส้นบาง) */}
-          <div className="shrink-0 border-t border-gray-150 px-3 pt-3 pb-4 space-y-1">
+          <div className="shrink-0 border-t border-side-sep px-3 pt-3 pb-4 space-y-1">
             {canSwitchShop && <SwitchShopLink className="text-base" onNavigate={() => setOpen(false)} />}
             <button
               type="button"

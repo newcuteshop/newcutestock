@@ -60,7 +60,8 @@ function ShopPicker({ who, rentalName }: { who: string; rentalName: string }) {
             latin
           />
         </li>
-        <li className="min-w-0">
+        {/* data-shop="rental" = การ์ดนี้ใช้สีร้านเช่า (ฟ้าใส ธีม #18) ทั้งโลโก้/ตัวเน้น/เส้นขอบ ส่วนการ์ด NEWCUTE ยังโรสโกลด์ — เห็นทันทีว่าคนละร้าน */}
+        <li className="min-w-0" data-shop="rental">
           <ShopCard
             href="/rental"
             mark={<RentalMark size="lg" />}

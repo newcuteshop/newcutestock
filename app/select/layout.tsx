@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import EntryGate from '@/components/auth/EntryGate'
+import ShopThemeSync from '@/components/theme/ShopThemeSync'
 import { getSession } from '@/lib/auth/permissions'
 import { NOSCRIPT_LOCK_HTML } from '@/lib/auth/entry-gate'
 
@@ -15,6 +16,8 @@ export default async function SelectLayout({ children }: { children: React.React
       {/* .app-shell = ตัวห่อหน้าระบบ (NOSCRIPT_LOCK_HTML ซ่อนตัวนี้เมื่อปิด JavaScript) · พื้นเทาอ่อนมาจาก body */}
       <div className="app-shell min-h-screen min-h-[100dvh]">
         <EntryGate />
+        {/* หน้าเลือกร้านเป็นของระบบ NEWCUTE (โรสโกลด์) — การ์ดร้านเช่าในหน้านี้ใส่ data-shop="rental" ของมันเอง */}
+        <ShopThemeSync shop="newcute" />
         {children}
       </div>
     </>

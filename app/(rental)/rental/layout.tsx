@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Sidebar, { type NavProps } from '@/components/layout/Sidebar'
 import MobileNav from '@/components/layout/MobileNav'
 import EntryGate from '@/components/auth/EntryGate'
+import ShopThemeSync from '@/components/theme/ShopThemeSync'
 import { createClient } from '@/lib/supabase/server'
 import { getSession, shopAccess } from '@/lib/auth/permissions'
 import { NOSCRIPT_LOCK_HTML } from '@/lib/auth/entry-gate'
@@ -36,10 +37,13 @@ export default async function RentalLayout({ children }: { children: React.React
   return (
     <>
       <noscript dangerouslySetInnerHTML={{ __html: NOSCRIPT_LOCK_HTML }} />
-      {/* ไม่ใส่พื้นหลัง: ใช้พื้นเทาอ่อนของ body · .app-shell = ตัวห่อหน้าระบบ (NOSCRIPT ซ่อนตัวนี้เมื่อปิด JavaScript) */}
-      <div className="app-shell flex h-[100dvh] overflow-hidden">
+      {/* ไม่ใส่พื้นหลัง: ใช้พื้นเทาอ่อนของ body · .app-shell = ตัวห่อหน้าระบบ (NOSCRIPT ซ่อนตัวนี้เมื่อปิด JavaScript)
+          data-shop="rental" = ทุกอย่างในกรอบนี้ได้ธีมฟ้าใสจาก HTML เซิร์ฟเวอร์เลย ไม่ต้องรอ <html data-shop> (ป็อปอัปที่ portal ไป body ยังใช้ของ <html>) */}
+      <div data-shop="rental" className="app-shell flex h-[100dvh] overflow-hidden">
         {/* หน้าต่างใหม่ที่ยังไม่ได้เข้าสู่ระบบเอง → ออกจากระบบ + ไปหน้าเข้าสู่ระบบ (อยู่ใน layout = ไม่ mount ใหม่ตอนเปลี่ยนหน้า) */}
         <EntryGate />
+        {/* ร้านเช่าชุด = ธีม #18 ฟ้าใส (บอสเลือก 22/10/2569) — เปลี่ยนหน้ามาจาก /select → สลับสีก่อนวาด */}
+        <ShopThemeSync shop="rental" />
 
         {/* เดสก์ท็อป/iPad แนวนอน (md+) */}
         <Sidebar {...nav} />

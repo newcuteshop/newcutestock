@@ -171,7 +171,8 @@ function MonthGrid({
                 isStart || isEnd
                   ? 'bg-brand-400 font-semibold text-gray-900'
                   : inRange
-                    ? 'bg-brand-100 text-gray-900'
+                    // ช่วงเช่า = brand-200 (ฟ้า #D3EDF7) — brand-100 (#E9F6FB) แทบเท่าพื้นเทาของวัน "จองไม่ได้" (gray-100) ในธีมฟ้าใส
+                    ? 'bg-brand-200 text-gray-900'
                     : disabled
                       ? tooSoon || beyond
                         ? 'cursor-not-allowed bg-gray-100 text-gray-400'

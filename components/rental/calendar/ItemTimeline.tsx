@@ -36,11 +36,13 @@ const FIRST_W = 132   // คอลัมน์ชิ้น (px)
 // ความกว้างขั้นต่ำต่อวันอยู่ในตัวแปร CSS --tl-col: มือถือ 34px (แตะง่าย เลื่อนข้างในกล่อง) · จอกว้าง 26px (ทั้งเดือนพอดีจอ)
 
 // สีแถบวันเช่าตามสถานะการจอง (ชื่อคลาสตรงๆ) — คู่กับชื่อลูกค้า/ป้ายในรายการด้านล่างเสมอ
+// ธีมฟ้าใส (#18): เทาของธีมอมฟ้า → แยกสถานะด้วยมากกว่าความสว่าง (22/10/2569)
+// - จองแล้ว = ฟ้า brand-400 ทึบ + เส้น brand-700 · คืนแล้ว/ส่งซ่อม = เทากลางไม่อมฟ้า (bg-off) · วันนี้ = กรอบ ไม่ใช่พื้นสี
 const BAR_CLS: Record<RentalBookingStatus, string> = {
   pending: 'border-amber-300 bg-amber-100 text-amber-900',
-  confirmed: 'border-brand-500 bg-brand-300 text-gray-900',
+  confirmed: 'border-brand-700 bg-brand-400 text-gray-900',
   picked_up: 'border-green-400 bg-green-100 text-green-900',
-  returned: 'border-gray-300 bg-gray-200 text-gray-800',
+  returned: 'border-off-line bg-off text-gray-800',
   completed: 'border-gray-300 bg-gray-100 text-gray-600',
   cancelled: 'border-red-200 bg-red-50 text-red-800',
   expired: 'border-gray-300 bg-gray-100 text-gray-500',
@@ -48,8 +50,9 @@ const BAR_CLS: Record<RentalBookingStatus, string> = {
 }
 
 // ลายเส้นทแยงของวันกันไว้ (ซัก/เตรียม) — แยกจากวันเช่าได้โดยไม่ต้องพึ่งสี
+// สีเส้น = gray-300 ของร้าน (ตัวแปร CSS) → ร้านเช่าเป็นเทาอมฟ้าตามธีม #18 ฟ้าใส (22/10/2569)
 const HATCH_STYLE: React.CSSProperties = {
-  backgroundImage: 'repeating-linear-gradient(135deg, #D5D2D3 0, #D5D2D3 1px, transparent 1px, transparent 6px)',
+  backgroundImage: 'repeating-linear-gradient(135deg, rgb(var(--c-gray-300)) 0, rgb(var(--c-gray-300)) 1px, transparent 1px, transparent 6px)',
 }
 
 const LEGEND: { label: string; cls: string; hatch?: boolean }[] = [
@@ -59,7 +62,7 @@ const LEGEND: { label: string; cls: string; hatch?: boolean }[] = [
   { label: 'คืนแล้ว / เสร็จสิ้น', cls: BAR_CLS.returned },
   { label: 'เกินกำหนดคืน', cls: 'border-red-300 bg-red-100 text-red-900' },
   { label: 'วันกันไว้ซัก/เตรียม', cls: 'border-gray-300 bg-white', hatch: true },
-  { label: 'ส่งซ่อม / เลิกใช้', cls: 'border-gray-300 bg-gray-200' },
+  { label: 'ส่งซ่อม / เลิกใช้', cls: 'border-off-line bg-off' },
 ]
 
 function toOption(raw: unknown): ItemOption | null {
@@ -407,7 +410,8 @@ export default function ItemTimeline({
                               style={{ gridColumn: i + 2, gridRow: 1 }}
                               className={clsx(
                                 'flex flex-col items-center justify-center py-1 text-center leading-tight border-l border-gray-150',
-                                isToday ? 'bg-brand-200 text-gray-900' : wd === 0 || wd === 6 ? 'text-brand-700' : 'text-gray-600',
+                                // วันนี้ = กรอบ brand-600 บนพื้นขาว (ไม่ใช้พื้นฟ้า — ใกล้สีแถบ "จองแล้ว" เกินไป)
+                                isToday ? 'bg-white text-gray-900 ring-2 ring-inset ring-brand-600' : wd === 0 || wd === 6 ? 'text-brand-700' : 'text-gray-600',
                               )}
                             >
                               <span className="text-[10px]">{THAI_WEEKDAYS_SHORT[wd]}</span>
@@ -460,7 +464,7 @@ export default function ItemTimeline({
                                   style={{ gridColumn: i + 2, gridRow: 1 }}
                                   className={clsx(
                                     'border-l border-gray-150',
-                                    out ? 'bg-gray-200' : k === today ? 'bg-brand-50' : wd === 0 || wd === 6 ? 'bg-gray-50' : '',
+                                    out ? 'bg-off' : k === today ? 'bg-brand-50' : wd === 0 || wd === 6 ? 'bg-gray-50' : '',
                                   )}
                                 />
                               )
@@ -517,7 +521,7 @@ export default function ItemTimeline({
                     </span>
                   ))}
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="inline-block h-3.5 w-5 rounded border border-brand-300 bg-brand-200" aria-hidden="true" />
+                    <span className="inline-block h-3.5 w-5 rounded border-2 border-brand-600 bg-white" aria-hidden="true" />
                     วันนี้
                   </span>
                 </div>

@@ -145,7 +145,8 @@ export function NavLinks({
         <span>{item.label}</span>
         {count > 0 && (
           // ตัวเลขรอดำเนินการ (คำขอจองออนไลน์ / สลิปรอตรวจ) — ชิดขวา, โปรแกรมอ่านจอได้ยินเป็นคำ
-          <span className="ml-auto inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-full bg-brand-600 px-1.5 text-xs font-semibold tabular-nums text-white">
+          // bg-side-badge = สีของร้าน: NEWCUTE brand-600 เดิม · ร้านเช่า แดง #BF2B2B ตามตัวอย่างธีม #18 ที่บอสเลือก (ตัวอักษรขาวผ่านทั้งคู่)
+          <span className="ml-auto inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-full bg-side-badge px-1.5 text-xs font-semibold tabular-nums text-white">
             <span aria-hidden="true">{count > 99 ? '99+' : count}</span>
             <span className="sr-only">{`(รอดำเนินการ ${count} รายการ)`}</span>
           </span>
@@ -182,6 +183,7 @@ export function activeNavHref(items: NavItem[], pathname: string | null): string
 
 // โลโก้ + ชื่อร้าน + คำอธิบาย (เมนูข้าง / ลิ้นชัก / แถบบนมือถือ)
 // NEWCUTE = หน้าตาเดิมทุกอย่าง ; ร้านเช่า = RentalMark + ชื่อร้านจากการตั้งค่า (ชื่อยาว → ตัดด้วย …)
+// สีตัวอักษร text-side-ink / text-side-muted = ตัวแปรแถบเมนูของร้าน (NEWCUTE = gray-900 / gray-500 เท่าเดิม · ร้านเช่า = ธีม #18 ฟ้าใส)
 // compact = แถบบนมือถือ (โลโก้ 32px ชื่อ text-base) ; ปกติ = เมนูข้าง/ลิ้นชัก (โลโก้ 40px ชื่อ text-lg)
 export function ShopBrand({
   shop = 'newcute', shopName, compact = false,
@@ -197,8 +199,8 @@ export function ShopBrand({
       <>
         <RentalMark size={compact ? 'sm' : 'md'} />
         <span className="block min-w-0">
-          <span className={`block truncate ${title} font-semibold leading-tight text-gray-900`} title={name}>{name}</span>
-          <span className="block truncate text-xs text-gray-500">ระบบร้านเช่าชุด</span>
+          <span className={`block truncate ${title} font-semibold leading-tight text-side-ink`} title={name}>{name}</span>
+          <span className="block truncate text-xs text-side-muted">ระบบร้านเช่าชุด</span>
         </span>
       </>
     )
@@ -207,8 +209,8 @@ export function ShopBrand({
     <>
       <BrandMark size={compact ? 'sm' : 'md'} />
       <span className="block min-w-0">
-        <span className={`block ${title} font-semibold leading-tight tracking-wide text-gray-900`}>NEWCUTE</span>
-        <span className="block truncate text-xs text-gray-500">ระบบสต๊อกสินค้าเสื้อผ้า</span>
+        <span className={`block ${title} font-semibold leading-tight tracking-wide text-side-ink`}>NEWCUTE</span>
+        <span className="block truncate text-xs text-side-muted">ระบบสต๊อกสินค้าเสื้อผ้า</span>
       </span>
     </>
   )
@@ -241,7 +243,8 @@ export function UserPill({ fullName, login, role }: { fullName: string | null; l
   const RoleIcon = role === 'admin' ? Crown : UserRound
   return (
     <div className="user-pill">
-      <span className="icon-bubble icon-bubble-sm rounded-full text-sm font-semibold text-gray-900" aria-hidden="true">
+      {/* bg-side-avatar: NEWCUTE = brand-50 เดิม · ร้านเช่า = ฟ้า #CBE8F4 (brand-50 เท่ากับสีกล่องผู้ใช้พอดี ฟองจะหายไป) */}
+      <span className="icon-bubble icon-bubble-sm rounded-full bg-side-avatar text-sm font-semibold text-gray-900" aria-hidden="true">
         {initial || <UserRound {...ICON_SM} />}
       </span>
       <div className="min-w-0 flex-1 leading-normal">
@@ -306,20 +309,20 @@ export default function Sidebar({
   const login = displayLogin(email)
 
   return (
-    // พื้นขาว + เส้นขวาบาง 1px (.surface-sidebar)
+    // พื้นตามร้าน + เส้นขวาบาง 1px (.surface-sidebar) — NEWCUTE ขาว · ร้านเช่าฟ้าจาง (ธีม #18 แถบเมนูสีตามธีม 22/10/2569)
     <aside className="surface-sidebar hidden md:flex w-60 shrink-0 flex-col pt-safe pb-safe pl-safe">
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 pt-5 pb-4 shrink-0">
         <ShopBrand shop={shop} shopName={shopName} />
       </div>
 
-      {/* Nav — เมนูที่เลือกอยู่ (aria-current) = พื้นโรสโกลด์อ่อน + ตัวอักษรโรสโกลด์เข้ม (มาจาก .nav-item เอง) */}
+      {/* Nav — เมนูที่เลือกอยู่ (aria-current) = พื้นเน้นอ่อน + ตัวอักษรเน้นเข้มของร้าน (มาจาก .nav-item เอง → --c-side-active*) */}
       <nav aria-label="เมนูหลัก" className="flex-1 overflow-y-auto overscroll-y-contain px-3 py-2 space-y-1">
         <NavLinks items={items} pathname={pathname} badges={badges} />
       </nav>
 
       {/* ผู้ใช้ + เปลี่ยนร้าน + ออกจากระบบ (คั่นจากเมนูด้วยเส้นบาง) */}
-      <div className="shrink-0 border-t border-gray-150 px-3 pt-3 pb-4 space-y-2">
+      <div className="shrink-0 border-t border-side-sep px-3 pt-3 pb-4 space-y-2">
         <UserPill fullName={fullName} login={login} role={role} />
         {canSwitchShop && <SwitchShopLink />}
         <button

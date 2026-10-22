@@ -10,7 +10,8 @@ import { ICON_SM } from '@/components/theme/icons'
 // — ใช้ <a> ธรรมดา (โหลดหน้าใหม่ทั้งหน้า) ไม่ใช้ next/link
 export default function EntryGateCover() {
   return (
-    <div className="entry-gate-cover" role="status">
+    // data-shop="newcute": แผ่นปิดนี้เป็นของ NEWCUTE (โรสโกลด์) แม้ล็อกอยู่บนหน้าร้านเช่า (ธีมฟ้าใส 22/10/2569)
+    <div className="entry-gate-cover" role="status" data-shop="newcute">
       <BrandMark size="lg" />
       <p className="text-xl font-semibold leading-tight tracking-wide text-gray-900">NEWCUTE</p>
       <p className="flex items-center gap-2 text-sm text-gray-500">
