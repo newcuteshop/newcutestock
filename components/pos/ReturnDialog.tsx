@@ -15,7 +15,7 @@ import { baht, productLabel, thaiError } from '@/lib/format'
 import { FIX04_MISSING_MSG, isMigrationMissing } from '@/lib/migration'
 import { newUuid } from '@/lib/products'
 import {
-  REFUND_METHOD_OPTIONS, estimateRefund, isRefundMethod, parseReturnResult,
+  LOCK_CONFLICT_MSG, REFUND_METHOD_OPTIONS, estimateRefund, isLockConflict, isRefundMethod, parseReturnResult,
   type RefundMethod, type ReturnResult, type SaleDetail, type ShopSettings,
 } from '@/lib/pos'
 import { PAYMENT_METHOD_LABELS } from '@/lib/integrations/labels'
@@ -28,6 +28,8 @@ const QUICK_REASONS = ['ไซส์ไม่พอดี', 'สินค้า�
 const UNSURE_MSG = 'ไม่แน่ใจว่าบันทึกการคืนสินค้าแล้วหรือยัง (เน็ตหลุด/เซิร์ฟเวอร์ตอบช้า) — กดยืนยันอีกครั้งได้ ระบบจะไม่คืนซ้ำ'
 const PARTIAL_MSG = 'ระบบตอบกลับไม่ครบ — กดยืนยันอีกครั้งเพื่อตรวจสอบ (ระบบจะไม่คืนซ้ำ)'
 const RESUME_MSG = 'การคืนสินค้าครั้งก่อนของบิลนี้ยังไม่ทราบผล (เน็ตหลุด/เซิร์ฟเวอร์ตอบช้า) — กด "ยืนยันคืนสินค้า" อีกครั้งเพื่อตรวจสอบ ถ้าบันทึกไปแล้วจะได้ใบคืนเดิม ระบบจะไม่คืนซ้ำ'
+// ชนล็อกขณะการคืนครั้งก่อน (รหัสเดียวกัน) ยังไม่รู้ผล: ครั้งนี้ไม่ถูกบันทึก แต่ครั้งก่อนอาจบันทึกแล้ว → ห้ามบอกว่า "ยังไม่ถูกบันทึก"
+const LOCK_RESUME_MSG = 'มีรายการอื่นกำลังแก้สต๊อกสินค้าเดียวกันอยู่พอดี และการคืนสินค้าครั้งก่อนของบิลนี้ยังไม่ทราบผล — กด "ยืนยันคืนสินค้า" อีกครั้งเพื่อตรวจสอบ ถ้าบันทึกไปแล้วจะได้ใบคืนเดิม ระบบจะไม่คืนซ้ำ'
 
 /** ผลที่แจ้งหน้ารายละเอียดบิล: uncertain = ไม่รู้ว่าบันทึกหรือยัง · rejected = เซิร์ฟเวอร์ปฏิเสธ (ข้อมูลบิลบนจออาจเก่า) */
 export type DialogSettle = 'uncertain' | 'rejected'
@@ -74,6 +76,7 @@ function rejectedAfterDuplicateCheck(err: unknown): boolean {
 // ข้อความสิทธิ์ภาษาไทยจาก RPC ของเรา (42501) บอกชัดกว่าข้อความกลางของ thaiError
 function errorText(err: unknown): string {
   if (isMigrationMissing(err)) return FIX04_MISSING_MSG
+  if (isLockConflict(err)) return LOCK_CONFLICT_MSG
   const e = err && typeof err === 'object' ? (err as { code?: unknown; message?: unknown }) : null
   if (e && e.code === '42501' && typeof e.message === 'string' && /[฀-๿]/.test(e.message)) return e.message.trim()
   return thaiError(err)
@@ -234,7 +237,8 @@ export default function ReturnDialog({
         const definite = rejectedAfterDuplicateCheck(err)
         // ปฏิเสธจริงหลังตรวจรหัสซ้ำ / ครั้งแรกโดนปฏิเสธตั้งแต่ด่านสิทธิ์ (ยังไม่มีคำขอเก่าค้าง) = รหัสนี้ไม่เคยบันทึก
         if (definite || !hadPending) clearPending(saleId, cid)
-        setError(errorText(err))
+        // ชนล็อกไม่ใช่การปฏิเสธที่สรุปผลได้ (definite = false เสมอ) → มีครั้งก่อนค้างอยู่ ต้องบอกว่ายังไม่ทราบผล
+        setError(hadPending && isLockConflict(err) ? LOCK_RESUME_MSG : errorText(err))
         if (definite) onSettled?.('rejected')
         else if (hadPending) onSettled?.('uncertain')
       } else {

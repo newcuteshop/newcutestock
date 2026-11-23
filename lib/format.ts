@@ -48,7 +48,13 @@ const MSG_NEGATIVE_VALUE = 'บันทึกไม่ได้: ราคา�
 const MSG_CHECK = 'ข้อมูลไม่ถูกต้อง: มีค่าที่ไม่ผ่านเงื่อนไขของระบบ'
 // PGRST203 = ฐานข้อมูลมีฟังก์ชันชื่อเดียวกันหลายแบบ แล้ว PostgREST เลือกไม่ได้ว่าจะเรียกแบบไหน
 // เกิดจริงเมื่อรัน supabase-fix-03 ซ้ำหลัง fix-04 (record_sale แบบ 6 ช่องกลับมาอยู่คู่กับแบบ 7 ช่อง) — แก้ได้ด้วยการรัน fix-04 อีกรอบ
-const MSG_AMBIGUOUS_FUNCTION = 'ฐานข้อมูลมีฟังก์ชันซ้ำกัน 2 แบบ (มักเกิดจากรันไฟล์ SQL รุ่นเก่าซ้ำ) — ให้แอดมินรันไฟล์ supabase-fix-04-pos.sql ใน Supabase SQL Editor อีกครั้ง แล้วลองใหม่'
+const MSG_AMBIGUOUS_FUNCTION = 'ฐานข้อมูลมีฟังก์ชันซ้ำกัน 2 แบบ (มักเกิดจากรันไฟล์ SQL รุ่นเก่าซ้ำ) — ให้แอดมินรันไฟล์ supabase-fix-04-pos.sql แล้วตามด้วย supabase-fix-08-lock-order.sql ใน Supabase SQL Editor อีกครั้ง แล้วลองใหม่'
+// 40P01 deadlock / 40001 serialization / 55P03 lock_not_available
+// = ชนกับรายการอื่นที่แก้ข้อมูลชุดเดียวกันพอดี — ไม่บอกว่า "ยังไม่ถูกบันทึก" เพราะบางหน้าส่งซ้ำด้วยรหัสคำขอเดิม
+//   (ครั้งก่อนอาจยังค้างผลอยู่) ; หน้าที่รู้ผลแน่นอน (ขาย/ยกเลิกบิล/คืนสินค้า) ตรวจรหัสเหล่านี้เองก่อนเรียก thaiError
+const MSG_LOCK_CONFLICT = 'มีรายการอื่นกำลังแก้ข้อมูลชุดเดียวกันอยู่พอดี — รอสักครู่แล้วกดอีกครั้ง'
+// 57014 = คำสั่งใช้เวลานานเกินที่เซิร์ฟเวอร์กำหนด (รอล็อกนาน หรือรายงานช่วงยาวมาก) — ถูกยกเลิกทั้งคำสั่ง
+const MSG_TIMEOUT = 'เซิร์ฟเวอร์ใช้เวลานานเกินไป — รอสักครู่แล้วลองใหม่ (ถ้าเป็นรายงาน ลองเลือกช่วงวันที่สั้นลง)'
 
 const THAI_RE = /[฀-๿]/
 
@@ -82,6 +88,8 @@ export function thaiError(err: unknown): string {
   // ตัดสินจากรหัส Postgres ก่อน
   if (code === '23505') return MSG_DUPLICATE
   if (code === '23503') return MSG_FK
+  if (code === '40P01' || code === '40001' || code === '55P03') return MSG_LOCK_CONFLICT
+  if (code === '57014') return MSG_TIMEOUT
   if (code === '42501') return MSG_NO_PERMISSION
   if (code === 'P0001') return message.trim() || MSG_GENERIC // ข้อความไทยจาก RPC ใช้ตามเดิม
   if (code === '23514') {

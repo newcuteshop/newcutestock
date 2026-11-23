@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { ICON_SM } from '@/components/theme/icons'
 import { baht, productLabel, thaiError } from '@/lib/format'
 import { FIX04_MISSING_MSG, isMigrationMissing } from '@/lib/migration'
-import { parseVoidResult, type SaleDetail, type VoidResult } from '@/lib/pos'
+import { LOCK_CONFLICT_MSG, isLockConflict, parseVoidResult, type SaleDetail, type VoidResult } from '@/lib/pos'
 import { PAYMENT_METHOD_LABELS } from '@/lib/integrations/labels'
 
 const MAX_REASON = 200
@@ -29,6 +29,7 @@ function serverAnswered(err: unknown): boolean {
 // ข้อความสิทธิ์ภาษาไทยจาก RPC ของเรา (42501) บอกชัดกว่าข้อความกลางของ thaiError
 function errorText(err: unknown): string {
   if (isMigrationMissing(err)) return FIX04_MISSING_MSG
+  if (isLockConflict(err)) return LOCK_CONFLICT_MSG
   const e = err && typeof err === 'object' ? (err as { code?: unknown; message?: unknown }) : null
   if (e && e.code === '42501' && typeof e.message === 'string' && /[฀-๿]/.test(e.message)) return e.message.trim()
   return thaiError(err)

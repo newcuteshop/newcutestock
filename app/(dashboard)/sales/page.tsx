@@ -10,8 +10,11 @@ import SalesClient, { type PosProduct, type RecentSale } from './SalesClient'
 // คอลัมน์รายการขายล่าสุดตามรุ่นฐานข้อมูล: fix-04 (ยอดคืนเงิน) → fix-03 (ช่องทาง/ยกเลิก) → ตารางเดิม
 // ยังไม่ได้รันไฟล์ไหน หน้าขายต้องยังเปิดได้ตามเดิม (แค่ไม่มีป้ายคืนสินค้า/ยกเลิก)
 // sale_returns(id) = รหัสใบคืนของบิล — บิลที่คืนของแต่ยอดคืน 0 บาท (ของแถม/บิลส่วนลดเต็ม) ยังได้ป้าย "คืน" ถูกต้อง
+// sale_items + sale_return_items (จำนวนชิ้นที่ขาย/คืนแล้ว) = ป้าย "คืนทั้งบิล/คืนบางส่วน" ดูจากจำนวนชิ้น
+// แบบเดียวกับหน้าประวัติบิล/รายละเอียดบิล/ไฟล์ส่งออก (ดูจากเงินผิดกับบิลมีของแถม ฿0 และบิลยอดสุทธิ 0)
+// รุ่น v3/v0 ยังไม่มีระบบคืนสินค้า — ป้ายใช้กติกาเงินตามเดิม
 const RECENT_COLUMNS = {
-  v4: 'id, sale_no, net_amount, payment_method, created_at, channel, voided_at, refunded_amount, sale_returns(id)',
+  v4: 'id, sale_no, net_amount, payment_method, created_at, channel, voided_at, refunded_amount, sale_returns(id), sale_items(product_id, qty), sale_return_items(product_id, qty)',
   v3: 'id, sale_no, net_amount, payment_method, created_at, channel, voided_at',
   v0: 'id, sale_no, net_amount, payment_method, created_at',
 } as const

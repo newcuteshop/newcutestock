@@ -32,6 +32,7 @@ export const MIGRATIONS = [
   'supabase-fix-05-rental.sql',
   'supabase-fix-06-rental-online.sql',
   'supabase-fix-07-wedding.sql',
+  'supabase-fix-08-lock-order.sql',
 ];
 
 // ----- ของ Supabase ที่ไฟล์ SQL พึ่ง (จำลองแบบน้อยที่สุด) -----
@@ -122,8 +123,16 @@ function bindArgs(args) {
   return { sql: parts.join(', '), params };
 }
 
-export async function createDb({ tableGrants = 'legacy', upTo = null, extraSql = [] } = {}) {
-  const db = new PGlite({ extensions: { btree_gist, uuid_ossp } });
+// extensions = ส่วนขยาย PGlite เพิ่มเติม (เช่น pageinspect ใช้ดูล็อกแถวในไฟล์ทดสอบลำดับการล็อก) — ต้อง create extension เอง
+// preparedTransactions = จำนวน prepare transaction ที่ค้างได้พร้อมกัน (0 = ปิดแบบ Postgres ปกติ)
+//   ใช้จำลอง "อีกรายการที่ยังไม่ commit ถือล็อกอยู่" บนการเชื่อมต่อเดียวของ PGlite (ดู tests/80-pos-lock-order.mjs)
+export async function createDb({ tableGrants = 'legacy', upTo = null, extraSql = [], extensions = {}, preparedTransactions = 0 } = {}) {
+  const db = new PGlite({
+    extensions: { btree_gist, uuid_ossp, ...extensions },
+    ...(preparedTransactions > 0
+      ? { startParams: [...PGlite.defaultStartParams, '-c', `max_prepared_transactions=${preparedTransactions}`] }
+      : {}),
+  });
   await db.exec(bootstrapSql(tableGrants));
   const files = upTo ? MIGRATIONS.slice(0, MIGRATIONS.indexOf(upTo) + 1) : MIGRATIONS;
   const results = {};

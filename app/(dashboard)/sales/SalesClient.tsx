@@ -16,7 +16,7 @@ import { MANUAL_SALE_CHANNEL_OPTIONS, PAYMENT_METHOD_LABELS, SALE_CHANNEL_LABELS
 import type { ManualSaleChannel } from '@/lib/integrations/types'
 import { parseMoneyInput } from '@/lib/money'
 import { isMigrationMissing } from '@/lib/migration'
-import { DEFAULT_SHOP_SETTINGS, billStatus, type ShopSettings } from '@/lib/pos'
+import { DEFAULT_SHOP_SETTINGS, LOCK_CONFLICT_MSG, billStatus, isLockConflict, qtyLinesOf, type ShopSettings } from '@/lib/pos'
 import PrintPortal from '@/components/pos/PrintPortal'
 import ReceiptPrint from '@/components/pos/Receipt'
 import BillDetailDialog from '@/components/pos/BillDetailDialog'
@@ -42,6 +42,10 @@ export interface RecentSale {
   voided_at?: string | null    // บิลที่ถูกยกเลิก (ยกเลิกที่ร้าน หรือออเดอร์แพลตฟอร์มยกเลิกก่อนส่ง) — คืนสต๊อกแล้ว ไม่นับยอด
   refunded_amount?: number | string | null  // คืนเงินแล้วรวม (คอลัมน์จาก fix-04 — ยังไม่รันไม่มีค่า)
   sale_returns?: readonly unknown[] | null  // ใบคืนของบิล (มีใบคืนแต่ยอดคืน 0 บาทก็ยังนับว่ามีคืนสินค้า)
+  // แถวดิบ {product_id, qty} ของรายการที่ขาย / ที่คืนแล้ว (fix-04) — ป้ายคืนทั้งบิล/บางส่วนดูจากจำนวนชิ้น
+  // ไม่มี (ฐานข้อมูลรุ่นเก่า) = ป้ายดูจากเงินตามเดิม
+  sale_items?: readonly unknown[] | null
+  sale_return_items?: readonly unknown[] | null
 }
 
 type PaymentMethod = 'cash' | 'transfer' | 'credit'
@@ -124,6 +128,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const TIMEOUT_MSG = 'เซิร์ฟเวอร์ตอบช้าเกินไป — บิลอาจบันทึกไปแล้วหรือยังก็ได้ กด "ชำระเงิน" อีกครั้งได้เลย ระบบจะไม่ตัดสต๊อกซ้ำ'
 const UNSURE_MSG = 'ไม่แน่ใจว่าบิลบันทึกแล้วหรือยัง (เน็ตหลุดระหว่างส่ง) — กด "ชำระเงิน" อีกครั้งเพื่อตรวจสอบ ระบบจะไม่ตัดสต๊อกซ้ำ'
 const PARTIAL_MSG = 'ระบบตอบกลับไม่ครบ — บิลอาจบันทึกแล้ว ดูใน "รายการขายล่าสุด" ก่อน หรือกดชำระเงินอีกครั้ง (ระบบจะไม่ตัดสต๊อกซ้ำ)'
+// ชนล็อกขณะมีบิลค้างตรวจจากครั้งก่อน: ครั้งนี้ไม่ถูกบันทึก แต่บิลที่ส่งไปก่อนหน้าอาจบันทึกแล้ว → ห้ามบอกว่า "ยังไม่ถูกบันทึก"
+const LOCK_PENDING_MSG = 'มีรายการอื่นกำลังแก้สต๊อกสินค้าเดียวกันอยู่พอดี และบิลที่ส่งไปก่อนหน้ายังไม่ทราบผล — กด "ชำระเงิน" อีกครั้งเพื่อตรวจสอบ ถ้าบันทึกไปแล้วจะได้บิลเดิม ระบบจะไม่ตัดสต๊อกซ้ำ'
 // ช่องทางขายที่เลือกล่าสุด — จำแยกจากตะกร้า (ไม่แตะรูปแบบตะกร้า/บิลค้างตรวจเดิม)
 const CHANNEL_STORAGE_KEY = 'newcute-pos-channel-v1'
 
@@ -178,6 +184,17 @@ function isPaymentMethod(v: unknown): v is PaymentMethod {
   return v === 'cash' || v === 'transfer' || v === 'credit'
 }
 
+// ป้ายสถานะของบิลในรายการขายล่าสุด — กติกา "จำนวนชิ้น" เดียวกับหน้าประวัติบิล/รายละเอียดบิล/ไฟล์ส่งออก (pos_bill_status)
+// รายการนี้มาจากเซิร์ฟเวอร์เสมอ (page.tsx — router.refresh() หลังชำระเงิน/ยกเลิก/คืนสินค้า/กลับมาที่แท็บ) จึงมีจำนวนชิ้นล่าสุดทุกครั้ง
+// ไม่มี sale_items แนบมา = ฐานข้อมูลยังไม่ได้รัน fix-04 (ยังคืนสินค้าไม่ได้) → billStatus ดูจากเงินตามเดิม
+function recentBillStatus(s: RecentSale) {
+  return billStatus({
+    ...s,
+    returns: s.sale_returns,
+    items: Array.isArray(s.sale_items) ? qtyLinesOf(s.sale_items, s.sale_return_items) : null,
+  })
+}
+
 // UUID v4 สำหรับ client_id (กันบันทึกบิลซ้ำเวลากดซ้ำ/เน็ตหลุดแล้วกดใหม่)
 function newClientId(): string {
   const c: Crypto | undefined = typeof crypto !== 'undefined' ? crypto : undefined
@@ -224,12 +241,15 @@ function serverAnswered(err: unknown): boolean {
 
 // เซิร์ฟเวอร์ปฏิเสธ "หลัง" ตรวจรหัสบิลซ้ำแล้ว = บิลรหัสนี้ไม่มีในระบบแน่นอน
 // error เรื่องสิทธิ์/การเข้าสู่ระบบเกิด "ก่อน" ตรวจ → ยังบอกไม่ได้ว่าครั้งก่อนบันทึกไปหรือยัง
+// error ชั่วคราวของฐานข้อมูล (การเชื่อมต่อ/ล็อกชน/หมดเวลา/ทรัพยากร) ยกเลิกแค่ "ครั้งนี้" — บิลที่ส่งไปก่อนหน้า
+// (รหัสเดียวกัน) อาจยังทำงานค้างอยู่ → สรุปไม่ได้ ต้องเก็บบิลค้างตรวจไว้ (กติกาเดียวกับ ReturnDialog / rental rpc)
 function rejectedAfterDuplicateCheck(err: unknown): boolean {
   if (!serverAnswered(err)) return false
   const e = err as { code?: unknown; message?: unknown }
   const code = String(e.code)
   const message = typeof e.message === 'string' ? e.message : ''
   if (code === '42501' || code.startsWith('PGRST')) return false
+  if (/^(08|40|53|55|57|58|XX)/.test(code)) return false
   if (code === 'P0001' && /เข้าสู่ระบบ|ไม่มีสิทธิ์|รหัสบิล/.test(message)) return false
   return true
 }
@@ -817,15 +837,23 @@ export default function SalesClient({
       // ฐานข้อมูลมี fix-04 แน่นอน → ส่งช่องนี้ทุกบิล (null = ไม่ระบุ; บิลโอน/บัตรเซิร์ฟเวอร์ไม่สนใจค่านี้)
       // ชื่อพารามิเตอร์ครบ 7 ช่องชี้ได้ฟังก์ชันเดียวเสมอ แม้มี record_sale แบบ 6 ช่องค้างอยู่จากการรัน fix-03 ซ้ำ
       const withCash = sentCash !== null || cashArgReady
-      let req = supabase.rpc('record_sale', withCash ? { ...baseArgs, p_cash_received: sentCash } : baseArgs)
-      if (ctrl) req = req.abortSignal(ctrl.signal)
-      let { data, error } = await req
+      let args: typeof baseArgs & { p_cash_received?: typeof sentCash } =
+        withCash ? { ...baseArgs, p_cash_received: sentCash } : baseArgs
+      const send = () => {
+        const req = supabase.rpc('record_sale', args)
+        return ctrl ? req.abortSignal(ctrl.signal) : req
+      }
+      let { data, error } = await send()
       // ฐานข้อมูลยังไม่ได้รัน fix-04 (ไม่รู้จัก p_cash_received) → ส่งซ้ำทันทีครั้งเดียวโดยไม่มีช่องนี้
       // ปลอดภัย: ครั้งแรกถูกปฏิเสธตั้งแต่หาฟังก์ชัน ยังไม่ได้บันทึกอะไร และใช้รหัสบิล (client_id) เดิม
       if (error && withCash && isMigrationMissing(error)) {
-        let retry = supabase.rpc('record_sale', baseArgs)
-        if (ctrl) retry = retry.abortSignal(ctrl.signal)
-        ;({ data, error } = await retry)
+        args = baseArgs
+        ;({ data, error } = await send())
+      }
+      // ชนล็อกกับงานอื่นที่แก้สต๊อกสินค้าเดียวกันพอดี (deadlock ฯลฯ) = ฐานข้อมูลยกเลิกคำขอนี้ทั้งหมดแล้ว
+      // → ส่งซ้ำทันทีครั้งเดียวด้วยรหัสบิล (client_id) เดิม — ไม่มีทางได้บิลซ้ำ
+      if (error && isLockConflict(error)) {
+        ;({ data, error } = await send())
       }
       if (error) throw error
       const sale = parseSavedSale(data)
@@ -855,9 +883,11 @@ export default function SalesClient({
       if (serverAnswered(err)) {
         answered = true
         // เซิร์ฟเวอร์ปฏิเสธบิลนี้จริง = ไม่ได้บันทึก → ไม่มีบิลค้างตรวจแล้ว
-        // (ยกเว้นมีบิลค้างจากครั้งก่อน แล้วรอบนี้โดนปฏิเสธเรื่องสิทธิ์/การเข้าสู่ระบบ ซึ่งยังไม่ได้ตรวจบิลเดิมเลย)
-        if (!hadPending || rejectedAfterDuplicateCheck(err)) setPending(null)
-        setCheckoutError(thaiError(err))
+        // (ยกเว้นมีบิลค้างจากครั้งก่อน แล้วรอบนี้โดนปฏิเสธเรื่องสิทธิ์/การเข้าสู่ระบบ ซึ่งยังไม่ได้ตรวจบิลเดิมเลย
+        //  หรือโดน error ชั่วคราวของฐานข้อมูล เช่นชนล็อกทั้ง 2 รอบ ขณะบิลเดิมอาจยังทำงานค้างอยู่ → เก็บบิลค้างตรวจไว้)
+        const keepPending = hadPending && !rejectedAfterDuplicateCheck(err)
+        if (!keepPending) setPending(null)
+        setCheckoutError(isLockConflict(err) ? (keepPending ? LOCK_PENDING_MSG : LOCK_CONFLICT_MSG) : thaiError(err))
       } else {
         // เน็ตหลุด/หมดเวลา/ตอบกลับไม่ครบ → บิลค้างตรวจ (pending) ยังอยู่
         setCheckoutError(timedOut ? TIMEOUT_MSG : partial ? PARTIAL_MSG : UNSURE_MSG)
@@ -1322,7 +1352,7 @@ export default function SalesClient({
               {recentSales.map(s => {
                 const voided = !!s.voided_at
                 const channel = s.channel && s.channel !== 'store' ? saleChannelLabel(s.channel) : ''
-                const status = billStatus({ ...s, returns: s.sale_returns })
+                const status = recentBillStatus(s)
                 return (
                   // แตะทั้งแถวเพื่อดูรายละเอียดบิล (ปุ่มเลขที่บิลไว้ให้ใช้คีย์บอร์ด/โปรแกรมอ่านจอ)
                   <tr key={s.id} onClick={() => setDetailSaleId(s.id)} className="cursor-pointer">

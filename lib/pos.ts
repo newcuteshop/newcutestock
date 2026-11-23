@@ -370,7 +370,7 @@ export const BILL_STATUS: Readonly<Record<BillStatusKey, { label: string; chipCl
  * สถานะของบิล — ใช้ได้ทั้ง SaleDetail (มีรายการสินค้า) และแถวจากตาราง sales ในรายการบิล (ไม่มีรายการสินค้า)
  * ยกเลิก > คืนทั้งบิล > คืนบางส่วน > ปกติ
  *
- * มีรายการสินค้า (รายละเอียดบิล) → ดูจาก "จำนวนชิ้น" กติกาเดียวกับ pos_bill_status ของไฟล์ส่งออก:
+ * มีรายการสินค้า (รายละเอียดบิล หรือ qtyLinesOf ของแถวในรายการบิล/รายการขายล่าสุด) → ดูจาก "จำนวนชิ้น" กติกาเดียวกับ pos_bill_status ของไฟล์ส่งออก:
  *   คืนทั้งบิล = มีใบคืนอย่างน้อย 1 ใบ และคืนครบทุกชิ้นแล้ว
  *   คืนบางส่วน = มีใบคืน หรือมียอดคืนเงิน แต่ยังเหลือชิ้นที่คืนได้
  *   (ดูจากเงินจะผิด 2 กรณี: บิลมีของแถมราคา 0 → คืนเฉพาะชิ้นที่จ่ายเงินก็ "ครบยอด" ทั้งที่ของแถมยังคืนได้
@@ -415,6 +415,33 @@ export function billStatus(sale: {
   const net = round2(num(sale.net_amount))
   if (net > 0 && refunded >= net - 0.005) return pick('refunded')
   return pick('partial')
+}
+
+/**
+ * จำนวนที่ขาย / คืนแล้ว รวมต่อสินค้า จากแถวดิบของ select ... sale_items(product_id, qty), sale_return_items(product_id, qty)
+ * ส่งผลลัพธ์เป็น items ของ billStatus → ป้ายในรายการบิลใช้กติกา "จำนวนชิ้น" เดียวกับรายละเอียดบิลและ pos_bill_status
+ * (คืนครบ = ทุกสินค้าคืน >= ขาย) ตั้งแต่ยังไม่เปิดบิล ; ใช้ทั้งหน้าประวัติบิลและรายการขายล่าสุดในหน้าขาย
+ * แถวเสีย/ไม่ใช่ object ข้ามไป · ชิ้นที่คืนของสินค้าที่ไม่อยู่ในรายการขายไม่นับ
+ */
+export function qtyLinesOf(sold: readonly unknown[], returned: unknown): { qty: number; returned_qty: number }[] {
+  const byProduct = new Map<string, { qty: number; returned_qty: number }>()
+  for (const raw of sold) {
+    if (!raw || typeof raw !== 'object') continue
+    const o = raw as Obj
+    const pid = String(o.product_id ?? '')
+    const line = byProduct.get(pid) ?? { qty: 0, returned_qty: 0 }
+    line.qty += int(o.qty)
+    byProduct.set(pid, line)
+  }
+  if (Array.isArray(returned)) {
+    for (const raw of returned) {
+      if (!raw || typeof raw !== 'object') continue
+      const o = raw as Obj
+      const line = byProduct.get(String(o.product_id ?? ''))
+      if (line) line.returned_qty += int(o.qty)
+    }
+  }
+  return Array.from(byProduct.values())
 }
 
 // ---------------------------------------------------------------------------
@@ -1116,4 +1143,20 @@ export const MOVEMENT_TYPE_LABELS: Readonly<Record<StockMovementType, string>> =
 export function movementTypeLabel(type: string | null | undefined): string {
   const t = String(type ?? '')
   return Object.prototype.hasOwnProperty.call(MOVEMENT_TYPE_LABELS, t) ? MOVEMENT_TYPE_LABELS[t as StockMovementType] : t
+}
+
+// ---------------------------------------------------------------------------
+// error ชั่วคราวจากการชนล็อกในฐานข้อมูล (ขาย / ยกเลิกบิล / คืนสินค้า)
+// ---------------------------------------------------------------------------
+// 40P01 = deadlock, 40001 = serialization failure, 55P03 = รอล็อกไม่ได้ — ฐานข้อมูลยกเลิกคำขอนี้ทั้งรายการ (ไม่มีอะไรถูกบันทึก)
+// เกิดได้ยากมากเมื่อมีงานอื่นแก้สต๊อกสินค้าชุดเดียวกันพร้อมกันพอดี (เช่น แอดมินตั้งค่าช่องทางแพลตฟอร์มขณะขาย)
+// → ส่งคำขอเดิมซ้ำได้ทันที (รหัสคำขอ client_id เดิม — ไม่ได้บิล/ใบคืนซ้ำ)
+const LOCK_CONFLICT_CODES: ReadonlySet<string> = new Set(['40P01', '40001', '55P03'])
+
+export const LOCK_CONFLICT_MSG = 'มีรายการอื่นกำลังแก้สต๊อกสินค้าเดียวกันอยู่พอดี รายการนี้ยังไม่ถูกบันทึก — กดอีกครั้งได้เลย'
+
+export function isLockConflict(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const code = (err as { code?: unknown }).code
+  return typeof code === 'string' && LOCK_CONFLICT_CODES.has(code)
 }

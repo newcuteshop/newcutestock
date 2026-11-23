@@ -6,7 +6,7 @@
 ```
 supabase-schema.sql → supabase-indexes.sql → supabase-users.sql → supabase-fix-01.sql → supabase-fix-02.sql
 → supabase-fix-03-integrations.sql → supabase-fix-04-pos.sql → supabase-fix-05-rental.sql
-→ supabase-fix-06-rental-online.sql → supabase-fix-07-wedding.sql
+→ supabase-fix-06-rental-online.sql → supabase-fix-07-wedding.sql → supabase-fix-08-lock-order.sql
 ```
 
 (`supabase-cron-integrations.sql` และ `supabase-cleanup-test-data.sql` ไม่ได้โหลด — ต้องใช้ pg_cron/pg_net ของ Supabase)
@@ -66,7 +66,7 @@ export function register(test) {
 | `s.query(sql, params)` / `s.one(...)` / `s.all(...)` | SQL ตรง (1 คำสั่ง = 1 รายการ commit/rollback แบบ PostgREST) |
 | `eq(a, b)` / `money(a, b)` / `ok(cond)` | ตรวจค่า (eq เทียบ JSON ไม่สนลำดับคีย์ / money เทียบเงิน 2 ตำแหน่ง) |
 | `expectErr(fn, ข้อความบางส่วน, { code, hint })` | ต้อง error ตามข้อความ (และ SQLSTATE / hint ถ้าระบุ) |
-| `createDb(opts)` / `loadSqlFile(ctx, file)` | ฐานข้อมูลใหม่อีกก้อน / โหลดไฟล์ SQL ซ้ำ (rollback ถ้าพัง) |
+| `createDb(opts)` / `loadSqlFile(ctx, file)` | ฐานข้อมูลใหม่อีกก้อน / โหลดไฟล์ SQL ซ้ำ (rollback ถ้าพัง) — `opts.upTo` = โหลดถึงไฟล์นั้น, `opts.extensions` = ส่วนขยาย PGlite เพิ่ม (เช่น pageinspect), `opts.preparedTransactions` = เปิด prepare transaction (จำลองอีกรายการที่ถือล็อกค้าง) |
 
 ตัวช่วยร่วมของ b.oncloud อยู่ที่ `tests/lib/wed.js` (ผู้ใช้ 6 แบบ, ทีมงาน/แพ็กเกจ/บริการเสริม/ลูกค้าตั้งต้น, payload งาน, รับเงิน)
 
@@ -85,3 +85,4 @@ export function register(test) {
 | `50-wedding-calendar` | ปฏิทิน, รายละเอียดวัน, ภาพรวมวันนี้, ตัวเลขบนเมนู, ล็อกคิวหมดเวลา, ขอบวันตามเวลาไทย |
 | `60-wedding-reports` | รายงานรายรับตามวันที่รับเงิน, ต้นทุน/กำไร, ส่งออก CSV แบ่งหน้า |
 | `70-wedding-public` | ลิงก์ติดตามงานของลูกค้า (ปิดบังข้อมูล, ลิงก์ส่งงาน, ยกเลิก, ปิดลิงก์, เปลี่ยนลิงก์, anon เรียกอย่างอื่นไม่ได้) |
+| `80-pos-lock-order` | fix-08 กัน deadlock ออเดอร์แพลตฟอร์ม vs งานหน้าร้าน: ผลเหมือนก่อนรัน fix-08 ทุกขั้น (บิลแรก/ส่งซ้ำ/เปลี่ยนจำนวน/ขายเกิน/ย้ายรายการ/จับคู่ไม่ได้/ยังไม่จ่าย→จ่าย/ยกเลิก/คืนของ/หมดอายุก่อน-หลังส่ง/คืนสต๊อกอัตโนมัติ/ยกเว้นส่วนที่ขาด/บิลที่ออเดอร์ไม่ได้จำ sale_id/โหมดทดลอง→ตัดสต๊อก + ขาย/ยกเลิกบิล/คืนสินค้า/ตรวจนับ/รับ-จ่ายสต๊อก), ล็อกสินค้าก่อนเขียนบิล + ล็อกแบบ no key update ก่อนแก้สต๊อกทุกฟังก์ชัน (pageinspect อ่านบิตล็อกแถว), อีกรายการถือล็อกค้างจริง (prepare transaction ในโปรเซสแยก `tests/lib/lock-hold-child.mjs` — ต้องไม่รอทุกขาของวง, SQL เดิมต้องรอ), เนื้อฟังก์ชันเหมือนต้นฉบับยกเว้นคำล็อก, รันซ้ำ, ตรวจของที่ต้องมีก่อน, ตารางสรุปจับของผิด |

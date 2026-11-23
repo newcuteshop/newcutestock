@@ -13,7 +13,7 @@ import { normalizeScannedCode } from '@/lib/barcode'
 import { num, round2, sumBy } from '@/lib/money'
 import { isMigrationMissing } from '@/lib/migration'
 import { isMissingSalesColumn } from '@/lib/salesCompat'
-import { billStatus, type SaleDetail, type ShopSettings } from '@/lib/pos'
+import { billStatus, qtyLinesOf, type SaleDetail, type ShopSettings } from '@/lib/pos'
 import { PAYMENT_METHOD_LABELS, saleChannelLabel } from '@/lib/integrations/labels'
 import BillDetailDialog from '@/components/pos/BillDetailDialog'
 import MigrationNotice from '@/components/pos/MigrationNotice'
@@ -74,30 +74,9 @@ function toRow(raw: unknown): BillRow | null {
     voided_at: typeof o.voided_at === 'string' && o.voided_at ? o.voided_at : null,
     refunded_amount: num(o.refunded_amount),
     returns: Array.isArray(o.sale_returns) ? o.sale_returns : [],
+    // รวมจำนวนที่ขาย / คืนแล้ว ต่อสินค้า (qtyLinesOf ใน lib/pos — ตัวเดียวกับรายการขายล่าสุดในหน้าขาย)
     qtyLines: Array.isArray(o.sale_items) ? qtyLinesOf(o.sale_items, o.sale_return_items) : null,
   }
-}
-
-// รวมจำนวนที่ขาย / คืนแล้ว ต่อสินค้า (กติกาเดียวกับ pos_bill_status: คืนครบ = ทุกสินค้าคืน >= ขาย)
-function qtyLinesOf(sold: unknown[], returned: unknown): { qty: number; returned_qty: number }[] {
-  const byProduct = new Map<string, { qty: number; returned_qty: number }>()
-  for (const raw of sold) {
-    if (!raw || typeof raw !== 'object') continue
-    const o = raw as Record<string, unknown>
-    const pid = String(o.product_id ?? '')
-    const line = byProduct.get(pid) ?? { qty: 0, returned_qty: 0 }
-    line.qty += Math.trunc(num(o.qty))
-    byProduct.set(pid, line)
-  }
-  if (Array.isArray(returned)) {
-    for (const raw of returned) {
-      if (!raw || typeof raw !== 'object') continue
-      const o = raw as Record<string, unknown>
-      const line = byProduct.get(String(o.product_id ?? ''))
-      if (line) line.returned_qty += Math.trunc(num(o.qty))
-    }
-  }
-  return Array.from(byProduct.values())
 }
 
 // ป้ายสถานะของแถว: เปิดบิลแล้ว (มีรายการจาก get_sale_detail) ใช้รายการนั้น ; ไม่งั้นใช้จำนวนรวมต่อสินค้าที่แนบมากับรายการ
