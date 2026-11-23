@@ -66,7 +66,7 @@ function useShopChartColors(): ChartColors {
 }
 
 export default function IncomeChart({ buckets, ariaLabel }: { buckets: readonly IncomeBucket[]; ariaLabel: string }) {
-  const font = themeFont('IBM Plex Sans Thai, sans-serif')
+  const font = themeFont('Prompt, sans-serif')
   const CHART = useShopChartColors()
   return (
     <Bar

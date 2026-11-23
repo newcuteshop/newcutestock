@@ -209,6 +209,7 @@ export function activeNavHref(items: NavItem[], pathname: string | null): string
 // ร้าน b.oncloud = WeddingMark (เมฆ บนทองแชมเปญ) + ชื่อร้านจาก wed_settings.shop_name
 // สีตัวอักษร text-side-ink / text-side-muted = ตัวแปรแถบเมนูของร้าน (NEWCUTE = gray-900 / gray-500 เท่าเดิม · ร้านเช่า = ธีม #18 ฟ้าใส)
 // compact = แถบบนมือถือ (โลโก้ 32px ชื่อ text-base) ; ปกติ = เมนูข้าง/ลิ้นชัก (โลโก้ 40px ชื่อ text-lg)
+// ชื่อร้าน = font-extrabold (800) ทุกร้าน ตามกติกาหัวเรื่องของฟอนต์ Prompt (ชื่อหน้า + ชื่อร้าน 800 — ดู .page-title ใน app/globals.css)
 export function ShopBrand({
   shop = 'newcute', shopName, compact = false,
 }: {
@@ -228,7 +229,7 @@ export function ShopBrand({
       <>
         <WeddingMark size={compact ? 'sm' : 'md'} />
         <span className="block min-w-0">
-          <span className={`${nameCls} font-semibold leading-tight text-side-ink`} title={name}>{name}</span>
+          <span className={`${nameCls} font-extrabold leading-tight text-side-ink`} title={name}>{name}</span>
           <span className="block truncate text-xs text-side-muted">ระบบคอนเทนต์งานแต่ง</span>
         </span>
       </>
@@ -240,7 +241,7 @@ export function ShopBrand({
       <>
         <RentalMark size={compact ? 'sm' : 'md'} />
         <span className="block min-w-0">
-          <span className={`block truncate ${title} font-semibold leading-tight text-side-ink`} title={name}>{name}</span>
+          <span className={`block truncate ${title} font-extrabold leading-tight text-side-ink`} title={name}>{name}</span>
           <span className="block truncate text-xs text-side-muted">ระบบร้านเช่าชุด</span>
         </span>
       </>
@@ -250,7 +251,7 @@ export function ShopBrand({
     <>
       <BrandMark size={compact ? 'sm' : 'md'} />
       <span className="block min-w-0">
-        <span className={`block ${title} font-semibold leading-tight tracking-wide text-side-ink`}>NEWCUTE</span>
+        <span className={`block ${title} font-extrabold leading-tight tracking-wide text-side-ink`}>NEWCUTE</span>
         <span className="block truncate text-xs text-side-muted">ระบบสต๊อกสินค้าเสื้อผ้า</span>
       </span>
     </>

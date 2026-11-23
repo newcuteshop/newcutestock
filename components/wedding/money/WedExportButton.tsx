@@ -204,7 +204,8 @@ export default function WedExportButton({
       type="button"
       onClick={() => void run()}
       disabled={disabled || busy}
-      className="btn-secondary w-full sm:w-auto"
+      // sm:px-3 = ปุ่ม 3 ปุ่มของหน้ารายงานอยู่แถวเดียวกับหัวเรื่องที่จอ 1440 (ฟอนต์ Prompt กว้างขึ้น → px-4 เดิมเกิน ~11px ปุ่มที่ 3 ตกบรรทัด)
+      className="btn-secondary w-full sm:w-auto sm:px-3"
       aria-live="polite"
     >
       {busy ? <Loader2 {...ICON_SM} className="animate-spin" /> : <Download {...ICON_SM} />}

@@ -14,7 +14,7 @@
 | `mock-supabase.mjs` | Supabase จำลอง: `/auth/v1` (เข้าสู่ระบบ/ต่ออายุ/ผู้ใช้/admin users, JWT ไม่เซ็น), `/rest/v1` (rpc + ตาราง: select/embed ตาม FK จริง/ตัวกรอง/or/order/range/count/single/insert/upsert/update/delete), `/storage/v1` (อัปโหลด/ลิงก์ชั่วคราว/สาธารณะ/ลบ ผ่านนโยบาย RLS ของ `storage.objects`) · error แบบ PostgREST (`PGRST202` ไม่พบฟังก์ชัน, `PGRST201` embed กำกวม, `42501` → 401/403) |
 | `seed.mjs` | ข้อมูลตั้งต้นผ่าน RPC จริง: ผู้ใช้ 5 คน, NEWCUTE (สินค้า + บิล), ร้านเช่า (ชุด + การจอง), b.oncloud ครบทุกสถานะ (คิวเต็ม, ทีมชนคิว, งวดเลยกำหนด, งานส่งเลยกำหนด, ล็อกคิวใกล้หมด, เลื่อน, ยกเลิก+คืนเงิน, สลิป, รายการ void, ค่าล่วงเวลา) |
 | `app-server.mjs` | `build` / `start` แอปด้วย env ของ QA (URL/คีย์ mock + ฟอนต์จำลอง) — ไม่ใช้ค่าใน `.env.local` ; `verifyBuild()` ตรวจว่าโค้ดหน้าเว็บชี้ไป mock ; start ด้วย `TZ=UTC` เหมือน Vercel |
-| `font-mock.cjs` | Google Fonts จำลองสำหรับ `next build` แบบออฟไลน์ (ใช้ฟอนต์ไทยในเครื่อง เช่น Leelawadee UI) |
+| `font-mock.cjs` | Google Fonts จำลองสำหรับ `next build` แบบออฟไลน์ — ใช้ไฟล์ฟอนต์จริงของ Google จาก `FONT_MOCK_DIR` (หรือ `tools/qa/fonts/`) ถ้ามี ไม่งั้นใช้ฟอนต์ไทยในเครื่อง เช่น Leelawadee UI (ดูหัวข้อ "ฟอนต์จริงในภาพ QA") |
 | `cdp.mjs` | ตัวขับ Chrome ผ่าน DevTools Protocol: แท็บ, ขนาดจอ/มือถือ, คลิกเมาส์จริง, พิมพ์, อัปโหลดไฟล์, ดาวน์โหลด, สื่อพิมพ์, ภาพเต็มหน้า (ขยายจอให้พอดีกล่อง `<main>` ที่เลื่อนในตัว), เก็บ console error / exception / HTTP ≥ 400 |
 | `checks.mjs` | ตรวจอัตโนมัติ: ล้นจอแนวนอน, ตัวอักษรไทยถูกตัด, สีของร้านอื่น (อ่านจาก `app/globals.css`) ใน DOM และในภาพ, ปุ่มเล็ก (มือถือ), dialog อยู่ในจอ/เลื่อนได้ ; `diffPng()` เทียบภาพ |
 | `qa-shell.mjs` | เปิด mock + seed + แอป (1–2 ตัว) + Chrome ค้างไว้ แล้วสั่งงานทีละคำสั่งผ่าน HTTP (ดูหัวไฟล์) — ใช้สำรวจ/ทดสอบแบบโต้ตอบ |
@@ -55,6 +55,23 @@ node regression.mjs --cur 3485 --base 3486 --out <OUT>/reg          # exit 1 ถ
 ```
 
 `/users` จะต่างเมื่อ seed มีผู้ใช้ที่มีสิทธิ์ b.oncloud (ชุดก่อนแก้ไม่รู้จักคีย์ใหม่) — ดูภาพ `diff-*.png` ว่าต่างเฉพาะข้อความสิทธิ์
+
+### ฟอนต์จริงในภาพ QA
+
+ฟอนต์ของระบบ (Prompt — ชุด "ก่อนแก้" ที่เก่ากว่า 23/11/2569 ใช้ IBM Plex Sans Thai) ต้องเป็นไฟล์จริงตอน build ไม่งั้น mock ใช้ฟอนต์ในเครื่องแทน ความกว้างตัวอักษรไม่ตรง → ซ่อนปัญหาข้อความล้น
+ดึงไฟล์สาธารณะ (OFL) ไว้ "นอก repo" ครั้งเดียว แล้วตั้ง `FONT_MOCK_DIR` ตอน build (ห้าม commit ไฟล์ฟอนต์ — `tools/qa/fonts/` อยู่ใน `.gitignore` ถ้าจะเก็บในนั้น):
+
+```sh
+UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36'   # user-agent เดียวกับ next → ได้ woff2
+D=<โฟลเดอร์ฟอนต์>; mkdir -p $D/prompt $D/ibm-plex-sans-thai
+curl -sS -A "$UA" -o $D/prompt/google.css 'https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap'
+curl -sS -A "$UA" -o $D/ibm-plex-sans-thai/google.css 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap'
+for fam in prompt ibm-plex-sans-thai; do for u in $(grep -o 'https://fonts.gstatic.com/[^)]*' $D/$fam/google.css | sort -u); do curl -sS -f -o $D/$fam/$(basename $u) $u; done; done
+FONT_MOCK_DIR=$D node app-server.mjs build ../..       # ไฟล์ขาด → stderr ของ build มีบรรทัด [font-mock] เตือน
+```
+
+ชื่อโฟลเดอร์ย่อย = ชื่อฟอนต์ตัวเล็กคั่นด้วย `-` · น้ำหนักใน `google.css` ต้องครอบคลุมที่ `app/layout.tsx` ขอ (ขาดน้ำหนักไหน = ฟอนต์นั้นกลับไปใช้ฟอนต์ในเครื่อง)
+ตรวจหลัง build: `<dir>/.next/static/media/` มีไฟล์ `.woff2` = ฟอนต์จริง ; มีแต่ `.ttf` = ฟอนต์แทนในเครื่อง (คำเตือน `[font-mock]` อาจหลุดจากท้าย log ที่ `app-server.mjs` พิมพ์)
 
 ### เก็บกวาด
 

@@ -157,10 +157,11 @@ const config: Config = {
         },
       },
       fontFamily: {
-        // ฟอนต์เดียวทั้งระบบ: IBM Plex Sans Thai (โหลดใน app/layout.tsx → --font-sans)
+        // ฟอนต์เดียวทั้งระบบ: Prompt (โหลดใน app/layout.tsx → --font-sans · 23/11/2569 แทน IBM Plex Sans Thai)
+        // ต่อท้าย = ฟอนต์ไทยของเครื่อง (Android/ChromeOS: Noto Sans Thai · Windows: Leelawadee UI · iPhone/Mac: Thonburi) แล้วค่อยฟอนต์ระบบ
         // font-display เก็บไว้เป็นชื่อเดิม ชี้ฟอนต์เดียวกัน (หน้าเก่าที่ใส่ font-display ไม่พัง)
-        sans: ['var(--font-sans)', 'IBM Plex Sans Thai', 'system-ui', '-apple-system', 'Segoe UI', 'Tahoma', 'sans-serif'],
-        display: ['var(--font-sans)', 'IBM Plex Sans Thai', 'system-ui', '-apple-system', 'Segoe UI', 'Tahoma', 'sans-serif'],
+        sans: ['var(--font-sans)', 'Prompt', 'Noto Sans Thai', 'Leelawadee UI', 'Thonburi', 'system-ui', '-apple-system', 'Segoe UI', 'Tahoma', 'sans-serif'],
+        display: ['var(--font-sans)', 'Prompt', 'Noto Sans Thai', 'Leelawadee UI', 'Thonburi', 'system-ui', '-apple-system', 'Segoe UI', 'Tahoma', 'sans-serif'],
       },
       borderRadius: {
         // มุมมาตรฐาน: ปุ่ม/ช่องกรอก rounded-lg 8px · การ์ด rounded-xl 12px · ป็อปอัป rounded-2xl..5xl 12-16px

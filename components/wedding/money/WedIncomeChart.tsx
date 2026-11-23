@@ -61,7 +61,7 @@ function useShopChartColors(): ChartColors {
 }
 
 export default function WedIncomeChart({ buckets, ariaLabel }: { buckets: readonly WedIncomeBucket[]; ariaLabel: string }) {
-  const font = themeFont('IBM Plex Sans Thai, sans-serif')
+  const font = themeFont('Prompt, sans-serif')
   const C = useShopChartColors()
   return (
     <Bar

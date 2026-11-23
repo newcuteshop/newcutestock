@@ -33,7 +33,9 @@ export default function ScaledPreview({
       const w = outer.clientWidth
       if (w <= 0) return
       const scale = Math.min(maxScale, w / docWidth)
-      const height = Math.ceil(inner.offsetHeight * scale)
+      // style.height ของกรอบนับรวมเส้นขอบ (border-box) → บวกความหนาขอบบน+ล่างด้วย ไม่งั้นท้ายเอกสารถูกซ่อน 2px (กรอบมี class border)
+      const borderY = outer.offsetHeight - outer.clientHeight
+      const height = Math.ceil(inner.offsetHeight * scale) + borderY
       const left = Math.max(0, Math.floor((w - docWidth * scale) / 2))
       setBox(prev => (prev.scale === scale && prev.height === height && prev.left === left ? prev : { scale, height, left }))
     }

@@ -68,7 +68,12 @@ export default function PortalShell({ shop, children }: { shop: WedPublicShop | 
           <div className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2.5">
             <ShopLogo shop={shop} />
             <span className="min-w-0">
-              <span className="block truncate text-[15px] font-semibold leading-tight text-gray-900 sm:text-base">
+              {/* ชื่อร้านหนา 800 (กติกาเดียวกับชื่อหน้า/ชื่อร้านในเมนูหลังร้าน — ฟอนต์ Prompt)
+                  จอแคบกว่า 390px ใช้ 14px: "b.oncloud.wedding content" ที่ 15px/800 กว้าง 204px เกินช่อง ~197px ของจอ 375 → ถูกตัด "…" */}
+              <span
+                className="block truncate text-[14px] font-extrabold leading-tight text-gray-900 min-[390px]:text-[15px] sm:text-base"
+                title={shop?.name || undefined}
+              >
                 {shop?.name || 'ติดตามงาน'}
               </span>
               <span className="block truncate text-xs text-gray-500">ติดตามงานของคู่บ่าวสาว</span>

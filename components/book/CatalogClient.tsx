@@ -204,13 +204,14 @@ export default function CatalogClient({ info, todayKey, initialQuery, initialIte
 
         <fieldset className="space-y-2">
           <legend className="field-label">วันรับชุด – วันคืนชุด (ไม่บังคับ)</legend>
+          {/* ช่องวันที่ 2 ช่องคู่กันบนมือถือแคบ (~150px) → ขอบใน 10px แทน 14px: ฟอนต์ Prompt ทำให้คำใบ้ "วว/ดด/ปปปป" ชนไอคอนปฏิทินที่จอ 375 และถูกตัดที่จอ 360 */}
           <div className="grid grid-cols-2 gap-2 sm:max-w-md">
             <div className="min-w-0">
               <label htmlFor="book-from" className="text-xs font-medium text-gray-500">วันรับชุด</label>
               <input
                 id="book-from"
                 type="date"
-                className="input mt-1"
+                className="input mt-1 px-2.5 sm:px-3.5"
                 min={earliest}
                 value={fromDraft}
                 onChange={e => onFromChange(e.target.value)}
@@ -223,7 +224,7 @@ export default function CatalogClient({ info, todayKey, initialQuery, initialIte
               <input
                 id="book-to"
                 type="date"
-                className="input mt-1"
+                className="input mt-1 px-2.5 sm:px-3.5"
                 min={fromDraft || earliest}
                 max={isDayKey(fromDraft) ? latestReturn(fromDraft, maxDays) : undefined}
                 value={toDraft}

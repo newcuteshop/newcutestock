@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { IBM_Plex_Sans_Thai } from 'next/font/google'
+import { Prompt } from 'next/font/google'
 import EntryGateCover from '@/components/auth/EntryGateCover'
 import { ENTRY_GATE_BOOT_SCRIPT } from '@/lib/auth/entry-gate'
 import { SHOP_THEME_BOOT_SCRIPT } from '@/lib/shopTheme'
@@ -11,12 +11,15 @@ import './globals.css'
 //   NEWCUTE ได้โรสโกลด์เดิม (ดู lib/shopTheme.ts และตัวแปรสีใน app/globals.css)
 const BOOT_SCRIPT = ENTRY_GATE_BOOT_SCRIPT + ';' + SHOP_THEME_BOOT_SCRIPT
 
-// ฟอนต์เดียวทั้งระบบ: IBM Plex Sans Thai (ไทยแบบไม่มีหัว อ่านง่าย ดูเป็นทางการ + ตัวเลขละตินคมชัด)
-// 400 เนื้อหา · 500 ป้าย/เมนู · 600 หัวเรื่อง/ปุ่ม/ตัวเลขเด่น · 700 เผื่อที่ยังใช้ font-bold
-// ตัวแปร --font-sans (tailwind: font-sans และ font-display ชี้ตัวเดียวกัน)
-const plexThai = IBM_Plex_Sans_Thai({
+// ฟอนต์เดียวทั้งระบบ (ทุกร้าน): Prompt — บอสสั่ง 23/11/2569 ให้เหมือนหน้ารวมแอปของกลุ่ม (naiwansookgroup.vercel.app/apps)
+//   ไทยแบบไม่มีหัว ทรงกลมเรขาคณิต ดูมีสีสันมีชีวิตชีวากว่า IBM Plex Sans Thai เดิม · สี/ธีม/ระยะห่างของแต่ละร้านคงเดิมทั้งหมด
+// น้ำหนัก: 400 เนื้อหา · 500 ป้าย/เมนู · 600 หัวการ์ด/หัวส่วน/ปุ่ม/ตัวเลขเด่น · 700 เอกสาร/ใบเสร็จ/font-bold
+//   · 800 ชื่อหน้า (.page-title ใน globals.css) + ชื่อร้าน (เมนูข้าง/แถบบนมือถือ, หน้าเข้าสู่ระบบ, การ์ดเลือกร้าน) แบบหัวเรื่องหนาของหน้ารวมแอป
+// ตัวเลขของ Prompt กว้างไม่เท่ากัน (ฟอนต์ไม่มี tnum — วัดแล้ว '1' แคบกว่า '0' เกือบครึ่ง) → คลาส tabular-nums ไม่มีผลกับฟอนต์นี้
+// ตัวแปร --font-sans (tailwind: font-sans และ font-display ชี้ตัวเดียวกัน · กราฟอ่านชื่อฟอนต์จริงจากตัวแปรนี้ ส่วนสติกเกอร์/รูป QR อ่าน font-family ของ body)
+const prompt = Prompt({
   subsets: ['thai', 'latin'],
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '600', '700', '800'],
   display: 'swap',
   variable: '--font-sans',
 })
@@ -60,7 +63,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
       </head>
       {/* พื้นหลัง (NEWCUTE เทาอ่อน #F7F6F6 / ร้านเช่า ฟ้าจาง #F5F9FB) อยู่ใน globals.css (body → --c-canvas) */}
-      <body className={`${plexThai.variable} font-sans text-gray-900 antialiased`}>
+      <body className={`${prompt.variable} font-sans text-gray-900 antialiased`}>
         {/* แผ่นปิดตอนล็อกหน้าจอ (ต้องเป็นลูกชั้นแรกของ body) — ปกติซ่อน */}
         <EntryGateCover />
         {children}

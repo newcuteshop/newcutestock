@@ -20,7 +20,8 @@ export default function BookHeader({
         <Link href="/book" className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2.5" aria-label={`${shopName} — หน้าแรกจองชุดออนไลน์`}>
           <RentalMark size="sm" className="sm:h-10 sm:w-10" />
           <span className="min-w-0">
-            <span className="block truncate text-[15px] font-semibold leading-tight text-gray-900 sm:text-base">{shopName}</span>
+            {/* ชื่อร้านหนา 800 (กติกาเดียวกับชื่อหน้า/ชื่อร้านในเมนูหลังร้าน — ฟอนต์ Prompt) */}
+            <span className="block truncate text-[15px] font-extrabold leading-tight text-gray-900 sm:text-base">{shopName}</span>
             <span className="block truncate text-xs text-gray-500">จองชุดออนไลน์</span>
           </span>
         </Link>

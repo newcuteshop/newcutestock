@@ -342,13 +342,14 @@ export default function CheckoutClient({ info, todayKey }: Props) {
               <CalendarDays {...ICON_SM} />
               วันรับชุด – วันคืนชุด
             </h2>
+            {/* ช่องวันที่ 2 ช่องคู่กันบนมือถือแคบ (~150px) → ขอบใน 10px แทน 14px: ฟอนต์ Prompt ทำให้คำใบ้ "วว/ดด/ปปปป" ชนไอคอนปฏิทินที่จอ 375 และถูกตัดที่จอ 360 */}
             <div className="grid grid-cols-2 gap-2 sm:max-w-md">
               <div className="min-w-0">
                 <label htmlFor="co-pickup" className="text-xs font-medium text-gray-500">วันรับชุด</label>
                 <input
                   id="co-pickup"
                   type="date"
-                  className="input mt-1"
+                  className="input mt-1 px-2.5 sm:px-3.5"
                   min={earliest}
                   value={pickup ?? ''}
                   onChange={e => onPickupChange(e.target.value)}
@@ -361,7 +362,7 @@ export default function CheckoutClient({ info, todayKey }: Props) {
                 <input
                   id="co-return"
                   type="date"
-                  className="input mt-1"
+                  className="input mt-1 px-2.5 sm:px-3.5"
                   min={pickup ?? earliest}
                   max={pickup ? latestReturn(pickup, maxDays) : undefined}
                   value={ret ?? ''}

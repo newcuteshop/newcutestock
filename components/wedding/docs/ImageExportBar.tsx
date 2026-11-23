@@ -36,17 +36,18 @@ export default function ImageExportBar({
   className?: string
 }) {
   const off = disabled || exp.busy
+  // มือถือ: ช่องไฟไอคอน-ข้อความ 6px + ขอบใน 4px — จอ 375 ปุ่มละ ~109px ข้อความ "คัดลอกรูป" (15px/600) ต้องการ ~66px ; ขอบ px-2 + gap-2 เดิมเหลือ ~65px → ถูกตัดเป็น "คัดลอก…"
   return (
     <div className={clsx('grid grid-cols-3 gap-2', className)}>
-      <button type="button" className="btn-primary min-w-0 px-2 sm:px-4" onClick={() => void exp.share()} disabled={off}>
+      <button type="button" className="btn-primary min-w-0 gap-1.5 px-1 sm:gap-2 sm:px-4" onClick={() => void exp.share()} disabled={off}>
         {exp.action === 'share' ? <Loader2 {...ICON_SM} className="animate-spin" /> : <Share2 {...ICON_SM} />}
         <span className="truncate">แชร์</span>
       </button>
-      <button type="button" className="btn-secondary min-w-0 px-2 sm:px-4" onClick={() => void exp.download()} disabled={off}>
+      <button type="button" className="btn-secondary min-w-0 gap-1.5 px-1 sm:gap-2 sm:px-4" onClick={() => void exp.download()} disabled={off}>
         {exp.action === 'download' ? <Loader2 {...ICON_SM} className="animate-spin" /> : <Download {...ICON_SM} />}
         <span className="truncate">บันทึกรูป</span>
       </button>
-      <button type="button" className="btn-secondary min-w-0 px-2 sm:px-4" onClick={() => void exp.copy()} disabled={off}>
+      <button type="button" className="btn-secondary min-w-0 gap-1.5 px-1 sm:gap-2 sm:px-4" onClick={() => void exp.copy()} disabled={off}>
         {exp.action === 'copy' ? <Loader2 {...ICON_SM} className="animate-spin" /> : <Copy {...ICON_SM} />}
         <span className="truncate">คัดลอกรูป</span>
       </button>

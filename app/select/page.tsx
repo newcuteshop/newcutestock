@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { Fragment } from 'react'
 import { ChevronRight, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getSession, shopAccess, shopCount, singleShopHome, type ShopAccess } from '@/lib/auth/permissions'
@@ -129,17 +130,26 @@ function ShopCard({
 }) {
   return (
     // ทั้งการ์ดเป็นลิงก์เดียว (พื้นที่แตะใหญ่) — ชื่อร้านเป็นชื่อของลิงก์ให้โปรแกรมอ่านจอ
+    // ชื่อร้านหนา 800 แบบชื่อแอปในหน้ารวมแอปกลุ่ม (กติกาเดียวกับ .page-title / ชื่อร้านในเมนู)
     <Link
       href={href}
       className="card card-hover flex h-full min-h-[44px] items-center gap-4 p-4 sm:flex-col sm:items-center sm:gap-3 sm:p-6 sm:text-center"
     >
       {mark}
       <span className="min-w-0 flex-1 sm:flex-none">
-        <span className={`block break-words text-lg sm:text-xl font-semibold leading-tight text-gray-900 ${latin ? 'tracking-wide' : ''}`}>
+        <span className={`block break-words text-lg sm:text-xl font-extrabold leading-tight text-gray-900 ${latin ? 'tracking-wide' : ''}`}>
           {name}
         </span>
         <span className="mt-0.5 block text-sm font-medium text-brand-700">{kind}</span>
-        <span className="mt-1 block text-xs sm:text-sm text-gray-500">{detail}</span>
+        {/* รายการคั่นด้วย " · " — ห่อทีละคำ: ขึ้นบรรทัดใหม่ได้เฉพาะที่ตัวคั่น (ไม่ตัดกลางคำ เช่น "ส่ง/งาน") */}
+        <span className="mt-1 block text-xs sm:text-sm text-gray-500">
+          {detail.split(' · ').map((part, i) => (
+            <Fragment key={part}>
+              {i > 0 && ' · '}
+              <span className="whitespace-nowrap">{part}</span>
+            </Fragment>
+          ))}
+        </span>
       </span>
       <span className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-brand-700 sm:mt-1" aria-hidden="true">
         <span className="hidden sm:inline">เข้าสู่ร้าน</span>

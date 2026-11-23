@@ -59,7 +59,7 @@ type SummaryCard = {
   wide: boolean
 }
 
-// next/font ตั้งชื่อฟอนต์แบบสุ่ม (__IBM_Plex_Sans_Thai_xxxx) ไว้ในตัวแปร CSS บน <body> — canvas ต้องใช้ชื่อจริง จึงอ่านจากตัวแปรนั้น
+// next/font ตั้งชื่อฟอนต์แบบสุ่ม (__Prompt_xxxx) ไว้ในตัวแปร CSS บน <body> — canvas ต้องใช้ชื่อจริง จึงอ่านจากตัวแปรนั้น
 function themeFont(cssVar: '--font-sans' | '--font-display', fallback: string): string {
   if (typeof document === 'undefined') return fallback
   const family = getComputedStyle(document.body).getPropertyValue(cssVar).trim()
@@ -160,8 +160,8 @@ export default function ReportsClient({ days, rangeDays, sales, refunds, refunds
   const cardGridCols = summaryCards.length >= 4 ? 'xl:grid-cols-4' : 'lg:grid-cols-3'
 
   // ฟอนต์ของกราฟอ่านตอนวาด (ฝั่งเบราว์เซอร์) — ฝั่งเซิร์ฟเวอร์ใช้ชื่อสำรอง (canvas ไม่ถูกเรนเดอร์บนเซิร์ฟเวอร์อยู่แล้ว)
-  //   ฟอนต์เดียวทั้งระบบ (IBM Plex Sans Thai) — หัวทิปใช้น้ำหนัก 600 แทนฟอนต์หัวเรื่องแยก
-  const bodyFont = themeFont('--font-sans', 'IBM Plex Sans Thai, sans-serif')
+  //   ฟอนต์เดียวทั้งระบบ (Prompt) — หัวทิปใช้น้ำหนัก 600 แทนฟอนต์หัวเรื่องแยก
+  const bodyFont = themeFont('--font-sans', 'Prompt, sans-serif')
   const tooltipTheme = {
     backgroundColor: CHART.tooltipBg,
     titleColor: '#FFFFFF',

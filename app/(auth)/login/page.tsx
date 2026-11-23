@@ -131,7 +131,8 @@ export default function LoginPage() {
         <div className="px-6 py-7 sm:px-8 sm:py-8">
           <div className="flex flex-col items-center text-center mb-6">
             <BrandMark size="lg" />
-            <h1 className="mt-4 text-2xl font-semibold leading-tight tracking-wide text-gray-900">NEWCUTE</h1>
+            {/* ชื่อร้านหนา 800 (กติกาเดียวกับ .page-title / ชื่อร้านในเมนู — ฟอนต์ Prompt) */}
+            <h1 className="mt-4 text-2xl font-extrabold leading-tight tracking-wide text-gray-900">NEWCUTE</h1>
             <p className="text-gray-500 text-sm mt-1">ระบบสต๊อกสินค้าเสื้อผ้า</p>
           </div>
 

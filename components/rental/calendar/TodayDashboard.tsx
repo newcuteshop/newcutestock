@@ -46,10 +46,13 @@ function Section({
   return (
     <section id={id} className={clsx('card overflow-hidden scroll-mt-4', tone === 'danger' && 'border-red-200')} aria-labelledby={`${id}-title`}>
       <div className={clsx('card-header', tone === 'danger' && 'bg-red-50')}>
-        <h2 id={`${id}-title`} className="section-title min-w-0 flex-wrap gap-y-0">
+        <h2 id={`${id}-title`} className="section-title min-w-0">
           <Icon {...ICON} className={tone === 'danger' ? '!text-red-700' : tone === 'warn' ? '!text-amber-600' : undefined} />
-          <span className="min-w-0 break-words">{title}</span>
-          {count !== undefined && <span className="text-sm font-normal text-gray-500 tabular-nums">({count})</span>}
+          {/* จำนวนอยู่ในบรรทัดเดียวกับชื่อ (ช่องไฟ ~8px เท่า gap-2 เดิม) — ชื่อยาวจนต้องขึ้นบรรทัดใหม่ "(n)" จะตามท้ายข้อความ ไม่หล่นไปใต้ไอคอน (h2 จึงไม่ต้อง flex-wrap แล้ว) */}
+          <span className="min-w-0 break-words">
+            {title}
+            {count !== undefined && <>{' '}<span className="ml-1 whitespace-nowrap text-sm font-normal text-gray-500 tabular-nums">({count})</span></>}
+          </span>
         </h2>
         {action}
       </div>
@@ -62,7 +65,7 @@ function StatLink({
   href, label, value, unit, note, icon: Icon, bubble = '', hot = false, danger = false,
 }: {
   href: string
-  label: string
+  label: React.ReactNode
   value: string
   unit?: string
   note?: string
@@ -231,6 +234,8 @@ export default function TodayDashboard({
 
   const isToday = day === todayKey
   const dayWord = isToday ? 'วันนี้' : `วันที่ ${formatThaiDate(day)}`
+  // ป้ายการ์ดตัวเลข (กว้าง ~88px บนมือถือ): 'วันนี้' เป็นคำเดียว ขึ้นบรรทัดใหม่ทั้งคำ ไม่เหลือ 'นี้' ค้างบรรทัดล่าง
+  const dayLabel = isToday ? <span className="whitespace-nowrap">วันนี้</span> : dayWord
   // ข้อมูลที่แสดงเป็นของวันอื่น (กำลังโหลดวันใหม่) → แสดงโครงรอโหลดแทน ไม่ให้อ่านตัวเลขผิดวัน
   const shown = data && data.day === day ? data : null
   const busy = loading && !shown
@@ -358,7 +363,7 @@ export default function TodayDashboard({
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 xl:gap-6">
             <StatLink
               href="#today-pickups"
-              label={`ลูกค้ารับชุด${dayWord}`}
+              label={<>ลูกค้ารับชุด{dayLabel}</>}
               value={shown.pickups.length.toLocaleString('th-TH')}
               unit="การจอง"
               note={shown.pickups.length > 0 ? `รับแล้ว ${pickupsDone.toLocaleString('th-TH')}` : undefined}
@@ -368,7 +373,7 @@ export default function TodayDashboard({
             />
             <StatLink
               href="#today-returns"
-              label={`ลูกค้าคืนชุด${dayWord}`}
+              label={<>ลูกค้าคืนชุด{dayLabel}</>}
               value={shown.returns.length.toLocaleString('th-TH')}
               unit="การจอง"
               note={shown.returns.length > 0 ? `คืนแล้ว ${returnsDone.toLocaleString('th-TH')}` : undefined}

@@ -107,7 +107,7 @@ function SaleBody({ shop, sale, reprint, test = false }: { shop: ShopSettings; s
       {sale.voided_at && <div className="receipt-banner">ยกเลิกแล้ว</div>}
       <Row label="เลขที่" value={sale.sale_no} />
       <Row label="วันที่" value={formatThaiDateTime(sale.created_at)} />
-      {shop.show_cashier && sale.cashier_name && <Row label="พนักงาน" value={sale.cashier_name} />}
+      {shop.show_cashier && sale.cashier_name && <Row label="พนักงาน" value={sale.cashier_name} className="receipt-row-wrap" />}
       {channel && <Row label="ช่องทาง" value={channel} />}
       <hr className="receipt-sep" />
       {sale.items.map((it, i) => (
@@ -148,7 +148,7 @@ function ReturnBody({ shop, sale, ret, reprint }: { shop: ShopSettings; sale: Re
       <Row label="เลขที่" value={ret.return_no} />
       <Row label="อ้างอิงบิล" value={ret.sale_no || sale.sale_no} />
       <Row label="วันที่" value={formatThaiDateTime(ret.created_at)} />
-      {shop.show_cashier && ret.created_by_name && <Row label="พนักงาน" value={ret.created_by_name} />}
+      {shop.show_cashier && ret.created_by_name && <Row label="พนักงาน" value={ret.created_by_name} className="receipt-row-wrap" />}
       <hr className="receipt-sep" />
       {ret.items.map((it, i) => (
         <div key={`${it.product_id}-${i}`} className="receipt-item">

@@ -430,7 +430,7 @@ export default function LabelsClient({ products }: { products: LabelProduct[] })
         import('jsbarcode'),
       ])
 
-      // ใช้ฟอนต์ Sarabun ของหน้าเว็บวาดลง canvas — ฟอนต์ในตัว jsPDF ไม่มีอักษรไทย
+      // ใช้ฟอนต์ของหน้าเว็บ (Prompt) วาดลง canvas — ฟอนต์ในตัว jsPDF ไม่มีอักษรไทย
       const family = getComputedStyle(document.body).fontFamily || 'sans-serif'
       await loadFonts(family)
 

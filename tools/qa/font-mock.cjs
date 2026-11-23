@@ -8,9 +8,20 @@
 // ทำไมเป็น Proxy: URL ของ Google Fonts ขึ้นกับน้ำหนัก/แกนที่ app/layout.tsx ขอ — ถ้าวันหลังเปลี่ยน weight หรือเพิ่มฟอนต์
 //   ไฟล์นี้ยังตอบได้ทุก URL โดยไม่ต้องแก้ (สร้าง @font-face ตามชื่อฟอนต์และน้ำหนักใน URL เอง)
 //
-// ไฟล์ฟอนต์จริง: IBM Plex Sans Thai โหลดแบบออฟไลน์ไม่ได้ จึงใช้ฟอนต์ไทยที่มีในเครื่องแทน (Windows: Leelawadee UI)
-//   ภาพหน้าจอ QA จึงออกมาใกล้เคียงของจริง ; ไม่มีไฟล์ในเครื่อง (Linux/macOS) → ใช้บัฟเฟอร์หลอก เบราว์เซอร์ใช้ฟอนต์สำรองแทน
+// ---- ทางที่ 1: ไฟล์ฟอนต์จริงของ Google (แนะนำ — ภาพ QA ใช้ฟอนต์จริง จึงเห็นตัวอักษรล้น/ตัดบรรทัดตามของจริง) ----
+//   โฟลเดอร์ฟอนต์ = FONT_MOCK_DIR (ถ้าตั้ง) ไม่งั้น tools/qa/fonts/ (อยู่ใน .gitignore — ห้าม commit ไฟล์ฟอนต์)
+//   โครงสร้าง: <dir>/<ชื่อฟอนต์ตัวเล็กคั่นด้วย -> /google.css + ไฟล์ .woff2 ทุกไฟล์ที่ CSS นั้นอ้าง (ชื่อไฟล์เดิมจาก fonts.gstatic.com)
+//     เช่น <dir>/prompt/google.css · <dir>/ibm-plex-sans-thai/google.css (ชุด "ก่อนแก้" ของ regression ยังใช้ IBM Plex Sans Thai)
+//   google.css = CSS ที่ดึงจาก https://fonts.googleapis.com/css2?family=<ชื่อ>:wght@<ทุกน้ำหนักที่ใช้>&display=swap
+//     ด้วย user-agent เดียวกับ next (Chrome/104 บน Mac — ได้ไฟล์ woff2) · วิธีดึงอยู่ใน tools/qa/README.md
+//   mock ตอบด้วย @font-face ของ Google ตัวจริง (ชุดอักษร/ช่วงอักขระเดียวกับเว็บจริง) แต่ชี้ url ไปไฟล์ในเครื่อง
+//   เลือกเฉพาะ block ที่ตรงน้ำหนัก/style ที่ layout ขอ · ขาดน้ำหนักไหนหรือไฟล์ไหน → ฟอนต์นั้นทั้งตัวใช้ทางที่ 2
+//   (ถ้าตั้ง FONT_MOCK_DIR เองแล้วใช้ไม่ได้ จะเขียนเตือนหนึ่งบรรทัดลง stderr ของ build — ภาพจะไม่ใช่ฟอนต์จริง)
+//
+// ---- ทางที่ 2 (เดิม): ฟอนต์ไทยที่มีในเครื่องแทน (Windows: Leelawadee UI) ----
+//   ภาพหน้าจอ QA ออกมาใกล้เคียงของจริง แต่ความกว้างตัวอักษรไม่ตรง (ซ่อนปัญหาล้นได้) ; ไม่มีไฟล์ในเครื่อง (Linux/macOS) → บัฟเฟอร์หลอก
 //   ตั้งเองได้ด้วย FONT_MOCK_REGULAR / FONT_MOCK_BOLD = path ไฟล์ .ttf/.otf/.woff/.woff2 (path ต้องขึ้นต้นด้วย '/' หรือเป็น C:/...)
+//   ชุดอักษร (subset) อ่านจากข้อมูลฟอนต์ของ next เอง — ฟอนต์ไทยที่ชื่อไม่มีคำว่า Thai (เช่น Prompt) ก็ได้ block ไทย
 'use strict'
 
 const fs = require('fs')
@@ -50,11 +61,30 @@ const BOLD = firstExisting([
   '/usr/share/fonts/truetype/tlwg/Loma-Bold.ttf',
 ]) || REGULAR
 
+// โฟลเดอร์ไฟล์ฟอนต์จริง (ทางที่ 1)
+const REAL_DIR_SET = Boolean(process.env.FONT_MOCK_DIR)
+const REAL_DIR = path.resolve(process.env.FONT_MOCK_DIR || path.join(__dirname, 'fonts'))
+
 // ช่วงอักขระแบบเดียวกับที่ Google ส่งมา (คอมเมนต์ /* subset */ เหนือ @font-face ใช้เลือกไฟล์ที่ preload)
 const RANGES = {
   thai: 'U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC',
   'latin-ext': 'U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF',
   latin: 'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD',
+}
+
+// ชุดอักษรของแต่ละฟอนต์จากข้อมูลที่มากับ next (ชุดเดียวกับที่ next ใช้ตรวจ subsets ใน layout)
+let FONT_DATA = null
+try {
+  FONT_DATA = require('next/dist/compiled/@next/font/dist/google/font-data.json')
+} catch {
+  FONT_DATA = null
+}
+
+function subsetsFor(name, url) {
+  const known = FONT_DATA && FONT_DATA[name] && Array.isArray(FONT_DATA[name].subsets) ? FONT_DATA[name].subsets : null
+  // ลำดับเดิม: ไทย → latin-ext → latin (เฉพาะชุดที่มีช่วงอักขระใน RANGES)
+  if (known) return Object.keys(RANGES).filter(s => known.includes(s))
+  return /Thai/i.test(url) ? ['thai', 'latin-ext', 'latin'] : ['latin-ext', 'latin']
 }
 
 function slug(s) {
@@ -101,23 +131,78 @@ function parseFamilies(url) {
   return out
 }
 
-function cssFor(url) {
-  const fams = parseFamilies(url)
-  if (fams.length === 0) return undefined
-  const subsets = /Thai/i.test(url) ? ['thai', 'latin-ext', 'latin'] : ['latin-ext', 'latin']
+// ---- ทางที่ 1: CSS ของ Google ตัวจริง + ไฟล์ในเครื่อง ----
+// คืนชุด @font-face ของฟอนต์นี้ (ชี้ไฟล์ในเครื่อง) หรือ null = ใช้ไม่ได้ (ไม่มีโฟลเดอร์/ขาดน้ำหนัก/ขาดไฟล์)
+function realCssFor(f) {
+  const dir = path.join(REAL_DIR, slug(f.name))
+  const cssPath = path.join(dir, 'google.css')
+  if (!fs.existsSync(cssPath)) return null
+  const css = fs.readFileSync(cssPath, 'utf8')
+  // แต่ละ block = คอมเมนต์ชุดอักษร /* thai */ + @font-face { ... } (รูปแบบที่ Google ส่งมา)
+  const blocks = css.match(/\/\*\s*[\w-]+\s*\*\/\s*@font-face\s*\{[^}]*\}/g) || []
+  const parsed = blocks.map(b => ({
+    text: b,
+    family: (/font-family:\s*'([^']+)'/.exec(b) || [])[1],
+    style: (/font-style:\s*([\w-]+)/.exec(b) || [])[1] || 'normal',
+    weight: ((/font-weight:\s*([\d ]+)/.exec(b) || [])[1] || '400').trim(),
+    url: (/url\((https:\/\/fonts\.gstatic\.com\/[^)]+)\)/.exec(b) || [])[1],
+  }))
+  const out = []
+  for (const e of f.entries) {
+    const hits = parsed.filter(p => p.family === f.name && p.style === e.style && p.weight === e.weight)
+    if (hits.length === 0) return null
+    for (const h of hits) {
+      if (!h.url) return null
+      const local = diskUrl(path.join(dir, path.basename(new URL(h.url).pathname)))
+      if (!local) return null
+      out.push(
+        h.text
+          .replace(h.url, () => local)
+          .replace(/font-display:\s*[\w-]+/, () => `font-display: ${f.display}`) + '\n',
+      )
+    }
+  }
+  return out.join('')
+}
+
+const warned = new Set()
+function warnOnce(name) {
+  if (!REAL_DIR_SET || warned.has(name)) return
+  warned.add(name)
+  process.stderr.write(`[font-mock] ไม่มีไฟล์ฟอนต์จริงครบสำหรับ "${name}" ใน ${REAL_DIR} — ใช้ฟอนต์แทนในเครื่อง (ภาพ QA ไม่ใช่ฟอนต์จริง)\n`)
+}
+
+// ---- ทางที่ 2: @font-face สร้างเอง ชี้ฟอนต์ไทยในเครื่อง ----
+function fallbackCssFor(f, url) {
+  const subsets = subsetsFor(f.name, url)
   const blocks = []
-  for (const f of fams) {
-    for (const e of f.entries) {
-      const file = fileFor(f.name, e.weight.split(' ')[0])
-      for (const s of subsets) {
-        blocks.push(
-          `/* ${s} */\n@font-face {\n  font-family: '${f.name}';\n  font-style: ${e.style};\n  font-weight: ${e.weight};\n` +
-          `  font-display: ${f.display};\n  src: url(${file}) format('${formatOf(file)}');\n  unicode-range: ${RANGES[s]};\n}\n`,
-        )
-      }
+  for (const e of f.entries) {
+    const file = fileFor(f.name, e.weight.split(' ')[0])
+    for (const s of subsets) {
+      blocks.push(
+        `/* ${s} */\n@font-face {\n  font-family: '${f.name}';\n  font-style: ${e.style};\n  font-weight: ${e.weight};\n` +
+        `  font-display: ${f.display};\n  src: url(${file}) format('${formatOf(file)}');\n  unicode-range: ${RANGES[s]};\n}\n`,
+      )
     }
   }
   return blocks.join('')
+}
+
+function cssFor(url) {
+  const fams = parseFamilies(url)
+  if (fams.length === 0) return undefined
+  const parts = []
+  for (const f of fams) {
+    let real = null
+    try { real = realCssFor(f) } catch { real = null }
+    if (real) {
+      parts.push(real)
+    } else {
+      warnOnce(f.name)
+      parts.push(fallbackCssFor(f, url))
+    }
+  }
+  return parts.join('')
 }
 
 module.exports = new Proxy({}, {

@@ -27,7 +27,8 @@ export default function GlobalError({
           boxSizing: 'border-box',
           background: '#F7F6F6',
           color: '#201B1D',
-          fontFamily: '"IBM Plex Sans Thai", "Noto Sans Thai", system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif',
+          // ฟอนต์ของระบบ (Prompt) ก่อน ถ้าเครื่องไม่มี → ฟอนต์ไทยของเครื่อง (หน้านี้ไม่โหลดไฟล์ฟอนต์เอง)
+          fontFamily: 'Prompt, "Noto Sans Thai", "Leelawadee UI", Thonburi, system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif',
         }}
       >
         <div

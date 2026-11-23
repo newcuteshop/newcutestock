@@ -731,7 +731,9 @@
 
   .page-header { @apply flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between; }
   .page-actions { @apply flex flex-wrap items-center gap-2 sm:justify-end; }
-  .page-title { @apply text-[22px] sm:text-2xl font-semibold leading-tight text-gray-900; }
+  /* ชื่อหน้า = หนาพิเศษ 800 แบบหัวเรื่องของหน้ารวมแอปกลุ่ม (ฟอนต์ Prompt 23/11/2569) — ขนาด/สีเดิม
+     กติกาน้ำหนัก: ชื่อหน้า + ชื่อร้าน 800 · หัวการ์ด/หัวส่วน/หัวป็อปอัป/ปุ่ม 600 · ป้าย/เมนู 500 · เนื้อหา 400 */
+  .page-title { @apply text-[22px] sm:text-2xl font-extrabold leading-tight text-gray-900; }
   .page-subtitle { @apply mt-1 text-sm text-gray-500; }
   /* หัวข้อในการ์ด (ไอคอนนำหน้าเป็นสีโรสโกลด์เอง) */
   .section-title { @apply flex items-center gap-2 text-base sm:text-lg font-semibold leading-snug text-gray-900; }
@@ -746,7 +748,8 @@
   @media (hover: hover) {
     .link:hover { text-decoration-line: underline; }
   }
-  /* ตัวเลขเงิน/จำนวนเด่น (ตัวเลขกว้างเท่ากันทุกตัว เรียงตรงหลัก) */
+  /* ตัวเลขเงิน/จำนวนเด่น — tabular-nums ขอตัวเลขกว้างเท่ากัน แต่ฟอนต์ Prompt ไม่มีตัวเลขแบบนี้ (คำสั่งไม่มีผล ตัวเลขกว้างตามรูปตัว)
+     คงคลาสไว้: เปลี่ยนฟอนต์วันหลังจะกลับมาเรียงตรงหลักเอง */
   .money { @apply font-semibold tabular-nums; }
 
   /* ================= ตาราง ================= */
@@ -1015,6 +1018,10 @@ html[data-gate='locked'] .entry-gate-cover {
   }
   .receipt-row > :first-child { min-width: 0; }
   .receipt-row > :last-child:not(:first-child) { flex: none; text-align: right; white-space: nowrap; }
+  /* แถวที่ช่องขวาเป็นข้อความอิสระ (ชื่อลูกค้า/ชื่อพนักงาน) — ชื่อยาวขึ้นบรรทัดใหม่ชิดขวา ป้ายซ้ายคงเต็มคำ
+     (กฎบนห้ามช่องขวาตัดบรรทัด → ชื่อยาวบีบป้าย 'ลูกค้า' เหลือบรรทัดละตัว และล้นขอบที่พิมพ์ได้ 72 มม.) */
+  .receipt-row-wrap > :first-child { flex: none; }
+  .receipt-row-wrap > :last-child:not(:first-child) { flex: 0 1 auto; min-width: 0; white-space: normal; }
   /* เส้นคั่นประ (ใช้กับ <hr class="receipt-sep"> หรือ <div class="receipt-sep">) */
   .receipt-sep {
     height: 0;

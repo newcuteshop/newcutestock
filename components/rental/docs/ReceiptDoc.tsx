@@ -55,9 +55,10 @@ function Receipt80({ booking: b, payment: p, settings }: { booking: RentalBookin
       <Row label="เลขที่" value={p.receipt_no ?? '-'} />
       <Row label="วันที่" value={formatThaiDateTime(p.created_at)} />
       <Row label="การจอง" value={b.booking_no} />
-      <Row label="ลูกค้า" value={b.customer.name || '-'} />
+      {/* receipt-row-wrap = ชื่อยาวขึ้นบรรทัดใหม่ได้ (ไม่ล้นขอบกระดาษ/ไม่บีบป้ายซ้าย) */}
+      <Row label="ลูกค้า" value={b.customer.name || '-'} className="receipt-row-wrap" />
       {b.customer.phone && <Row label="โทร" value={formatPhone(b.customer.phone)} />}
-      {p.created_by_name && <Row label="พนักงาน" value={p.created_by_name} />}
+      {p.created_by_name && <Row label="พนักงาน" value={p.created_by_name} className="receipt-row-wrap" />}
       <hr className="receipt-sep" />
       <div className="receipt-item">
         <div>{PAYMENT_KIND_LABELS[p.kind]}</div>

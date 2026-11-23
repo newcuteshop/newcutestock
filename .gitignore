@@ -12,3 +12,5 @@ next-env.d.ts
 # เครื่องมือทดสอบใน tools/ (ติดตั้งแยกในโฟลเดอร์ของมันเอง) และผลลัพธ์ QA
 tools/**/node_modules/
 tools/qa/out/
+# ไฟล์ฟอนต์จริงสำหรับภาพ QA (ดู tools/qa/font-mock.cjs) — ห้าม commit ไฟล์ฟอนต์
+tools/qa/fonts/

@@ -55,7 +55,8 @@ export default function AvailabilityCalendar(props: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
+      {/* gap-1 + ห่อชื่อเดือนทีละก้อน: จอ 375 ชื่อ 2 เดือน (14px/600) ~216px พอดีบรรทัดเดียว ; จอแคบกว่านั้นขึ้นบรรทัดใหม่ระหว่างเดือน ไม่ทิ้งปี "2569" ไว้บรรทัดล่างลำพัง */}
+      <div className="flex items-center justify-between gap-1">
         <button
           type="button"
           className="btn-icon"
@@ -66,7 +67,8 @@ export default function AvailabilityCalendar(props: Props) {
           <ChevronLeft {...ICON_SM} />
         </button>
         <p className="min-w-0 text-center text-sm font-semibold text-gray-900" aria-live="polite">
-          {monthTitle(monthKey)} – {monthTitle(second)}
+          <span className="whitespace-nowrap">{monthTitle(monthKey)} –</span>{' '}
+          <span className="whitespace-nowrap">{monthTitle(second)}</span>
         </p>
         <button
           type="button"
