@@ -16,7 +16,7 @@ import { newUuid } from '@/lib/products'
 import { formatPromptPayId, isValidPromptPayId, promptPayPayload } from '@/lib/promptpay'
 import {
   MAX_WED_MONEY, WED_METHOD_LABELS, WED_PAYMENT_KIND_LABELS, WED_PAYMENT_METHODS, WED_PAYMENT_PURPOSES, WED_PURPOSE_LABELS,
-  amountDueNow, parseWedAddPaymentResult,
+  amountDueNow, parseWedAddPaymentResult, wedNoDeposit,
   type WedBooking, type WedPayment, type WedPaymentKind, type WedPaymentMethod, type WedPaymentPurpose, type WedSettings,
 } from '@/lib/wedding'
 import QrImage from '@/components/rental/QrImage'
@@ -572,12 +572,16 @@ export function MoneyMini({ booking }: { booking: WedBooking }) {
       <dt className={clsx('font-medium', tone)}>{m.due > EPS ? 'ค้างชำระ' : m.due < -EPS ? 'รับเกิน (ต้องคืน)' : 'ชำระครบ'}</dt>
       <dd className={clsx('text-right money', tone)}>{baht(Math.abs(m.due))}</dd>
       <dt className="text-gray-600">มัดจำ</dt>
-      <dd className="text-right text-gray-900">
-        <span className="money">{baht(m.deposit_required)}</span>
-        <span className={clsx('ml-1.5 text-xs font-medium', m.deposit_met ? 'text-green-800' : 'text-amber-800')}>
-          {m.deposit_met ? 'ครบ' : `ขาด ${baht(m.deposit_due)}`}
-        </span>
-      </dd>
+      {wedNoDeposit(m) ? (
+        <dd className="text-right text-gray-900">ไม่เก็บมัดจำ</dd>
+      ) : (
+        <dd className="text-right text-gray-900">
+          <span className="money">{baht(m.deposit_required)}</span>
+          <span className={clsx('ml-1.5 text-xs font-medium', m.deposit_met ? 'text-green-800' : 'text-amber-800')}>
+            {m.deposit_met ? 'ครบ' : `ขาด ${baht(m.deposit_due)}`}
+          </span>
+        </dd>
+      )}
       {booking.next_due && m.due > EPS && (
         <>
           <dt className="text-gray-600 flex items-center gap-1"><Receipt {...ICON_XS} />งวดถัดไป</dt>

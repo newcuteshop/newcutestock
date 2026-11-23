@@ -6,7 +6,7 @@
 import { formatThaiDate } from '@/lib/format'
 import { formatPromptPayId, isValidPromptPayId } from '@/lib/promptpay'
 import {
-  INSTALLMENT_STATUS_LABELS, formatPhone, sessionTimeText, termsLines,
+  INSTALLMENT_STATUS_LABELS, formatPhone, sessionTimeText, termsLines, wedDepositPercentOfAmount,
   type WedBooking, type WedSettings,
 } from '@/lib/wedding'
 // เงื่อนไขแยกข้อด้วย termsLines (lib/wedding) ตัวเดียวกับตัวอย่างในหน้าตั้งค่าร้าน/รูปเอกสาร/ลิงก์ลูกค้า — สัญญาที่พิมพ์ตรงกับที่บอสเห็นตอนตั้งค่า
@@ -43,6 +43,8 @@ function ContractCopy({
   copy: 'customer' | 'shop'
 }) {
   const m = b.money
+  // มัดจำกำหนดเอง / ใช้มัดจำขั้นต่ำ / เต็มยอด = ไม่เขียนว่า "ร้อยละ N" (ยอดนั้นไม่ใช่ N% ของค่าบริการ)
+  const depositPct = wedDepositPercentOfAmount(m)
   const c = b.customer
   const copyLabel = copy === 'customer' ? 'ฉบับลูกค้า' : 'ฉบับผู้ให้บริการ'
   const sessions = activeSessions(b)
@@ -248,7 +250,7 @@ function ContractCopy({
         {m.deposit_required > 0 && (
           <div>
             ผู้ว่าจ้างชำระเงินมัดจำ <strong>{amount(m.deposit_required)}</strong> บาท
-            {m.deposit_percent !== null && m.deposit_percent > 0 ? ` (ร้อยละ ${m.deposit_percent} ของค่าบริการ)` : ''} เพื่อยืนยันคิวงาน
+            {depositPct !== null && depositPct > 0 ? ` (ร้อยละ ${depositPct} ของค่าบริการ)` : ''} เพื่อยืนยันคิวงาน
             {balanceDue ? <> และชำระยอดคงเหลือภายในวันที่ <strong>{formatThaiDate(balanceDue)}</strong></> : null}
           </div>
         )}

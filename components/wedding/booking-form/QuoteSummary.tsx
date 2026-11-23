@@ -1,14 +1,15 @@
 'use client'
 // สรุปยอดเงินของงาน (จาก wed_quote — ฐานข้อมูลคำนวณ) ใช้ทั้งในฟอร์ม (มือถือ) และแถบสรุปข้างจอ (จอกว้าง)
 // แก้ไข: แสดงยอดที่ชำระแล้ว + ยอดค้างหลังแก้ (ยอดจริงคำนวณใหม่ตอนบันทึก)
-// สร้างใหม่: แสดงยอดที่รับตอนนี้ + แผนชำระเริ่มต้น (มัดจำ + ยอดคงเหลือ) — แก้งวดได้ที่หน้างานหลังบันทึก
+// สร้างใหม่: แสดงยอดที่รับตอนนี้ + แผนชำระเริ่มต้น (กติกาเดียวกับ wed_default_plan) — แก้งวดได้ที่หน้างานหลังบันทึก
+// มัดจำกำหนดเอง (deposit_source = 'manual') → บอก "กำหนดเอง" แทน "N% ของยอดงาน"
 // ต้นทุนทีมงาน/กำไร: ฐานข้อมูลส่งมาเฉพาะผู้จัดการ (null = ซ่อน)
 import clsx from 'clsx'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { ICON_SM, ICON_XS } from '@/components/theme/icons'
 import { baht, formatThaiDate } from '@/lib/format'
 import { round2 } from '@/lib/money'
-import type { WedQuote } from '@/lib/wedding'
+import { wedDefaultPlanPreview, wedDepositCap, wedDepositPercent, type WedQuote } from '@/lib/wedding'
 
 function Row({ label, value, strong, tone, hint }: {
   label: string
@@ -74,10 +75,14 @@ export default function QuoteSummary({
   const m = quote.money
   const due = round2(m.grand_total - m.paid)
   const afterPay = payNow !== undefined ? round2(m.grand_total - payNow) : null
-  const depositHint = m.deposit_percent !== null
-    ? `${m.deposit_percent.toLocaleString('th-TH', { maximumFractionDigits: 2 })}% ของยอดงาน${m.min_deposit && m.min_deposit > 0 ? ` (ขั้นต่ำ ${baht(m.min_deposit)})` : ''}`
-    : undefined
-  const rest = round2(Math.max(0, m.grand_total - m.deposit_required))
+  const pct = wedDepositPercent(m)
+  const cap = wedDepositCap(m)
+  const depositHint = m.deposit_source === 'manual'
+    ? cap.capped ? `กำหนดเอง (ไม่เกิน${cap.label})` : 'กำหนดเอง'
+    : pct !== null
+      ? `${pct.toLocaleString('th-TH', { maximumFractionDigits: 2 })}% ของยอดงาน${m.min_deposit && m.min_deposit > 0 ? ` (ขั้นต่ำ ${baht(m.min_deposit)})` : ''}`
+      : undefined
+  const planRows = wedDefaultPlanPreview(m.grand_total, m.deposit_required)
 
   return (
     <div className={clsx('space-y-3', loading && 'opacity-60')} aria-live="polite">
@@ -120,22 +125,20 @@ export default function QuoteSummary({
           </>
         )}
       </dl>
-      {create && m.grand_total > 0 && (
+      {create && planRows.length > 0 && (
         <div className="panel p-3 space-y-1.5 text-sm">
           <p className="text-xs font-semibold text-gray-700">แผนชำระเริ่มต้น</p>
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="min-w-0 text-gray-600">งวดที่ 1 มัดจำ <span className="text-xs text-gray-500">(วันจอง)</span></span>
-            <span className="shrink-0 font-medium tabular-nums text-gray-900">{baht(m.deposit_required)}</span>
-          </div>
-          {rest > 0.005 && (
-            <div className="flex items-baseline justify-between gap-3">
+          {planRows.map((r, i) => (
+            <div key={r.label} className="flex items-baseline justify-between gap-3">
               <span className="min-w-0 text-gray-600">
-                งวดที่ 2 ยอดคงเหลือ
-                <span className="text-xs text-gray-500"> ({m.balance_due_date ? formatThaiDate(m.balance_due_date) : 'ก่อนวันงาน'})</span>
+                งวดที่ {i + 1} {r.label}
+                <span className="text-xs text-gray-500">
+                  {' '}({r.due === 'deposit' ? 'วันจอง' : m.balance_due_date ? formatThaiDate(m.balance_due_date) : 'ก่อนวันงาน'})
+                </span>
               </span>
-              <span className="shrink-0 font-medium tabular-nums text-gray-900">{baht(rest)}</span>
+              <span className="shrink-0 font-medium tabular-nums text-gray-900">{baht(r.amount)}</span>
             </div>
-          )}
+          ))}
           <p className="text-xs text-gray-500">แบ่งงวดเพิ่ม/เปลี่ยนวันได้ที่หน้างานหลังบันทึก</p>
         </div>
       )}

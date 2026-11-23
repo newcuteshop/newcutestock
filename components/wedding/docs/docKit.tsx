@@ -16,7 +16,7 @@ import { formatThaiDate, formatThaiDateTime } from '@/lib/format'
 import { formatPromptPayId, isValidPromptPayId } from '@/lib/promptpay'
 import {
   INSTALLMENT_STATUS_LABELS, amountDueNow, crewDisplayName, crewRoleLabel, formatPhone, sessionTimeText, callTimeText,
-  deliverableStatusLabel, termsLines,
+  deliverableStatusLabel, termsLines, wedDepositPercentOfAmount,
   type WedBankAccount, type WedBooking, type WedDeliverableStatus, type WedInstallmentStatus, type WedSession,
   type WedSettings,
 } from '@/lib/wedding'
@@ -664,6 +664,8 @@ export function InstallmentsTable({ booking: b }: { booking: WedBooking }) {
 /** สถานะการชำระ: ยอดสุทธิ ชำระแล้ว คงเหลือ มัดจำ + งวดชำระ */
 export function PaymentStatusBlock({ booking: b, title = 'สถานะการชำระเงิน' }: { booking: WedBooking; title?: string }) {
   const m = b.money
+  // มัดจำกำหนดเอง / ใช้มัดจำขั้นต่ำ / เต็มยอด = ไม่เขียน "(N%)"
+  const depositPct = wedDepositPercentOfAmount(m)
   // งานยกเลิก: ไม่แสดงยอดค้าง/มัดจำ/งวด (ไม่มีการเรียกเก็บอีก) — แสดงยอดที่ชำระสุทธิหลังหักเงินคืน
   if (b.status === 'cancelled') {
     return (
@@ -693,7 +695,7 @@ export function PaymentStatusBlock({ booking: b, title = 'สถานะกา�
           <div className="wdoc-row">
             <span>
               มัดจำยืนยันคิว
-              {m.deposit_percent !== null && m.deposit_percent > 0 ? ` (${m.deposit_percent}%)` : ''}
+              {depositPct !== null && depositPct > 0 ? ` (${depositPct}%)` : ''}
             </span>
             <span>
               {docMoney(m.deposit_required)}{' '}

@@ -7,7 +7,7 @@ import { forwardRef } from 'react'
 import { formatThaiDate, formatThaiDateTime } from '@/lib/format'
 import { formatPromptPayId, isValidPromptPayId } from '@/lib/promptpay'
 import {
-  WED_RECEIPT_TITLES, formatPhone, sessionTimeText, wedMethodLabel, wedPurposeLabel,
+  WED_RECEIPT_TITLES, formatPhone, sessionTimeText, wedDepositPercentOfAmount, wedMethodLabel, wedPurposeLabel,
   type WedBooking, type WedSettings,
 } from '@/lib/wedding'
 import {
@@ -169,6 +169,8 @@ function ConfirmationDoc({ booking: b, settings, options, assets, issuedOn }: We
 // ---------------------------------------------------------------------------
 function QuoteDoc({ booking: b, settings, options, assets, issuedOn }: WedDocProps) {
   const m = b.money
+  // มัดจำกำหนดเอง / ใช้มัดจำขั้นต่ำ / เต็มยอด = ไม่เขียน "(N% ของยอดบริการ)"
+  const depositPct = wedDepositPercentOfAmount(m)
   const balanceDue = finalDueDate(b)
   return (
     <>
@@ -198,7 +200,7 @@ function QuoteDoc({ booking: b, settings, options, assets, issuedOn }: WedDocPro
             <div className="wdoc-row">
               <span>
                 มัดจำเพื่อล็อกคิว
-                {m.deposit_percent !== null && m.deposit_percent > 0 ? ` (${m.deposit_percent}% ของยอดบริการ)` : ''}
+                {depositPct !== null && depositPct > 0 ? ` (${depositPct}% ของยอดบริการ)` : ''}
               </span>
               <span>{docMoney(m.deposit_required)}</span>
             </div>

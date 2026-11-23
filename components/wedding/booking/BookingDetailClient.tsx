@@ -17,7 +17,8 @@ import { createClient } from '@/lib/supabase/client'
 import { ICON, ICON_SM } from '@/components/theme/icons'
 import { baht, bangkokDateKey, daysBetweenKeys, formatThaiDate, formatThaiDateTime, formatThaiDayLong } from '@/lib/format'
 import {
-  WED_PAYMENT_KIND_LABELS, WED_STATUS_CHIP, amountDueNow, crewConflictText, parseCrewList, parseWedBooking, wedSourceLabel,
+  WED_PAYMENT_KIND_LABELS, WED_STATUS_CHIP, amountDueNow, crewConflictText, parseCrewList, parseWedBooking, wedDefaultPlanPreview,
+  wedNoDeposit, wedSourceLabel,
   type WedBooking, type WedCharge, type WedCrew, type WedDeliverable, type WedDeliverableStatus, type WedPayment,
   type WedPaymentKind, type WedSettings,
 } from '@/lib/wedding'
@@ -627,9 +628,11 @@ function BookingActionDialog({
           successMessage={already => (already ? 'งานนี้ยืนยันไว้แล้ว' : 'ยืนยันงานแล้ว — สร้างรายการส่งงานตามแพ็กเกจให้แล้ว')}
         >
           <p>งาน {booking.booking_no} ของ {booking.couple_names} จะเป็น &quot;ยืนยันแล้ว&quot; และกันคิววันงานไว้ถาวร (ไม่หมดเวลาแบบล็อกคิว)</p>
-          {m.deposit_met
-            ? <p className="text-green-800 font-medium">ได้รับมัดจำครบแล้ว ({baht(m.paid)} จากมัดจำ {baht(m.deposit_required)})</p>
-            : <p className="text-amber-800 font-medium">ชำระแล้ว {baht(m.paid)} · มัดจำ {baht(m.deposit_required)}</p>}
+          {wedNoDeposit(m)
+            ? <p className="text-gray-700 font-medium">งานนี้ไม่เก็บมัดจำ{m.paid > EPS ? ` (ชำระแล้ว ${baht(m.paid)})` : ''}</p>
+            : m.deposit_met
+              ? <p className="text-green-800 font-medium">ได้รับมัดจำครบแล้ว ({baht(m.paid)} จากมัดจำ {baht(m.deposit_required)})</p>
+              : <p className="text-amber-800 font-medium">ชำระแล้ว {baht(m.paid)} · มัดจำ {baht(m.deposit_required)}</p>}
         </ActionDialog>
       )
     }
@@ -769,9 +772,15 @@ function BookingActionDialog({
           fn="wed_reset_installments"
           args={{ p_booking_id: id }}
           verify={fresh => !fresh.installments_custom}
-          successMessage={() => 'ใช้งวดมาตรฐาน (มัดจำ + ยอดคงเหลือ) แล้ว'}
+          successMessage={() => 'ใช้งวดมาตรฐานแล้ว'}
         >
-          <p>งวดที่แก้เองจะถูกแทนด้วย 2 งวดมาตรฐาน: มัดจำ {baht(m.deposit_required)} และยอดคงเหลือ (ครบกำหนดตามวันชำระยอดคงเหลือ)</p>
+          <p>
+            {/* กติกาเดียวกับ wed_default_plan: ไม่มีมัดจำ / มัดจำเท่ายอดสุทธิ = งวดเดียว */}
+            งวดที่แก้เองจะถูกแทนด้วยงวดมาตรฐาน:{' '}
+            {wedDefaultPlanPreview(m.grand_total, m.deposit_required)
+              .map(r => `${r.label} ${baht(r.amount)}${r.due === 'balance' ? ' (ครบกำหนดตามวันชำระยอดคงเหลือ)' : ''}`)
+              .join(' และ ') || 'ไม่มีงวด (ยอดสุทธิ ฿0)'}
+          </p>
         </ActionDialog>
       )
   }
@@ -807,6 +816,8 @@ function NextStep({ booking: b, now, todayKey }: { booking: WedBooking; now: num
     ? `ค้างชำระ ${baht(m.due)}${b.next_due ? ` · งวดถัดไป ${b.next_due.label} ${baht(b.next_due.amount)}${b.next_due.due_date ? ` ภายใน ${formatThaiDate(b.next_due.due_date)}` : ''}${b.next_due.overdue ? ' (เลยกำหนด)' : ''}` : ''}`
     : m.due < -EPS ? `รับเงินเกิน ${baht(-m.due)} — ต้องคืนลูกค้า` : 'ชำระครบแล้ว'
   const until = untilText(todayKey, b.first_date)
+  // มัดจำ ฿0 = ไม่เก็บมัดจำ (ไม่เขียนว่า "ได้รับมัดจำครบแล้ว (฿0)")
+  const noDeposit = wedNoDeposit(m)
   let box: { cls: string; icon: ReactNode; title: string; lines: string[] }
   switch (b.status) {
     case 'inquiry':
@@ -817,7 +828,8 @@ function NextStep({ booking: b, now, todayKey }: { booking: WedBooking; now: num
         lines: [
           b.first_date ? `วันงาน ${eventDatesText(b)}${until ? ` (${until})` : ''} — งานอื่นยังจองวันนี้ได้` : 'ยังไม่ระบุวันงาน',
           r.hold ? `ล็อกคิว: ${r.hold}` : 'ลูกค้าตกลงแล้ว → "ล็อกคิว" ระหว่างรอมัดจำ หรือ "ยืนยันงาน" เมื่อได้มัดจำ',
-          m.deposit_met ? `ได้รับมัดจำครบแล้ว (${baht(m.paid)})` : `มัดจำ ${baht(m.deposit_required)}${m.paid > EPS ? ` · ชำระแล้ว ${baht(m.paid)}` : ''}`,
+          noDeposit ? 'งานนี้ไม่เก็บมัดจำ'
+            : m.deposit_met ? `ได้รับมัดจำครบแล้ว (${baht(m.paid)})` : `มัดจำ ${baht(m.deposit_required)}${m.paid > EPS ? ` · ชำระแล้ว ${baht(m.paid)}` : ''}`,
         ],
       }
       break
@@ -829,7 +841,8 @@ function NextStep({ booking: b, now, todayKey }: { booking: WedBooking; now: num
         lines: [
           b.hold_until ? `ล็อกถึง ${formatThaiDateTime(b.hold_until)}${now !== null ? ` · ${hoursLeft(b.hold_until, now)}` : ''}` : '',
           `วันงาน ${eventDatesText(b)}${until ? ` (${until})` : ''}`,
-          m.deposit_met ? 'ได้รับมัดจำครบแล้ว — กด "ยืนยันงาน"' : `ยังขาดมัดจำ ${baht(depositShort(b))} (มัดจำ ${baht(m.deposit_required)})`,
+          noDeposit ? 'งานนี้ไม่เก็บมัดจำ — กด "ยืนยันงาน"'
+            : m.deposit_met ? 'ได้รับมัดจำครบแล้ว — กด "ยืนยันงาน"' : `ยังขาดมัดจำ ${baht(depositShort(b))} (มัดจำ ${baht(m.deposit_required)})`,
         ],
       }
       break

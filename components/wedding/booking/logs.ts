@@ -70,6 +70,13 @@ function dPair(d: Detail, k: string): [unknown, unknown] | null {
   return Array.isArray(v) && v.length === 2 ? [v[0], v[1]] : null
 }
 
+// มัดจำกำหนดเอง (deposit_override): null = คิดอัตโนมัติ ; ค่าแปลก = undefined (ข้ามบรรทัด)
+function depositText(v: unknown, fmtMoney: (n: number) => string): string | undefined {
+  if (v === null || v === undefined) return 'อัตโนมัติ'
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN
+  return Number.isFinite(n) && n >= 0 ? fmtMoney(n) : undefined
+}
+
 // รายการวันที่ (array ของ 'YYYY-MM-DD')
 function dDates(v: unknown): string[] {
   if (!Array.isArray(v)) return []
@@ -105,6 +112,8 @@ export function describeLog(
       const ds = d ? days(d.dates) : ''
       if (ds) lines.push(`วันงาน: ${ds}`)
       if (dBool(d, 'capacity_over')) lines.push('บันทึกทั้งที่คิววันนั้นเต็ม (ยืนยันแล้ว)')
+      const dep = dNum(d, 'deposit_override')
+      if (dep !== null && dep >= 0) lines.push(`มัดจำกำหนดเอง ${fmtMoney(dep)}`)
       break
     }
     case 'update': {
@@ -129,6 +138,12 @@ export function describeLog(
         if (p && Number.isFinite(Number(p[0])) && Number.isFinite(Number(p[1]))) {
           lines.push(`${name} ${fmtMoney(Number(p[0]))} → ${fmtMoney(Number(p[1]))}`)
         }
+      }
+      const dp = dPair(d, 'deposit_override')
+      if (dp) {
+        const a = depositText(dp[0], fmtMoney)
+        const b = depositText(dp[1], fmtMoney)
+        if (a !== undefined && b !== undefined && a !== b) lines.push(`มัดจำ ${a} → ${b}`)
       }
       const ad = dNum(d, 'addons')
       if (ad !== null) lines.push(`บริการเสริม ${ad} รายการ`)

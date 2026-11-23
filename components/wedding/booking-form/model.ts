@@ -187,6 +187,8 @@ export interface WedDraft {
   travelFee: string
   discount: string
   discountNote: string
+  /** มัดจำที่พิมพ์เอง (บาท) — ว่าง = คิดอัตโนมัติ (% ของยอดงาน ขั้นต่ำตามนโยบาย) ; 0 = ไม่เก็บมัดจำ */
+  depositOverride: string
   balanceDueOverride: string
   followupDate: string
   followupNote: string
@@ -278,6 +280,7 @@ export function emptyDraft(holdHours: number, firstDate = ''): WedDraft {
     travelFee: '',
     discount: '',
     discountNote: '',
+    depositOverride: '',
     balanceDueOverride: '',
     followupDate: '',
     followupNote: '',
@@ -424,6 +427,8 @@ export function draftFromBooking(
     travelFee: moneyText(b.travel_fee),
     discount: moneyText(b.discount),
     discountNote: b.discount_note ?? '',
+    // 0 ก็เป็นค่าที่ตั้งใจ (ไม่เก็บมัดจำ) — ห้ามใช้ moneyText ที่ตัด 0 ทิ้ง
+    depositOverride: b.money.deposit_override !== null ? String(b.money.deposit_override) : '',
     balanceDueOverride: b.money.balance_due_date_override ?? '',
     followupDate: b.followup_date ?? '',
     followupNote: b.followup_note ?? '',
@@ -720,7 +725,7 @@ export interface CoreCheck {
   pkg: Partial<Record<'name' | 'price' | 'hours' | 'description', string>>
   plan: Record<string, string>
   addons: Record<string, string>
-  money: Partial<Record<'travelFee' | 'discount' | 'discountNote' | 'balanceDueOverride', string>>
+  money: Partial<Record<'travelFee' | 'discount' | 'discountNote' | 'depositOverride' | 'balanceDueOverride', string>>
   other: Partial<Record<'couple' | 'followupDate' | 'followupNote' | 'coordinatorName' | 'coordinatorPhone' | 'moodLink' |
     'customerNote' | 'note' | 'holdHours', string>>
   warnings: string[]
@@ -838,9 +843,13 @@ export function checkCore(d: WedDraft, ctx: CoreCtx): CoreCheck {
   if (travel.problem) money.travelFee = travel.problem
   if (disc.problem) money.discount = disc.problem
   if (tooLong(d.discountNote, MAX_DISCOUNT_NOTE)) money.discountNote = `เหตุผลส่วนลดยาวเกินไป (สูงสุด ${MAX_DISCOUNT_NOTE} ตัวอักษร)`
+  // มัดจำกำหนดเอง: ว่าง = อัตโนมัติ (ส่ง null) ; ฐานข้อมูลใช้ไม่เกินยอดหลังส่วนลด (ไม่มีค่าใช้จ่ายเพิ่ม = ยอดสุทธิ)
+  const depositBlank = d.depositOverride.trim() === ''
+  const dep = checkMoney(d.depositOverride, 'มัดจำ')
+  if (dep.problem) money.depositOverride = dep.problem
   if (d.balanceDueOverride.trim() && !isDayKey(d.balanceDueOverride)) money.balanceDueOverride = 'วันที่ไม่ถูกต้อง'
-  add('money', money.travelFee ?? money.discount ?? money.discountNote ?? money.balanceDueOverride)
-  if (money.travelFee || money.discount || money.balanceDueOverride) quotable = false
+  add('money', money.travelFee ?? money.discount ?? money.discountNote ?? money.depositOverride ?? money.balanceDueOverride)
+  if (money.travelFee || money.discount || money.depositOverride || money.balanceDueOverride) quotable = false
 
   // ----- อื่นๆ -----
   if (d.followupDate.trim() && !isDayKey(d.followupDate)) other.followupDate = 'วันที่ไม่ถูกต้อง'
@@ -894,6 +903,8 @@ export function checkCore(d: WedDraft, ctx: CoreCtx): CoreCheck {
   payload.travel_fee = travel.value
   payload.discount = disc.value
   payload.discount_note = disc.value > 0 ? tOrNull(d.discountNote) : null
+  // ส่งเสมอ (สร้าง/แก้ไข/ถามราคา) — null = กลับไปคิดอัตโนมัติ (แบบเดียวกับ balance_due_date_override)
+  payload.deposit_override = depositBlank || dep.problem ? null : dep.value
   payload.sessions = sessionsPayload(d.sessions, ctx.manager)
   payload.balance_due_date_override = isDayKey(d.balanceDueOverride) ? d.balanceDueOverride : null
   payload.followup_date = isDayKey(d.followupDate) ? d.followupDate : null
@@ -972,7 +983,10 @@ export function planPayment(d: WedDraft, quote: WedQuote | null): PaymentPlan {
   }
   if (!problem && tooLong(d.payNote, MAX_PAY_NOTE)) problem = `หมายเหตุการรับเงินยาวเกินไป (สูงสุด ${MAX_PAY_NOTE} ตัวอักษร)`
   if (problem) return { ...none, ok: false, problem }
-  const purpose = d.payMode === 'deposit' ? 'deposit' : d.payMode === 'full' ? 'balance' : null
+  // มัดจำเท่ายอดสุทธิ (กำหนดเองเกินยอด / ขั้นต่ำ / 100%) = จ่ายครบทั้งงาน → ใบเสร็จต้องไม่เขียนว่า "มัดจำ"
+  //   (กติกาเดียวกับวัตถุประสงค์อัตโนมัติใน wed_add_payment_core)
+  const purpose = d.payMode === 'full' || (d.payMode === 'deposit' && amount >= grand - 0.005) ? 'balance'
+    : d.payMode === 'deposit' ? 'deposit' : null
   return {
     ok: true,
     problem: null,
@@ -1205,6 +1219,7 @@ export function readStoredDraftValue(raw: unknown, holdHours: number): WedDraft 
     travelFee: str(o.travelFee, 30),
     discount: str(o.discount, 30),
     discountNote: str(o.discountNote, MAX_DISCOUNT_NOTE + 50),
+    depositOverride: str(o.depositOverride, 30),
     balanceDueOverride: day(o.balanceDueOverride),
     followupDate: day(o.followupDate),
     followupNote: str(o.followupNote, MAX_FOLLOWUP_NOTE + 50),
@@ -1252,7 +1267,7 @@ export function parseStoredDraft(json: string | null, holdHours: number): Stored
 /** ฟอร์มนี้มีอะไรที่ผู้ใช้กรอกไว้แล้วหรือยัง (ไม่มี = ไม่ต้องกู้คืน/ไม่ต้องเตือน) */
 export function draftHasContent(d: WedDraft): boolean {
   if (d.customer || d.newCustomer.name.trim() || d.newCustomer.phone.trim() || d.coupleNames.trim()) return true
-  if (d.packageId || d.addons.length > 0 || d.travelFee.trim() || d.discount.trim()) return true
+  if (d.packageId || d.addons.length > 0 || d.travelFee.trim() || d.discount.trim() || d.depositOverride.trim()) return true
   return d.sessions.some(s => s.date !== '' || s.venue_name.trim() !== '' || s.crew.length > 0 || s.start_time !== '' || s.title.trim() !== '')
 }
 
@@ -1277,6 +1292,7 @@ export function bookingMatchesEdit(latest: WedBooking, payload: Record<string, u
   if ('package_name' in payload && !same(latest.package.name || null, payload.package_name)) return false
   if ('package_price' in payload && !sameMoney(latest.package.price, payload.package_price)) return false
   if (!sameMoney(latest.travel_fee, payload.travel_fee) || !sameMoney(latest.discount, payload.discount)) return false
+  if ('deposit_override' in payload && !sameMoney(latest.money.deposit_override, payload.deposit_override)) return false
   if (!same(latest.followup_date, payload.followup_date) || !same(latest.followup_note, payload.followup_note)) return false
   if (!same(latest.coordinator_name, payload.coordinator_name) || !same(latest.coordinator_phone, payload.coordinator_phone)) return false
   // ลิงก์ผ่าน URL() ทั้งสองฝั่ง (ฐานข้อมูลเก็บตามที่ส่ง ตัวอ่านแปลงเป็นรูปมาตรฐาน)
