@@ -4,7 +4,7 @@ import MobileNav from '@/components/layout/MobileNav'
 import EntryGate from '@/components/auth/EntryGate'
 import ShopThemeSync from '@/components/theme/ShopThemeSync'
 import { createClient } from '@/lib/supabase/server'
-import { getSession, shopAccess } from '@/lib/auth/permissions'
+import { canSwitchShop, getSession, shopAccess } from '@/lib/auth/permissions'
 import { NOSCRIPT_LOCK_HTML } from '@/lib/auth/entry-gate'
 import { loadRentalBadges, loadRentalShopName } from '@/lib/rental'
 
@@ -30,7 +30,7 @@ export default async function RentalLayout({ children }: { children: React.React
     permissions: session.permissions,
     shop: 'rental',
     shopName,
-    canSwitchShop: access.newcute && access.rental,
+    canSwitchShop: canSwitchShop(access),
     badges: badges ?? undefined,
   }
 

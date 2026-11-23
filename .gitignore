@@ -9,3 +9,6 @@ out/
 next-env.d.ts
 *.log
 .DS_Store
+# เครื่องมือทดสอบใน tools/ (ติดตั้งแยกในโฟลเดอร์ของมันเอง) และผลลัพธ์ QA
+tools/**/node_modules/
+tools/qa/out/

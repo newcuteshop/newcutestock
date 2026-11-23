@@ -2,7 +2,7 @@ import { cache } from 'react'
 import { redirect } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
-import { type Permissions, ADMIN_PERMISSIONS, NO_PERMISSIONS } from '@/types'
+import { type Permissions, ADMIN_PERMISSIONS, NO_PERMISSIONS, SHOP_PERMISSION_KEYS } from '@/types'
 
 export type AppSession = {
   user: User
@@ -85,14 +85,16 @@ export async function getAdminSessionOrError(): Promise<AppSession | null> {
   }
 }
 
-// ===== ร้านเช่าชุด + ตัวเลือกร้าน (/select) =====
-// ระบบมี 2 ร้านในฐานข้อมูล/ผู้ใช้ชุดเดียวกัน — สิทธิ์แยกตามร้าน (types/index.ts PERMISSION_GROUPS)
+// ===== ร้านเช่าชุด + ร้าน b.oncloud + ตัวเลือกร้าน (/select) =====
+// ระบบมี 3 ร้านในฐานข้อมูล/ผู้ใช้ชุดเดียวกัน — สิทธิ์แยกตามร้าน (types/index.ts PERMISSION_GROUPS)
 // rental_manage ครอบ rental เสมอ (ตรงกับ rental_staff() ในฐานข้อมูล = has_perm('rental') หรือ has_perm('rental_manage'))
+// wedding_manage ครอบ wedding เสมอ (ตรงกับ wed_staff() ในฐานข้อมูล = has_perm('wedding') หรือ has_perm('wedding_manage'))
 
 type PermSource = Pick<AppSession, 'role' | 'permissions'>
 
 // คีย์ที่นับว่า "เข้าร้าน NEWCUTE ได้" (users = จัดการผู้ใช้ อยู่ในหน้าระบบของ NEWCUTE)
-const NEWCUTE_KEYS: readonly (keyof Permissions)[] = ['products', 'stock', 'sales', 'refunds', 'labels', 'reports', 'users']
+// (รายการเดียวกับ SHOP_PERMISSION_KEYS.newcute ใน types/index.ts — เมนูฝั่งเบราว์เซอร์ใช้ชุดเดียวกัน)
+const NEWCUTE_KEYS: readonly (keyof Permissions)[] = SHOP_PERMISSION_KEYS.newcute
 
 /** พนักงานร้านเช่าชุด (จอง/รับ-คืน/รับเงิน) — admin หรือ rental หรือ rental_manage */
 export function isRentalStaff(s: PermSource | null | undefined): boolean {
@@ -106,14 +108,51 @@ export function isRentalManager(s: PermSource | null | undefined): boolean {
   return s.role === 'admin' || s.permissions.rental_manage === true
 }
 
+/** พนักงานร้าน b.oncloud (งาน/ปฏิทิน/รับเงิน) — admin หรือ wedding หรือ wedding_manage */
+export function isWeddingStaff(s: PermSource | null | undefined): boolean {
+  if (!s) return false
+  return s.role === 'admin' || s.permissions.wedding === true || s.permissions.wedding_manage === true
+}
+
+/** ผู้จัดการร้าน b.oncloud (แพ็กเกจ/ทีมงาน/ค่าจ้างทีม/กำไร/ตั้งค่า/รายงาน) — admin หรือ wedding_manage */
+export function isWeddingManager(s: PermSource | null | undefined): boolean {
+  if (!s) return false
+  return s.role === 'admin' || s.permissions.wedding_manage === true
+}
+
+/** ร้านที่ผู้ใช้เข้าได้ (ผลของ shopAccess) */
+export type ShopAccess = { newcute: boolean; rental: boolean; wedding: boolean }
+
 /** ผู้ใช้นี้เข้าร้านไหนได้บ้าง — ใช้ตัดสินใจหน้า /select และการแสดงลิงก์ "เปลี่ยนร้าน" */
-export function shopAccess(s: PermSource | null | undefined): { newcute: boolean; rental: boolean } {
-  if (!s) return { newcute: false, rental: false }
+export function shopAccess(s: PermSource | null | undefined): ShopAccess {
+  if (!s) return { newcute: false, rental: false, wedding: false }
   const admin = s.role === 'admin'
   return {
     newcute: admin || NEWCUTE_KEYS.some(k => s.permissions[k] === true),
     rental: isRentalStaff(s),
+    wedding: isWeddingStaff(s),
   }
+}
+
+/** จำนวนร้านที่เข้าได้ (0–3) */
+export function shopCount(access: ShopAccess): number {
+  return (access.newcute ? 1 : 0) + (access.rental ? 1 : 0) + (access.wedding ? 1 : 0)
+}
+
+/** แสดงลิงก์ "เปลี่ยนร้าน" (/select) ในเมนูไหม — เข้าได้ตั้งแต่ 2 ร้านขึ้นไป */
+export function canSwitchShop(access: ShopAccess): boolean {
+  return shopCount(access) >= 2
+}
+
+/**
+ * หน้าแรกของร้านเดียวที่เข้าได้ ('/dashboard' | '/rental' | '/wedding') — เข้าได้ 0 หรือหลายร้าน → null
+ * ใช้ในหน้า /select (ร้านเดียว = พาเข้าร้านนั้นทันที) และ layout ของร้านที่ผู้ใช้ไม่มีสิทธิ์ (พาไปร้านที่เป็นของเขา)
+ */
+export function singleShopHome(access: ShopAccess): '/dashboard' | '/rental' | '/wedding' | null {
+  if (shopCount(access) !== 1) return null
+  if (access.newcute) return '/dashboard'
+  if (access.rental) return '/rental'
+  return '/wedding'
 }
 
 // ใช้บนหน้า server component ของร้านเช่าชุด: ไม่ได้ login → /login, ไม่มีสิทธิ์ร้านเช่าชุด → /select
@@ -129,5 +168,21 @@ export async function requireRental(): Promise<AppSession> {
 export async function requireRentalManager(): Promise<AppSession> {
   const session = await requireRental()
   if (!isRentalManager(session)) redirect('/rental')
+  return session
+}
+
+// ใช้บนหน้า server component ของร้าน b.oncloud: ไม่ได้ login → /login, ไม่มีสิทธิ์ร้าน b.oncloud → /select
+export async function requireWedding(): Promise<AppSession> {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  if (!isWeddingStaff(session)) redirect('/select')
+  return session
+}
+
+// หน้าเฉพาะผู้จัดการร้าน b.oncloud (แพ็กเกจ/ทีมงาน-ค่าจ้าง/ตั้งค่า/รายงาน): ไม่ได้ login → /login,
+// ไม่มีสิทธิ์ร้าน b.oncloud → /select, เป็นพนักงานแต่ไม่ใช่ผู้จัดการ → /wedding (หน้าภาพรวม)
+export async function requireWeddingManager(): Promise<AppSession> {
+  const session = await requireWedding()
+  if (!isWeddingManager(session)) redirect('/wedding')
   return session
 }

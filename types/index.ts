@@ -104,6 +104,9 @@ export interface Permissions {
   // ----- ร้านเช่าชุด (supabase-fix-05-rental.sql) — rental_manage ครอบ rental เสมอ (เช็กด้วย lib/auth/permissions.ts) -----
   rental: boolean          // จอง / รับ-คืนชุด / รับเงิน
   rental_manage: boolean   // จัดการชุด / ราคา / ตั้งค่า / รายงาน
+  // ----- ร้าน b.oncloud คอนเทนต์งานแต่ง (supabase-fix-07-wedding.sql) — wedding_manage ครอบ wedding เสมอ (เช็กด้วย lib/auth/permissions.ts) -----
+  wedding: boolean          // งาน / ปฏิทิน / รับเงิน
+  wedding_manage: boolean   // แพ็กเกจ / ทีมงาน / ตั้งค่า / รายงาน (เห็นค่าจ้างทีมและกำไร)
 }
 
 export const DEFAULT_PERMISSIONS: Permissions = {
@@ -117,6 +120,9 @@ export const DEFAULT_PERMISSIONS: Permissions = {
   // ร้านเช่าชุดเป็นอีกร้าน — ผู้ใช้ใหม่ยังไม่เห็นร้านนี้จนกว่าจะเปิดสิทธิ์ให้เอง
   rental: false,
   rental_manage: false,
+  // ร้าน b.oncloud เป็นอีกร้าน — ผู้ใช้ใหม่ยังไม่เห็นร้านนี้จนกว่าจะเปิดสิทธิ์ให้เอง
+  wedding: false,
+  wedding_manage: false,
 }
 
 export const ADMIN_PERMISSIONS: Permissions = {
@@ -129,6 +135,8 @@ export const ADMIN_PERMISSIONS: Permissions = {
   refunds: true,
   rental: true,
   rental_manage: true,
+  wedding: true,
+  wedding_manage: true,
 }
 
 // ไม่มีสิทธิ์อะไรเลย — ใช้เป็นค่าเริ่มต้นแบบ fail-closed (หาโปรไฟล์ไม่เจอ / อ่านไม่ได้)
@@ -142,6 +150,8 @@ export const NO_PERMISSIONS: Permissions = {
   refunds: false,
   rental: false,
   rental_manage: false,
+  wedding: false,
+  wedding_manage: false,
 }
 
 export const PERMISSION_LABELS: Record<keyof Permissions, string> = {
@@ -154,12 +164,31 @@ export const PERMISSION_LABELS: Record<keyof Permissions, string> = {
   refunds: 'ยกเลิกบิล / คืนสินค้า',
   rental: 'ร้านเช่าชุด: จอง/รับ-คืนชุด/รับเงิน',
   rental_manage: 'ร้านเช่าชุด: จัดการชุด/ราคา/ตั้งค่า/รายงาน',
+  wedding: 'b.oncloud: งาน/ปฏิทิน/รับเงิน',
+  wedding_manage: 'b.oncloud: แพ็กเกจ/ทีม/ตั้งค่า/รายงาน',
 }
 
 // กลุ่มสวิตช์สิทธิ์ในหน้าจัดการผู้ใช้ (แยกตามร้าน) — ทุกคีย์ของ Permissions ต้องอยู่ในกลุ่มใดกลุ่มหนึ่งพอดี 1 ครั้ง
+// คีย์สิทธิ์ที่นับว่า "เข้าร้านนั้นได้" (ใช้ทั้ง lib/auth/permissions.ts shopAccess และเมนูฝั่งเบราว์เซอร์ — ที่เดียว ห้ามเขียนซ้ำ)
+// NEWCUTE รวม users (จัดการผู้ใช้อยู่ในหน้าระบบของ NEWCUTE) · admin เข้าได้ทุกร้านเสมอ (ไม่ต้องดูคีย์)
+export const SHOP_PERMISSION_KEYS: Readonly<Record<'newcute' | 'rental' | 'wedding', readonly (keyof Permissions)[]>> = {
+  newcute: ['products', 'stock', 'sales', 'refunds', 'labels', 'reports', 'users'],
+  rental: ['rental', 'rental_manage'],
+  wedding: ['wedding', 'wedding_manage'],
+}
+
+/** จำนวนร้านที่บทบาท/สิทธิ์ชุดนี้เข้าได้ (0–3) — ฟังก์ชันล้วน ใช้ได้ทั้ง server และ client */
+export function countAccessibleShops(role: 'admin' | 'staff' | null | undefined, permissions: Partial<Permissions> | null | undefined): number {
+  if (role === 'admin') return 3
+  const p = permissions ?? {}
+  return (Object.keys(SHOP_PERMISSION_KEYS) as (keyof typeof SHOP_PERMISSION_KEYS)[])
+    .filter(shop => SHOP_PERMISSION_KEYS[shop].some(k => p[k] === true)).length
+}
+
 export const PERMISSION_GROUPS: readonly { title: string; keys: readonly (keyof Permissions)[] }[] = [
   { title: 'ร้าน NEWCUTE', keys: ['products', 'stock', 'sales', 'refunds', 'labels', 'reports'] },
   { title: 'ร้านเช่าชุด', keys: ['rental', 'rental_manage'] },
+  { title: 'b.oncloud (คอนเทนต์งานแต่ง)', keys: ['wedding', 'wedding_manage'] },
   { title: 'ระบบ', keys: ['users'] },
 ]
 

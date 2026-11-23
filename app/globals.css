@@ -126,6 +126,65 @@
   --c-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2351636E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
+/*
+  ร้าน b.oncloud (คอนเทนต์งานแต่ง /wedding/*, หน้าติดตามงาน /wedding-status/*) = ธีม #13 "ทองแชมเปญ (Champagne)" แถบเมนูสีตามธีม
+  - ตัวแปรครบชุดเดียวกับร้านเช่า (หน้าที่ของแต่ละขั้นเหมือนกัน) — NEWCUTE / ร้านเช่า ด้านบนไม่แตะ
+  - brand-400 #DCC291 = พื้นปุ่มหลัก (ตัวอักษรเข้ม on-primary #2A2318) · 600 #85652A = ไอคอน/วงโฟกัส · 700 #6B5222 = ลิงก์/ตัวอักษรเน้น
+  - เทาอุ่น (warm neutral) หน้าที่เดียวกับเทาของร้านอื่น · ป้ายตัวเลขบนเมนูแดง #BF2B2B แบบเดียวกับร้านเช่า
+  - คอนทราสต์ (ตรวจด้วยสคริปต์ 23/11/2569): หมึก/พื้น 15.1 · gray-400 บนขาว 5.6 · brand-700 บนขาว 7.4 / บน brand-100 6.5
+    on-primary บน brand-400 9.0 / บน brand-500 7.8 · ขาวบน brand-600 5.4 · ตัวอักษรเมนูบนแถบเมนู 13.7 · เมนูที่เลือก 8.1
+    วงโฟกัส brand-600 บนปุ่มหลัก brand-400 3.1 · gray-500 บนพื้นตัวเลือกที่เลือก (brand-400) 3.8 ไม่ถึง → กฎเดียวกับร้านเช่า (ด้านล่าง)
+*/
+[data-shop='wedding'] {
+  /* brand */
+  --c-brand-50: 251 248 241; /* #FBF8F1 */
+  --c-brand-100: 247 240 225; /* #F7F0E1 */
+  --c-brand-200: 239 226 198; /* #EFE2C6 */
+  --c-brand-300: 230 210 171; /* #E6D2AB */
+  --c-brand-400: 220 194 145; /* #DCC291 */
+  --c-brand-500: 210 180 124; /* #D2B47C */
+  --c-brand-600: 133 101 42; /* #85652A */
+  --c-brand-700: 107 82 34; /* #6B5222 */
+  --c-brand-800: 87 66 25; /* #574219 */
+  --c-brand-900: 58 44 18; /* #3A2C12 */
+  --c-brand-950: 36 27 11; /* #241B0B */
+  /* gray (เทาอุ่น) + พื้น/หมึก */
+  --c-gray-50: 251 250 247; /* #FBFAF7 */
+  --c-gray-100: 246 244 239; /* #F6F4EF */
+  --c-gray-150: 239 236 229; /* #EFECE5 */
+  --c-gray-200: 234 228 216; /* #EAE4D8 */
+  --c-gray-300: 217 210 196; /* #D9D2C4 */
+  --c-gray-350: 189 180 164; /* #BDB4A4 */
+  --c-gray-400: 110 103 92; /* #6E675C */
+  --c-gray-500: 98 92 84; /* #625C54 */
+  --c-gray-600: 83 77 69; /* #534D45 */
+  --c-gray-700: 66 61 54; /* #423D36 */
+  --c-gray-800: 44 40 35; /* #2C2823 */
+  --c-gray-900: 36 33 28; /* #24211C */
+  --c-gray-950: 18 16 13; /* #12100D */
+  --c-canvas: 250 248 244; /* #FAF8F4 */
+  --c-ink: 36 33 28; /* #24211C */
+  /* แถบเมนู (สีตามธีม) */
+  --c-side: 246 240 227; /* #F6F0E3 */
+  --c-side-ink: 42 35 24; /* #2A2318 */
+  --c-side-nav: 42 35 24; /* #2A2318 */
+  --c-side-muted: 95 88 73; /* #5F5849 */
+  --c-side-hover: 239 229 207; /* #EFE5CF */
+  --c-side-press: 234 219 185; /* #EADBB9 */
+  --c-side-active: 234 219 185; /* #EADBB9 */
+  --c-side-active-ink: 74 57 22; /* #4A3916 */
+  --c-side-line: 234 228 216; /* #EAE4D8 */
+  --c-side-sep: 234 228 216; /* #EAE4D8 */
+  --c-side-pill: 251 248 241; /* #FBF8F1 */
+  --c-side-avatar: 234 219 185; /* #EADBB9 ต้องเข้มกว่ากล่องผู้ใช้ (#FBF8F1 = brand-50) ไม่งั้นฟองกลืนหายไป */
+  --c-side-badge: 191 43 43; /* #BF2B2B แดง (red-600) แบบเดียวกับร้านเช่า · ตัวอักษรขาว 5.8:1 */
+  --c-on-primary: 42 35 24; /* #2A2318 onPrimary ของธีม #13 · บน brand-400 9.0:1 */
+  /* เทากลางไม่อมสี (สถานะหยุด/จบแล้ว) — ค่าเดียวกับร้านเช่า */
+  --c-off: 227 227 227; /* #E3E3E3 */
+  --c-off-line: 189 189 189; /* #BDBDBD */
+  --c-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23625C54' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
 @layer base {
   * { box-sizing: border-box; }
   html {
@@ -587,6 +646,10 @@
   /* ร้านเช่า: คำอธิบาย/ตัวเลขสีจาง (text-gray-500 / 400) ข้างในตัวเลือก-ชิปที่เลือกอยู่ (พื้น brand-400)
      gray-500 บนฟ้า brand-400 = 4.1:1 ไม่ถึง 4.5 → ใช้ gray-700 (6.5:1) · NEWCUTE ไม่เปลี่ยน (เฉพาะใต้ data-shop="rental") */
   [data-shop='rental'] :is(.choice, .chip-toggle):is([aria-pressed='true'], [aria-checked='true']) :is(.text-gray-500, .text-gray-400) {
+    color: rgb(var(--c-gray-700));
+  }
+  /* ร้าน b.oncloud (ทองแชมเปญ): ปัญหาเดียวกัน — gray-500 บนทอง brand-400 = 3.8:1 → gray-700 (6.2:1) · แยกกฎ ไม่แตะกฎร้านเช่าด้านบน */
+  [data-shop='wedding'] :is(.choice, .chip-toggle):is([aria-pressed='true'], [aria-checked='true']) :is(.text-gray-500, .text-gray-400) {
     color: rgb(var(--c-gray-700));
   }
 

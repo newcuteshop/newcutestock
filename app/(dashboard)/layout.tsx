@@ -3,7 +3,7 @@ import Sidebar, { type NavProps } from '@/components/layout/Sidebar'
 import MobileNav from '@/components/layout/MobileNav'
 import EntryGate from '@/components/auth/EntryGate'
 import ShopThemeSync from '@/components/theme/ShopThemeSync'
-import { getSession, shopAccess } from '@/lib/auth/permissions'
+import { canSwitchShop, getSession, shopAccess, shopCount, singleShopHome } from '@/lib/auth/permissions'
 
 // เบราว์เซอร์ปิด JavaScript = สคริปต์ประตูเข้าระบบไม่ทำงาน (ไม่ล็อกหน้าจอ ไม่พาไปหน้าเข้าสู่ระบบ)
 // → ซ่อนหน้าระบบทั้งหมดแทน (fail closed) แล้วบอกให้เปิด JavaScript — ระบบใช้งานไม่ได้อยู่แล้วถ้าไม่มี JavaScript
@@ -21,15 +21,20 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // ส่งเฉพาะข้อมูลที่เมนูต้องใช้ไปฝั่ง client (ไม่ส่ง object user ทั้งก้อน)
   // เข้าได้ทั้งร้าน NEWCUTE และร้านเช่าชุด → มีลิงก์ "เปลี่ยนร้าน" (/select) ในเมนู
   const access = shopAccess(session)
-  // บัญชีที่มีสิทธิ์เฉพาะร้านเช่าชุด → หลังร้าน NEWCUTE ไม่ใช่ของเขา พาไปร้านเช่า (บัญชีไม่มีสิทธิ์เลยยังเห็นหน้าเดิม)
-  if (!access.newcute && access.rental) redirect('/rental')
+  // บัญชีที่ไม่มีสิทธิ์ร้าน NEWCUTE → หลังร้านนี้ไม่ใช่ของเขา: เข้าได้ร้านเดียว (เช่าชุด/b.oncloud) = พาไปร้านนั้น,
+  // เข้าได้หลายร้าน = ให้เลือกที่ /select (บัญชีไม่มีสิทธิ์เลยยังเห็นหน้าเดิม)
+  if (!access.newcute) {
+    const home = singleShopHome(access)
+    if (home) redirect(home)
+    if (shopCount(access) >= 2) redirect('/select')
+  }
   const nav: NavProps = {
     email: session.user.email ?? '',
     fullName: session.fullName,
     role: session.role,
     permissions: session.permissions,
     shop: 'newcute',
-    canSwitchShop: access.newcute && access.rental,
+    canSwitchShop: canSwitchShop(access),
   }
 
   return (

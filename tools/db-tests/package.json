@@ -1,0 +1,12 @@
+{
+  "name": "newcute-db-tests",
+  "private": true,
+  "type": "module",
+  "description": "PGlite SQL test harness — loads the repo supabase-*.sql files into an in-memory Postgres and runs tests/*.mjs",
+  "scripts": {
+    "test": "node run.mjs"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.14"
+  }
+}

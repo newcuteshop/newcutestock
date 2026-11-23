@@ -6,7 +6,7 @@ import { isPublicPath } from '@/lib/auth/entry-gate'
 type PendingCookie = { name: string; value: string; options: CookieOptions }
 
 export async function middleware(request: NextRequest) {
-  // หน้าจองออนไลน์สาธารณะ (/book, /book/..., /api/book/...) ไม่ต้อง login — matcher ด้านล่างข้ามอยู่แล้ว
+  // หน้าสาธารณะ (/book, /book/..., /api/book/..., /wedding-status/...) ไม่ต้อง login — matcher ด้านล่างข้ามอยู่แล้ว
   // กันไว้อีกชั้นเผื่อ matcher ถูกแก้ภายหลัง: ไม่แตะ session ไม่ redirect
   if (isPublicPath(request.nextUrl.pathname)) return NextResponse.next()
 
@@ -79,7 +79,9 @@ export const config = {
   // /api/integrations/* (webhook / OAuth callback / worker) และ /api/feed/* ยืนยันตัวตนเอง (ลายเซ็น / state / Bearer / โทเคนฟีด)
   // หน้าจองออนไลน์สาธารณะ: book(?:/|$) = '/book' หรือ '/book/...' เท่านั้น ('/booking' ยังผ่าน middleware ตามปกติ)
   //   และ api/book/ = API อัปโหลดสลิปของลูกค้า (ตรวจโทเคนการจองเอง) — ต้องตรงกับ isPublicPath ใน lib/auth/entry-gate.ts
+  // หน้าติดตามงานคู่บ่าวสาว (ร้าน b.oncloud): wedding-status(?:/|$) = '/wedding-status' หรือ '/wedding-status/...' เท่านั้น
+  //   ('/wedding', '/wedding/...', '/wedding-statusx' ยังผ่าน middleware = ต้องเข้าสู่ระบบ) — หน้านั้นอ่านข้อมูลผ่าน RPC โทเคนสาธารณะ
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|api/cron|api/integrations/|api/feed/|api/book/|book(?:/|$)|.*\\.(?:svg|png|jpg|jpeg|gif|ico|webp|webmanifest)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|api/cron|api/integrations/|api/feed/|api/book/|book(?:/|$)|wedding-status(?:/|$)|.*\\.(?:svg|png|jpg|jpeg|gif|ico|webp|webmanifest)$).*)',
   ],
 }

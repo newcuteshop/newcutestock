@@ -7,7 +7,7 @@ import { LogOut, Menu, X } from 'lucide-react'
 import { displayLogin } from '@/lib/auth/credentials'
 import { ICON, ICON_LG } from '@/components/theme/icons'
 import {
-  NavLinks, ShopBrand, shopHomeHref, SwitchShopLink, useLogout, UserPill, visibleNavItems, type NavProps,
+  NavLinks, ShopBrand, shopHomeHref, showSwitchShop, SwitchShopLink, useLogout, UserPill, visibleNavItems, type NavProps,
 } from './Sidebar'
 
 const DRAWER_ID = 'mobile-nav-drawer'
@@ -183,7 +183,7 @@ export default function MobileNav({
 
           {/* เปลี่ยนร้าน + ออกจากระบบ (คั่นจากเมนูด้วยเส้นบาง) */}
           <div className="shrink-0 border-t border-side-sep px-3 pt-3 pb-4 space-y-1">
-            {canSwitchShop && <SwitchShopLink className="text-base" onNavigate={() => setOpen(false)} />}
+            {showSwitchShop({ canSwitchShop, role, permissions }) && <SwitchShopLink className="text-base" onNavigate={() => setOpen(false)} />}
             <button
               type="button"
               onClick={logout}

@@ -10,8 +10,10 @@ export const ENTRY_FLAG_KEY = 'newcute-entered'
 
 // รันใน <head> ก่อนหน้าเว็บแสดงผล (ต่อท้าย MOTION_BOOT_SCRIPT ในสคริปต์เดียวกัน) — ทุกหน้ายกเว้น /login และหน้าจองออนไลน์สาธารณะ
 // /book (ลูกค้าเปิดจาก LINE/โซเชียล ไม่มีบัญชี) — เทียบทั้งท่อน: '/book' หรือขึ้นต้น '/book/' เท่านั้น (/booking, /bookx ยังถูกล็อก)
+// + หน้าติดตามงานของคู่บ่าวสาว ร้าน b.oncloud: '/wedding-status' หรือขึ้นต้น '/wedding-status/' เท่านั้น
+//   (หลังร้าน '/wedding', '/wedding/...' และ '/wedding-statusx' ยังถูกล็อก)
 // ต้องตรงกับ isPublicPath ด้านล่าง และ matcher ใน middleware.ts
-export const ENTRY_GATE_BOOT_SCRIPT = `(function(){var p=location.pathname,ok=false;if(p==='/login'||p.indexOf('/login/')===0||p==='/book'||p.indexOf('/book/')===0)return;try{ok=window.sessionStorage.getItem('${ENTRY_FLAG_KEY}')==='1'}catch(e){}if(!ok)document.documentElement.setAttribute('data-gate','locked')})()`
+export const ENTRY_GATE_BOOT_SCRIPT = `(function(){var p=location.pathname,ok=false;if(p==='/login'||p.indexOf('/login/')===0||p==='/book'||p.indexOf('/book/')===0||p==='/wedding-status'||p.indexOf('/wedding-status/')===0)return;try{ok=window.sessionStorage.getItem('${ENTRY_FLAG_KEY}')==='1'}catch(e){}if(!ok)document.documentElement.setAttribute('data-gate','locked')})()`
 
 // เบราว์เซอร์ปิด JavaScript = สคริปต์ประตูเข้าระบบไม่ทำงาน (ไม่ล็อกหน้าจอ ไม่พาไปหน้าเข้าสู่ระบบ)
 // → ซ่อนหน้าระบบทั้งหมดแทน (fail closed) แล้วบอกให้เปิด JavaScript — ใช้ใน <noscript> ของ layout หน้าที่ต้องเข้าสู่ระบบ
@@ -26,11 +28,16 @@ export const NOSCRIPT_LOCK_HTML =
 /**
  * หน้าสาธารณะ (ไม่ต้องเข้าสู่ระบบ ไม่มีประตูเข้าระบบ): '/book', '/book/...' และ API '/api/book/...'
  * เทียบทั้งท่อนของ path — '/booking', '/bookx', '/api/book' (ไม่มี / ท้าย) ไม่นับเป็นสาธารณะ
+ * + หน้าติดตามงานของคู่บ่าวสาว (ร้าน b.oncloud): '/wedding-status', '/wedding-status/<token>'
+ *   ('/wedding', '/wedding/...', '/wedding-statusx' ไม่ใช่สาธารณะ — หลังร้านต้องเข้าสู่ระบบเสมอ)
  * ใช้ได้ทั้ง middleware (edge), server และ client (ไม่มีโค้ดเบราว์เซอร์)
  */
 export function isPublicPath(pathname: string | null | undefined): boolean {
   if (typeof pathname !== 'string') return false
-  return pathname === '/book' || pathname.startsWith('/book/') || pathname.startsWith('/api/book/')
+  return (
+    pathname === '/book' || pathname.startsWith('/book/') || pathname.startsWith('/api/book/') ||
+    pathname === '/wedding-status' || pathname.startsWith('/wedding-status/')
+  )
 }
 
 // หน้าต่างนี้เข้าสู่ระบบเองแล้วหรือยัง

@@ -8,6 +8,7 @@ import {
   BarChart3,
   Calculator,
   CalendarDays,
+  Clapperboard,
   ClipboardCheck,
   ClipboardList,
   Contact,
@@ -15,6 +16,7 @@ import {
   History,
   LayoutDashboard,
   LogOut,
+  Package,
   PlugZap,
   ReceiptText,
   ScanBarcode,
@@ -27,19 +29,24 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import type { Permissions } from '@/types'
+import { countAccessibleShops, type Permissions } from '@/types'
 import { displayLogin } from '@/lib/auth/credentials'
 import { clearEnteredThisWindow } from '@/lib/auth/entry-gate'
 import { DEFAULT_RENTAL_SHOP_NAME } from '@/lib/rental'
+import { DEFAULT_WEDDING_SHOP_NAME } from '@/lib/wedding'
 import BrandMark from '@/components/theme/BrandMark'
 import RentalMark from '@/components/theme/RentalMark'
+import WeddingMark from '@/components/theme/WeddingMark'
 import { ICON, ICON_SM } from '@/components/theme/icons'
 
-// ร้านที่เมนูชุดนี้เป็นของ — NEWCUTE (ขายเสื้อผ้า) หรือร้านเช่าชุด (/rental/*)
-export type ShopKey = 'newcute' | 'rental'
+// ร้านที่เมนูชุดนี้เป็นของ — NEWCUTE (ขายเสื้อผ้า), ร้านเช่าชุด (/rental/*) หรือร้าน b.oncloud คอนเทนต์งานแต่ง (/wedding/*)
+export type ShopKey = 'newcute' | 'rental' | 'wedding'
 
-// ตัวเลขแจ้งเตือนบนเมนู (จาก RPC rental_badges() ที่ layout ร้านเช่าโหลด) — ไม่มี/0 = ไม่แสดง
-export type NavBadgeKey = 'pending_online' | 'slips' | 'overdue'
+// ตัวเลขแจ้งเตือนบนเมนู — ไม่มี/0 = ไม่แสดง
+// ร้านเช่า: จาก rental_badges() ที่ layout ร้านเช่าโหลด
+// ร้าน b.oncloud: จาก wed_badges() ที่ layout /wedding โหลด — wed_bookings = ลูกค้าถึงวันติดตาม + ล็อกคิวจะหมดใน 24 ชม.,
+//   wed_deliverables = ชิ้นงานเลยกำหนดส่ง, wed_installments = งวดชำระเลยกำหนด
+export type NavBadgeKey = 'pending_online' | 'slips' | 'overdue' | 'wed_bookings' | 'wed_deliverables' | 'wed_installments'
 export type NavBadges = Partial<Record<NavBadgeKey, number>>
 
 // adminOnly = แสดงเฉพาะบทบาท admin (พนักงานที่มีทุกสิทธิ์ก็ไม่เห็น) ; group 'settings' = อยู่ใต้หัวข้อ "ตั้งค่า"
@@ -86,6 +93,22 @@ export const RENTAL_NAV_ITEMS: NavItem[] = [
   { href: '/rental/settings',  label: 'ตั้งค่าร้านเช่า',      icon: Settings,        perm: 'rental_manage', group: 'settings' },
 ]
 
+// เมนูร้าน b.oncloud (คอนเทนต์งานแต่ง) — layout /wedding (app/(wedding)/wedding/layout.tsx) กันคนไม่มีสิทธิ์ร้านนี้ออกไปแล้ว
+// จึงใช้ perm null กับเมนูพนักงาน (wedding หรือ wedding_manage) ; เมนูผู้จัดการใช้ 'wedding_manage' (admin ได้ true อยู่แล้ว)
+// ป้ายสั้นให้เมนูที่เลือก (ตัวหนา) + ตัวเลขแจ้งเตือนอยู่บรรทัดเดียวในเมนูกว้าง 15rem
+export const WEDDING_NAV_ITEMS: NavItem[] = [
+  { href: '/wedding',              label: 'ภาพรวม',          icon: LayoutDashboard, perm: null },
+  { href: '/wedding/calendar',     label: 'ปฏิทินงาน',       icon: CalendarDays,    perm: null },
+  { href: '/wedding/bookings',     label: 'งาน/การจอง',      icon: ClipboardList,   perm: null, badge: 'wed_bookings' },
+  { href: '/wedding/deliverables', label: 'ส่งงาน/ตัดต่อ',   icon: Clapperboard,    perm: null, badge: 'wed_deliverables' },
+  { href: '/wedding/customers',    label: 'ลูกค้า',           icon: Contact,         perm: null },
+  { href: '/wedding/crew',         label: 'ทีมงาน',           icon: Users,           perm: null },
+  { href: '/wedding/payments',     label: 'การเงิน',          icon: Wallet,          perm: null, badge: 'wed_installments' },
+  { href: '/wedding/packages',     label: 'แพ็กเกจ',          icon: Package,         perm: 'wedding_manage' },
+  { href: '/wedding/reports',      label: 'รายงาน',           icon: BarChart3,       perm: 'wedding_manage' },
+  { href: '/wedding/settings',     label: 'ตั้งค่าร้าน',      icon: Settings,        perm: 'wedding_manage', group: 'settings' },
+]
+
 // props ที่ layout ส่งให้ทั้งเมนูเดสก์ท็อป (Sidebar) และมือถือ (MobileNav)
 export type NavProps = {
   email: string // อีเมลใน Auth — แสดงผลผ่าน displayLogin() (max@newcute.com → max)
@@ -94,20 +117,20 @@ export type NavProps = {
   permissions: Permissions
   // ----- ร้าน (ไม่ส่ง = NEWCUTE แบบเดิมทุกอย่าง) -----
   shop?: ShopKey
-  shopName?: string        // ชื่อร้านเช่าชุดจาก rental_settings.shop_name (ร้าน NEWCUTE ไม่ใช้)
-  canSwitchShop?: boolean  // เข้าได้ทั้ง 2 ร้าน → แสดงลิงก์ "เปลี่ยนร้าน" (/select)
+  shopName?: string        // ชื่อร้านจากการตั้งค่า: rental_settings.shop_name / wed_settings.shop_name (ร้าน NEWCUTE ไม่ใช้)
+  canSwitchShop?: boolean  // เข้าได้ตั้งแต่ 2 ร้าน → แสดงลิงก์ "เปลี่ยนร้าน" (/select)
   badges?: NavBadges
 }
 
 // role ไม่ส่งมา = ถือเป็นพนักงาน (ซ่อนเมนูแอดมิน — fail closed) ; shop ไม่ส่งมา = เมนู NEWCUTE
 export function visibleNavItems(permissions: Permissions, role: NavProps['role'] = 'staff', shop: ShopKey = 'newcute'): NavItem[] {
-  const list = shop === 'rental' ? RENTAL_NAV_ITEMS : NAV_ITEMS
+  const list = shop === 'rental' ? RENTAL_NAV_ITEMS : shop === 'wedding' ? WEDDING_NAV_ITEMS : NAV_ITEMS
   return list.filter(item => (!item.adminOnly || role === 'admin') && (!item.perm || permissions[item.perm]))
 }
 
 // หน้าแรกของแต่ละร้าน (ลิงก์โลโก้บนแถบมือถือ)
 export function shopHomeHref(shop: ShopKey = 'newcute'): string {
-  return shop === 'rental' ? '/rental' : '/dashboard'
+  return shop === 'rental' ? '/rental' : shop === 'wedding' ? '/wedding' : '/dashboard'
 }
 
 // ตัวเลขแจ้งเตือนที่ใช้ได้ (จำนวนเต็มบวก) — อื่นๆ = ไม่แสดง
@@ -183,6 +206,7 @@ export function activeNavHref(items: NavItem[], pathname: string | null): string
 
 // โลโก้ + ชื่อร้าน + คำอธิบาย (เมนูข้าง / ลิ้นชัก / แถบบนมือถือ)
 // NEWCUTE = หน้าตาเดิมทุกอย่าง ; ร้านเช่า = RentalMark + ชื่อร้านจากการตั้งค่า (ชื่อยาว → ตัดด้วย …)
+// ร้าน b.oncloud = WeddingMark (เมฆ บนทองแชมเปญ) + ชื่อร้านจาก wed_settings.shop_name
 // สีตัวอักษร text-side-ink / text-side-muted = ตัวแปรแถบเมนูของร้าน (NEWCUTE = gray-900 / gray-500 เท่าเดิม · ร้านเช่า = ธีม #18 ฟ้าใส)
 // compact = แถบบนมือถือ (โลโก้ 32px ชื่อ text-base) ; ปกติ = เมนูข้าง/ลิ้นชัก (โลโก้ 40px ชื่อ text-lg)
 export function ShopBrand({
@@ -193,6 +217,23 @@ export function ShopBrand({
   compact?: boolean
 }) {
   const title = compact ? 'text-base' : 'text-lg'
+  if (shop === 'wedding') {
+    const name = (shopName ?? '').trim() || DEFAULT_WEDDING_SHOP_NAME
+    // ชื่อร้านนี้ยาว ("b.oncloud.wedding content" ~233px ที่ text-lg) แต่ช่องข้อความในเมนูข้าง/ลิ้นชักกว้างแค่ ~155px
+    // → เมนูข้าง/ลิ้นชัก: text-base + ขึ้นบรรทัดใหม่ได้ 2 บรรทัด (เกินนั้นค่อย …) ให้เห็นชื่อเต็ม ; แถบบนมือถือคงบรรทัดเดียว
+    // เฉพาะร้านนี้ — NEWCUTE / ร้านเช่า ใช้ขนาดเดิมทุกพิกเซล
+    // (line-clamp-2 ตั้ง display:-webkit-box เอง — ห้ามใส่ block ซ้อน ไม่งั้นการตัด 2 บรรทัดไม่ทำงาน)
+    const nameCls = compact ? `block truncate ${title}` : 'line-clamp-2 break-words text-base'
+    return (
+      <>
+        <WeddingMark size={compact ? 'sm' : 'md'} />
+        <span className="block min-w-0">
+          <span className={`${nameCls} font-semibold leading-tight text-side-ink`} title={name}>{name}</span>
+          <span className="block truncate text-xs text-side-muted">ระบบคอนเทนต์งานแต่ง</span>
+        </span>
+      </>
+    )
+  }
   if (shop === 'rental') {
     const name = (shopName ?? '').trim() || DEFAULT_RENTAL_SHOP_NAME
     return (
@@ -216,7 +257,13 @@ export function ShopBrand({
   )
 }
 
-// ลิงก์ "เปลี่ยนร้าน" กลับหน้าเลือกร้าน — แสดงเฉพาะคนที่เข้าได้ทั้ง 2 ร้าน (layout ส่ง canSwitchShop)
+// แสดงลิงก์ "เปลี่ยนร้าน" ไหม: layout บอกมา (canSwitchShop) หรือสิทธิ์ของผู้ใช้เข้าได้ตั้งแต่ 2 ร้าน
+// (layout NEWCUTE/ร้านเช่าเดิมคิดแค่ 2 ร้าน — คนที่มีสิทธิ์ร้าน b.oncloud ด้วยต้องเห็นลิงก์นี้ในทุกเมนู ; คนเดิมที่ไม่มีสิทธิ์ b.oncloud ได้ผลเท่าเดิม)
+export function showSwitchShop(p: Pick<NavProps, 'canSwitchShop' | 'role' | 'permissions'>): boolean {
+  return p.canSwitchShop === true || countAccessibleShops(p.role, p.permissions) >= 2
+}
+
+// ลิงก์ "เปลี่ยนร้าน" กลับหน้าเลือกร้าน — แสดงเฉพาะคนที่เข้าได้ตั้งแต่ 2 ร้าน (showSwitchShop)
 export function SwitchShopLink({ className, onNavigate }: { className?: string; onNavigate?: () => void }) {
   return (
     <Link href="/select" onClick={onNavigate} className={className ? `nav-item w-full ${className}` : 'nav-item w-full'}>
@@ -324,7 +371,7 @@ export default function Sidebar({
       {/* ผู้ใช้ + เปลี่ยนร้าน + ออกจากระบบ (คั่นจากเมนูด้วยเส้นบาง) */}
       <div className="shrink-0 border-t border-side-sep px-3 pt-3 pb-4 space-y-2">
         <UserPill fullName={fullName} login={login} role={role} />
-        {canSwitchShop && <SwitchShopLink />}
+        {showSwitchShop({ canSwitchShop, role, permissions }) && <SwitchShopLink />}
         <button
           type="button"
           onClick={logout}
