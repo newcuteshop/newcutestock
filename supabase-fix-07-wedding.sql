@@ -284,8 +284,13 @@ create table if not exists public.wed_bookings (
 --     (งานสอบถามที่สร้างไว้หลายสัปดาห์แล้วเพิ่งล็อกคิว ต้องไม่ขึ้น "เลยกำหนด" ทันที) — null = นับจากวันที่สร้างงาน
 --   deliverables_anchor_date: วันงานวันสุดท้ายที่ใช้คิดกำหนดส่งงานรอบล่าสุด (wed_recalc ดูแล)
 --     วันงานเปลี่ยน (เลื่อนงาน/แก้วัน) → เลื่อนกำหนดส่งของรายการที่ยังไม่ส่งไปตามจำนวนวันที่ต่าง
+--   deposit_override: มัดจำที่กำหนดเองของงานนี้ (บาท) — null = คิดอัตโนมัติตามนโยบาย ณ ตอนจอง (งานเดิมทุกงาน)
+--     ไม่เกินยอดหลังส่วนลด (base_total ≤ ยอดสุทธิ) เสมอ: ยอดลดลงทีหลังจนต่ำกว่าค่าที่กำหนด → wed_recalc ใช้ยอดนั้นแทนเอง
+--     (ค่าที่กำหนดไว้ไม่ถูกแก้) / ค่าใช้จ่ายเพิ่มทีหลัง (ล่วงเวลา ฯลฯ) ไม่ดันมัดจำขึ้น — ไปอยู่ยอดคงเหลือ
 alter table public.wed_bookings add column if not exists deposit_due_on date;
 alter table public.wed_bookings add column if not exists deliverables_anchor_date date;
+alter table public.wed_bookings add column if not exists deposit_override numeric(10, 2)
+  constraint wed_bookings_deposit_override_check check (deposit_override is null or deposit_override >= 0);
 create index if not exists idx_wed_bookings_status on public.wed_bookings (status);
 create index if not exists idx_wed_bookings_customer on public.wed_bookings (customer_id);
 create index if not exists idx_wed_bookings_package on public.wed_bookings (package_id);
@@ -1271,6 +1276,8 @@ $$;
 --   ยอดก่อนส่วนลด = ราคาแพ็กเกจ + บริการเสริม + ค่าเดินทาง ; ยอดหลังส่วนลด (base_total) = − ส่วนลด
 --   ยอดสุทธิ = base_total + ค่าใช้จ่ายเพิ่มที่ยังไม่ยกเลิก ; ชำระแล้ว = รับชำระ − คืนเงิน (ไม่นับรายการที่ยกเลิก)
 --   มัดจำ = min(ยอดสุทธิ, max(มัดจำขั้นต่ำ, ปัดขึ้น(base_total × % มัดจำ))) — ใช้นโยบาย ณ ตอนจองที่จำไว้บนงาน
+--     กำหนดมัดจำเองต่องาน (deposit_override ไม่เป็น null) = min(base_total, ค่าที่กำหนด) แทนสูตรข้างบน
+--     (base_total ≤ ยอดสุทธิเสมอ — ค่าใช้จ่ายเพิ่มทีหลังไปอยู่ยอดคงเหลือ ไม่ดันมัดจำขึ้น)
 --   งวดชำระ: งวดมาตรฐาน = คำนวณใหม่ตามยอดล่าสุดเสมอ / งวดที่บอสแก้เอง = งวดสุดท้ายที่ยังค้างรับส่วนต่างอัตโนมัติ
 --     (ส่วนต่างทำให้งวดนั้นเหลือ ≤ 0 → กลับไปใช้งวดมาตรฐาน) และจดประวัติทุกครั้ง
 create or replace function public.wed_recalc(p_booking_id uuid)
@@ -1336,9 +1343,13 @@ begin
                     case when v_first is not null then
                       greatest(v_first - coalesce(b.balance_due_days, s.balance_due_days),
                                public.wed_deposit_day(b.created_at, b.deposit_due_on)) end);
+  -- มัดจำกำหนดเอง: เพดาน = base_total (ฐานเดียวกับ % อัตโนมัติ) — ค่าใช้จ่ายเพิ่มทีหลัง (ล่วงเวลา ฯลฯ) ไปอยู่ยอดคงเหลือเสมอ
+  --   ไม่ดันมัดจำขึ้น (มัดจำที่ครบแล้วต้องไม่กลับเป็น "ยังขาด"/เลยกำหนด) — ใช้ case ไม่ใช่ least() เพราะ least() ข้าม null
   v_req := least(greatest(v_grand, 0),
-                 greatest(coalesce(b.min_deposit, s.min_deposit),
-                          ceil(greatest(v_base, 0) * coalesce(b.deposit_percent, s.deposit_percent) / 100)));
+                 case when b.deposit_override is not null
+                      then least(b.deposit_override, greatest(v_base, 0))
+                      else greatest(coalesce(b.min_deposit, s.min_deposit),
+                                    ceil(greatest(v_base, 0) * coalesce(b.deposit_percent, s.deposit_percent) / 100)) end);
 
   -- วันงานวันสุดท้ายเปลี่ยน (เลื่อนงานแล้วกลับมาจัด / แก้วันที่ของคิว) → กำหนดส่งของรายการที่ยังไม่ส่ง เลื่อนตามจำนวนวันที่ต่าง
   --   (รายการที่ส่งแล้วไม่แตะ / ยังไม่มีวันงาน = จำวันเดิมไว้ รอวันใหม่แล้วค่อยเลื่อนจากวันเดิม)
@@ -1953,7 +1964,10 @@ begin
     'paid', b.paid, 'due', b.due, 'deposit_required', b.deposit_required, 'deposit_met', b.deposit_met,
     'deposit_due', greatest(b.deposit_required - b.paid, 0),
     'deposit_percent', b.deposit_percent, 'min_deposit', b.min_deposit, 'balance_due_days', b.balance_due_days,
-    'balance_due_date', b.balance_due_date, 'balance_due_date_override', b.balance_due_date_override);
+    'balance_due_date', b.balance_due_date, 'balance_due_date_override', b.balance_due_date_override,
+    -- มัดจำกำหนดเอง: deposit_source = 'manual' → หน้าจอ/เอกสารห้ามเขียนว่า "N% ของยอดงาน"
+    'deposit_override', b.deposit_override,
+    'deposit_source', case when b.deposit_override is null then 'auto' else 'manual' end);
   if v_mgr then
     -- ค่าตัวของคิวที่ไม่ยกเลิก + ค่าตัวที่จ่ายไปแล้ว (จ่ายแล้วเป็นต้นทุนจริงเสมอ แม้คิวถูกยกเลิกทีหลัง)
     select coalesce(sum(sc.fee), 0) into v_crew_cost
@@ -2287,6 +2301,14 @@ begin
   end if;
   if v_new or p ? 'discount_note' then
     b.discount_note := public.wed_json_text(p -> 'discount_note', 'หมายเหตุส่วนลด', 200);
+  end if;
+  -- มัดจำกำหนดเอง (บาท): ไม่ส่งคีย์ = คงค่าเดิม / null หรือช่องว่าง = กลับไปคิดอัตโนมัติ / 0 = งานนี้ไม่ต้องมัดจำ
+  --   (สิทธิ์เดียวกับส่วนลด/ค่าเดินทาง — ทุกคนที่แก้ฟอร์มงานได้)
+  if v_new then
+    b.deposit_override := null;
+  end if;
+  if p ? 'deposit_override' then
+    b.deposit_override := public.wed_json_money(p -> 'deposit_override', 'มัดจำ', true);
   end if;
   if v_new or p ? 'followup_date' then
     b.followup_date := public.wed_json_date(p -> 'followup_date', 'วันที่ต้องติดตามลูกค้า');
@@ -4087,9 +4109,12 @@ begin
   v_pre := b.package_price + v_addons_total + b.travel_fee;
   v_base := v_pre - least(b.discount, v_pre);
   v_grand := v_base + v_charges;
+  -- กฎเดียวกับ wed_recalc: มัดจำกำหนดเอง (deposit_override) แทนสูตรอัตโนมัติ แต่ไม่เกินยอดหลังส่วนลด (base_total)
   v_req := least(greatest(v_grand, 0),
-                 greatest(coalesce(v_old.min_deposit, s.min_deposit),
-                          ceil(v_base * coalesce(v_old.deposit_percent, s.deposit_percent) / 100)));
+                 case when b.deposit_override is not null
+                      then least(b.deposit_override, v_base)
+                      else greatest(coalesce(v_old.min_deposit, s.min_deposit),
+                                    ceil(v_base * coalesce(v_old.deposit_percent, s.deposit_percent) / 100)) end);
   v_dates := public.wed_rows_dates(v_rows);
   select min(x.d) into v_first from unnest(v_dates) as x(d);
 
@@ -4108,6 +4133,8 @@ begin
        'due', v_grand - v_paid, 'deposit_required', v_req,
        'deposit_percent', coalesce(v_old.deposit_percent, s.deposit_percent),
        'min_deposit', coalesce(v_old.min_deposit, s.min_deposit),
+       'deposit_override', b.deposit_override,
+       'deposit_source', case when b.deposit_override is null then 'auto' else 'manual' end,
        -- กฎเดียวกับ wed_recalc (งานกระชั้นชิด = ไม่ก่อนวันครบกำหนดมัดจำ)
        'balance_due_date', coalesce(b.balance_due_date_override,
                                     case when v_first is not null then
@@ -4162,6 +4189,7 @@ $$;
 --             package_id? | package_name/package_price/package_hours/package_description, deliverables_plan?,
 --             addons:[...], travel_fee, discount, discount_note, sessions:[...], followup_date, followup_note,
 --             coordinator_name, coordinator_phone, mood_link, customer_note, note, balance_due_date_override?,
+--             deposit_override? (มัดจำกำหนดเอง บาท / null = อัตโนมัติ),
 --             force? (คิวเต็ม / ยืนยันก่อนได้มัดจำ), payments?:[{kind:'payment', method, amount, note?, paid_on?, purpose?, slip_path?}]}
 create or replace function public.wed_create_booking(p_client_id uuid, p_payload jsonb)
 returns jsonb
@@ -4257,6 +4285,7 @@ begin
       (booking_no, client_id, client_payload_md5, public_token, source, customer_id, couple_names, status,
        package_id, package_name, package_price, package_hours, package_description, deliverables_plan,
        travel_fee, discount, discount_note, deposit_percent, min_deposit, balance_due_days, balance_due_date_override,
+       deposit_override,
        hold_until, followup_date, followup_note, coordinator_name, coordinator_phone, mood_link, customer_note, note,
        created_by, created_by_name)
     values
@@ -4265,7 +4294,7 @@ begin
        v_source, v_cust, b.couple_names, case when v_status = 'hold' then 'hold' else 'inquiry' end,
        b.package_id, b.package_name, b.package_price, b.package_hours, b.package_description, b.deliverables_plan,
        b.travel_fee, b.discount, b.discount_note, s.deposit_percent, s.min_deposit, s.balance_due_days,
-       b.balance_due_date_override,
+       b.balance_due_date_override, b.deposit_override,
        case when v_status = 'hold' then now() + make_interval(hours => v_hold) end,
        b.followup_date, b.followup_note, b.coordinator_name, b.coordinator_phone, b.mood_link, b.customer_note, b.note,
        v_uid, public.pos_actor_name(v_uid))
@@ -4279,7 +4308,10 @@ begin
   perform public.wed_recalc(v_id);
   perform public.wed_log(v_id, 'create',
     jsonb_build_object('status', v_status, 'source', v_source, 'sessions', jsonb_array_length(v_rows),
-                       'dates', to_jsonb(v_dates), 'capacity_over', coalesce(jsonb_array_length(v_warn), 0) > 0));
+                       'dates', to_jsonb(v_dates), 'capacity_over', coalesce(jsonb_array_length(v_warn), 0) > 0)
+    -- มัดจำกำหนดเองตั้งแต่สร้างงาน (ไม่มีคีย์นี้ = อัตโนมัติ)
+    || case when b.deposit_override is null then '{}'::jsonb
+            else jsonb_build_object('deposit_override', b.deposit_override) end);
 
   -- รับเงินทันที (เช่น มัดจำ) — กฎเดียวกับการรับเงินปกติทุกข้อ
   if jsonb_typeof(p_payload -> 'payments') = 'array' then
@@ -4434,6 +4466,7 @@ begin
          package_name = b.package_name, package_price = b.package_price, package_hours = b.package_hours,
          package_description = b.package_description, deliverables_plan = b.deliverables_plan,
          travel_fee = b.travel_fee, discount = b.discount, discount_note = b.discount_note,
+         deposit_override = b.deposit_override,
          balance_due_date_override = b.balance_due_date_override, followup_date = b.followup_date,
          followup_note = b.followup_note, coordinator_name = b.coordinator_name, coordinator_phone = b.coordinator_phone,
          mood_link = b.mood_link, customer_note = b.customer_note, note = b.note
@@ -4468,6 +4501,11 @@ begin
   end if;
   if b.travel_fee <> b_old.travel_fee then
     v_detail := v_detail || jsonb_build_object('travel_fee', jsonb_build_array(b_old.travel_fee, b.travel_fee));
+  end if;
+  -- มัดจำกำหนดเอง [เดิม, ใหม่] (null = อัตโนมัติ)
+  if b.deposit_override is distinct from b_old.deposit_override then
+    v_detail := v_detail || jsonb_build_object('deposit_override',
+                                               jsonb_build_array(b_old.deposit_override, b.deposit_override));
   end if;
   if v_addons is not null then
     v_detail := v_detail || jsonb_build_object('addons', jsonb_array_length(v_addons));
@@ -6031,7 +6069,13 @@ select x.item as "รายการ", x.value as "ค่า"
         (select count(*)::text || ' / 2' from storage.buckets as b where b.id in ('wedding-public', 'wedding-files'))),
     (9, 'ชื่อร้าน',
         (select coalesce(max(s.shop_name), '-') from public.wed_settings as s)),
-    (10, 'แพ็กเกจ / ทีมงาน / ลูกค้า / งาน',
+    (10, 'มัดจำกำหนดเองต่องาน',
+        (select case when count(*) = 1 then 'พร้อม' else 'ยังไม่มี — รันไฟล์นี้ซ้ำ' end
+           from pg_attribute as a
+          where a.attrelid = to_regclass('public.wed_bookings') and a.attname = 'deposit_override' and not a.attisdropped
+            and exists (select 1 from pg_constraint as k
+                         where k.conrelid = a.attrelid and k.conname = 'wed_bookings_deposit_override_check'))),
+    (11, 'แพ็กเกจ / ทีมงาน / ลูกค้า / งาน',
         (select (select count(*) from public.wed_packages)::text || ' / '
                 || (select count(*) from public.wed_crew)::text || ' / '
                 || (select count(*) from public.wed_customers)::text || ' / '

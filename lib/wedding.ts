@@ -1502,6 +1502,76 @@ export function balanceDueShortNotice(dueDate: string | null, firstDate: string 
   return !!policy && dueDate > policy
 }
 
+export type WedDepositSource = 'auto' | 'manual'
+const WED_DEPOSIT_SOURCES: readonly WedDepositSource[] = ['auto', 'manual']
+
+/**
+ * % มัดจำตามนโยบายของงาน (ใช้คู่กับข้อความขั้นต่ำ เช่น "30% ของยอดงาน (ขั้นต่ำ ฿1,000)")
+ * มัดจำกำหนดเอง (deposit_source = 'manual') หรือไม่มี % → null — ห้ามอ่าน deposit_percent ตรงๆ
+ * เอกสาร/ข้อความที่เขียน % ติดกับยอดมัดจำ ("มัดจำ (30%) ฿2,070") ใช้ wedDepositPercentOfAmount
+ */
+export function wedDepositPercent(m: Pick<WedMoney, 'deposit_source' | 'deposit_percent'>): number | null {
+  return m.deposit_source === 'auto' && m.deposit_percent !== null ? m.deposit_percent : null
+}
+
+/**
+ * % ที่เขียนกำกับยอดมัดจำได้ตรงตัว — ยอดมัดจำต้องเท่ากับ ปัดขึ้น(ยอดหลังส่วนลด × % ÷ 100) จริง (สูตรเดียวกับ wed_recalc)
+ * null เมื่อ: มัดจำกำหนดเอง / ใช้มัดจำขั้นต่ำ / ชนเพดานยอดสุทธิ (ยอดนั้นไม่ใช่ N% ของยอดงานแล้ว)
+ */
+export function wedDepositPercentOfAmount(
+  m: Pick<WedMoney, 'deposit_source' | 'deposit_percent' | 'base_total' | 'deposit_required'>,
+): number | null {
+  const pct = wedDepositPercent(m)
+  if (pct === null) return null
+  // คิดเป็นจำนวนเต็ม (สตางค์ × ร้อยละแบบ 2 ตำแหน่ง) กันทศนิยมลอยปัดขึ้นผิด 1 บาท
+  const units = Math.round(Math.max(0, m.base_total) * 100) * Math.round(pct * 100)
+  const exact = Math.ceil(units / 1000000)
+  return Math.abs(m.deposit_required - exact) < 0.005 ? pct : null
+}
+
+/**
+ * มัดจำกำหนดเองถูกตัดที่เพดานหรือไม่ — กติกาเดียวกับ wed_recalc: เพดาน = ยอดหลังส่วนลด (base_total ฐานเดียวกับ % อัตโนมัติ)
+ * ค่าใช้จ่ายเพิ่มทีหลังไม่ดันมัดจำขึ้น ; label = ชื่อยอดที่หน้าจอแสดง (ไม่มีค่าใช้จ่ายเพิ่ม = เท่ายอดสุทธิ)
+ */
+export function wedDepositCap(
+  m: Pick<WedMoney, 'deposit_source' | 'deposit_override' | 'deposit_required' | 'charges_total'>,
+): { capped: boolean; label: string } {
+  return {
+    capped: m.deposit_source === 'manual' && m.deposit_override !== null && m.deposit_override > m.deposit_required + 0.005,
+    label: m.charges_total > 0.005 ? 'ยอดหลังส่วนลด' : 'ยอดสุทธิ',
+  }
+}
+
+/**
+ * งานนี้ไม่เก็บมัดจำ (มัดจำ ฿0: กำหนดเองเป็น 0 / นโยบาย 0% / ยอดงาน 0) — ฐานข้อมูลถือว่าได้รับมัดจำครบทันที
+ * หน้าจอเขียนว่า "ไม่เก็บมัดจำ" แทน "มัดจำครบแล้ว ฿0"
+ */
+export function wedNoDeposit(m: Pick<WedMoney, 'deposit_required'>): boolean {
+  return m.deposit_required <= 0.005
+}
+
+/** งวดมาตรฐาน (ตัวอย่างก่อนบันทึก / ข้อความในหน้าจอ) — กติกาเดียวกับ wed_default_plan */
+export interface WedPlanPreviewRow {
+  label: string
+  amount: number
+  /** ครบกำหนด: วันจอง/ล็อกคิว (deposit) หรือวันชำระยอดคงเหลือ (balance) */
+  due: 'deposit' | 'balance'
+}
+
+/**
+ * ยอดสุทธิ 0 = ไม่มีงวด / ไม่มีมัดจำ = งวดเดียว "ยอดชำระทั้งหมด" (ครบวันชำระยอดคงเหลือ)
+ * มัดจำเท่ายอดสุทธิ = งวดเดียว "ชำระเต็มจำนวน" (ครบวันจอง) / อื่นๆ = มัดจำ + ยอดคงเหลือ
+ */
+export function wedDefaultPlanPreview(grandTotal: number, depositRequired: number): WedPlanPreviewRow[] {
+  if (grandTotal <= 0.005) return []
+  if (depositRequired <= 0.005) return [{ label: 'ยอดชำระทั้งหมด', amount: round2(grandTotal), due: 'balance' }]
+  if (depositRequired >= grandTotal - 0.005) return [{ label: 'ชำระเต็มจำนวน', amount: round2(grandTotal), due: 'deposit' }]
+  return [
+    { label: 'มัดจำ', amount: round2(depositRequired), due: 'deposit' },
+    { label: 'ยอดคงเหลือ', amount: round2(grandTotal - depositRequired), due: 'balance' },
+  ]
+}
+
 export interface WedMoney {
   package_price: number
   addons_total: number
@@ -1519,6 +1589,10 @@ export interface WedMoney {
   deposit_due: number          // มัดจำที่ยังขาด (≥ 0)
   deposit_percent: number | null
   min_deposit: number | null
+  /** มัดจำที่พิมพ์เองสำหรับงานนี้ (บาท) — null = คิดอัตโนมัติ ; deposit_required = min(ค่านี้, ยอดหลังส่วนลด) (wedDepositCap) */
+  deposit_override: number | null
+  /** 'manual' = มัดจำกำหนดเอง → ห้ามแสดงว่า "N% ของยอดงาน" (ใช้ wedDepositPercent) */
+  deposit_source: WedDepositSource
   balance_due_days: number | null
   balance_due_date: string | null
   balance_due_date_override: string | null
@@ -1781,6 +1855,7 @@ function parseWedMoney(raw: unknown, top: Obj, addons: WedBookingAddon[], pkg: W
   const travel = has(o, 'travel_fee') ? money(o.travel_fee) : money(top.travel_fee)
   const depositRequired = money(o.deposit_required)
   const paid = money(o.paid)
+  const depositOverride = moneyOrNull(o.deposit_override)
   return {
     package_price: packagePrice,
     addons_total: addonsTot,
@@ -1798,6 +1873,9 @@ function parseWedMoney(raw: unknown, top: Obj, addons: WedBookingAddon[], pkg: W
     deposit_due: has(o, 'deposit_due') ? Math.max(0, money(o.deposit_due)) : Math.max(0, round2(depositRequired - paid)),
     deposit_percent: moneyOrNull(o.deposit_percent),
     min_deposit: moneyOrNull(o.min_deposit),
+    deposit_override: depositOverride,
+    // ฐานข้อมูลบอกที่มาเสมอ (fix-07 ล่าสุด) ; ไม่ได้ส่งมา = ดูจาก deposit_override
+    deposit_source: oneOfOrNull(o.deposit_source, WED_DEPOSIT_SOURCES) ?? (depositOverride !== null ? 'manual' : 'auto'),
     balance_due_days: has(o, 'balance_due_days') ? count(o.balance_due_days) : null,
     balance_due_date: dayKeyOrNull(o.balance_due_date),
     balance_due_date_override: dayKeyOrNull(o.balance_due_date_override),

@@ -13,7 +13,8 @@ import { ICON, ICON_SM, ICON_XS } from '@/components/theme/icons'
 import { baht, formatThaiDate, formatThaiDayLong } from '@/lib/format'
 import {
   INSTALLMENT_STATUS_CHIP, INSTALLMENT_STATUS_LABELS, SESSION_STATUS_LABELS, callTimeText, crewConflictText, crewDisplayName,
-  balanceDueShortNotice, crewRoleLabel, formatPhone, phoneDigits, sessionTimeText, wedSourceLabel,
+  balanceDueShortNotice, crewRoleLabel, formatPhone, phoneDigits, sessionTimeText, wedDepositCap, wedDepositPercent, wedNoDeposit,
+  wedSourceLabel,
   type WedBooking, type WedCapacityWarning, type WedSession,
 } from '@/lib/wedding'
 import { EPS, copyText, facebookUrl, instagramUrl, lineIdUrl } from './rpc'
@@ -423,10 +424,19 @@ function Row({ label, value, sub, className }: { label: string; value: string; s
 export function MoneyCard({ booking, onOpenPayment }: { booking: WedBooking; onOpenPayment?: () => void }) {
   const m = booking.money
   const tone = m.due > EPS ? 'due' : m.due < -EPS ? 'over' : 'clear'
+  const noDeposit = wedNoDeposit(m)
+  const pct = wedDepositPercent(m)
   const policy = [
-    m.deposit_percent !== null ? `${m.deposit_percent}%` : '',
+    pct !== null ? `${pct}%` : '',
     m.min_deposit !== null && m.min_deposit > 0 ? `ขั้นต่ำ ${baht(m.min_deposit)}` : '',
   ].filter(Boolean).join(' · ')
+  // มัดจำกำหนดเอง: ไม่อ้าง % ; ใส่ไว้เกินยอดหลังส่วนลด = ฐานข้อมูลใช้เท่ายอดนั้น (บอกค่าที่ใส่ไว้ให้รู้)
+  const cap = wedDepositCap(m)
+  const depositSub = m.deposit_source === 'manual'
+    ? cap.capped && m.deposit_override !== null
+      ? `กำหนดเอง ${baht(m.deposit_override)} — เกิน${cap.label} จึงใช้เท่า${cap.label}`
+      : 'กำหนดเองสำหรับงานนี้'
+    : policy ? `นโยบายตอนจอง ${policy}` : ''
   return (
     <section className="card" aria-labelledby="wb-money">
       <div className="card-header">
@@ -458,15 +468,23 @@ export function MoneyCard({ booking, onOpenPayment }: { booking: WedBooking; onO
               {baht(Math.abs(m.due))}
             </p>
           </div>
-          <div className={clsx('rounded-lg border px-3 py-2.5', m.deposit_met ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50')}>
-            <p className={clsx('text-xs font-medium', m.deposit_met ? 'text-green-800' : 'text-amber-800')}>
-              {m.deposit_met ? 'มัดจำครบแล้ว' : 'มัดจำยังขาด'}
-            </p>
-            <p className={clsx('money text-xl', m.deposit_met ? 'text-green-800' : 'text-amber-800')}>
-              {baht(m.deposit_met ? m.deposit_required : m.deposit_due)}
-            </p>
-            {!m.deposit_met && <p className="text-[11px] text-gray-600">จากมัดจำ {baht(m.deposit_required)}</p>}
-          </div>
+          {noDeposit ? (
+            // มัดจำ 0 (กำหนด 0 / นโยบาย 0%) = งานนี้ไม่เก็บมัดจำ — ไม่เขียนว่า "มัดจำครบแล้ว ฿0"
+            <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+              <p className="text-xs font-medium text-gray-700">มัดจำ</p>
+              <p className="text-lg font-semibold leading-7 text-gray-900">ไม่เก็บมัดจำ</p>
+            </div>
+          ) : (
+            <div className={clsx('rounded-lg border px-3 py-2.5', m.deposit_met ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50')}>
+              <p className={clsx('text-xs font-medium', m.deposit_met ? 'text-green-800' : 'text-amber-800')}>
+                {m.deposit_met ? 'มัดจำครบแล้ว' : 'มัดจำยังขาด'}
+              </p>
+              <p className={clsx('money text-xl', m.deposit_met ? 'text-green-800' : 'text-amber-800')}>
+                {baht(m.deposit_met ? m.deposit_required : m.deposit_due)}
+              </p>
+              {!m.deposit_met && <p className="text-[11px] text-gray-600">จากมัดจำ {baht(m.deposit_required)}</p>}
+            </div>
+          )}
         </div>
 
         <dl className="space-y-1.5 text-sm text-gray-700">
@@ -489,14 +507,18 @@ export function MoneyCard({ booking, onOpenPayment }: { booking: WedBooking; onO
           <div className="flex items-baseline justify-between gap-3">
             <dt className="min-w-0">
               มัดจำที่ต้องชำระ
-              {policy && <span className="block text-xs text-gray-500">นโยบายตอนจอง {policy}</span>}
+              {depositSub && <span className="block text-xs text-gray-500">{depositSub}</span>}
             </dt>
-            <dd className="flex items-center gap-1.5 tabular-nums">
-              {baht(m.deposit_required)}
-              {m.deposit_met
-                ? <span className="badge-in"><CheckCircle2 {...ICON_XS} />ครบ</span>
-                : <span className="badge-return">ขาด {baht(m.deposit_due)}</span>}
-            </dd>
+            {noDeposit ? (
+              <dd className="text-gray-900">ไม่เก็บมัดจำ</dd>
+            ) : (
+              <dd className="flex items-center gap-1.5 tabular-nums">
+                {baht(m.deposit_required)}
+                {m.deposit_met
+                  ? <span className="badge-in"><CheckCircle2 {...ICON_XS} />ครบ</span>
+                  : <span className="badge-return">ขาด {baht(m.deposit_due)}</span>}
+              </dd>
+            )}
           </div>
           {m.balance_due_date && (
             <Row

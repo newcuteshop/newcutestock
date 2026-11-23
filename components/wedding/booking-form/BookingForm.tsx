@@ -43,7 +43,7 @@ import {
 import CustomerSection from './CustomerSection'
 import SessionsEditor from './SessionsEditor'
 import PackageSection from './PackageSection'
-import MoneySection from './MoneySection'
+import MoneySection, { DEPOSIT_OVERRIDE_UNSUPPORTED } from './MoneySection'
 import StatusSection from './StatusSection'
 import OtherSection from './OtherSection'
 import QuoteSummary from './QuoteSummary'
@@ -555,6 +555,10 @@ export default function BookingForm({
   if (holdProblem) problems.push({ section: 'status', text: `ชั่วโมงล็อกคิว: ${holdProblem}` })
   if (create && !plan.ok && plan.problem) problems.push({ section: 'status', text: plan.problem })
   if (quoteFresh && q && !q.discount_ok) problems.push({ section: 'money', text: 'ส่วนลดมากกว่ายอดก่อนส่วนลด' })
+  // พิมพ์มัดจำเองแต่ฐานข้อมูลรุ่นเก่าไม่รู้จัก (ผลยังเป็น "อัตโนมัติ") → ห้ามบันทึก ไม่งั้นมัดจำที่พิมพ์หายเงียบ ๆ
+  if (quoteFresh && q && draft.depositOverride.trim() !== '' && !core.money.depositOverride && q.money.deposit_source !== 'manual') {
+    problems.push({ section: 'money', text: DEPOSIT_OVERRIDE_UNSUPPORTED })
+  }
   const problemSections = new Set(problems.map(p => p.section))
   const waitingQuote = core.quotable && !quoteFresh && !quote.error
   const canSubmit = !busy && !done && hydrated && problems.length === 0 && quoteFresh
@@ -1036,6 +1040,7 @@ export default function BookingForm({
             patch={patch}
             check={core}
             quote={quoteFresh ? q : null}
+            booking={create ? null : booking}
             balanceDueDays={booking?.money.balance_due_days ?? settings.balance_due_days}
             summary={<div className="space-y-3">{quoteErrorBox}{summaryNode}</div>}
             disabled={disabled}
