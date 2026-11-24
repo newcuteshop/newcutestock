@@ -8,6 +8,7 @@
   - พื้นหน้าเทาอ่อน #F7F6F6 · การ์ดขาว + เส้น 1px · โรสโกลด์ชมพู (#F0ADB9) เป็นสีเน้นเท่านั้น
   - แบน: ไม่มีเงา (ยกเว้นเงาจางของป็อปอัป/โทสต์) · ไม่มีไล่สี ไม่มีลวดลาย ไม่มีแอนิเมชันตกแต่ง
   - เคลื่อนไหวเฉพาะที่มีหน้าที่: เปลี่ยนสีตอนชี้/กด 150ms, ป็อปอัปเปิด, ไอคอนหมุนกำลังโหลด, โครงรอโหลดกะพริบจาง
+  - ข้อยกเว้นเดียว (บอสสั่ง 24/11/2569): ชี้เมาส์ที่การ์ดเลือกร้าน / ปุ่มเข้าสู่ระบบ / เมนูข้าง = ยกลอย + เงา + แถบแสงวิ่งผ่านช้าๆ (.lift-hover)
   - คู่มือเต็ม: THEME_SPEC_PRO.md
   - (22/10/2569) สีทุกจุดอ่านจากตัวแปร --c-* ด้านล่าง → ร้านเช่าชุดเป็นธีม #18 ฟ้าใส ส่วน NEWCUTE ค่าเดิมทุกตัว (ค่า hex ในคอมเมนต์ = สีของ NEWCUTE)
 */
@@ -545,10 +546,10 @@
 
   /* รายการเมนู — ตัวที่เลือก (aria-current="page") = พื้นโรสโกลด์อ่อน + ตัวอักษร/ไอคอนโรสโกลด์เข้ม */
   /* สีทั้งหมดของเมนูมาจากตัวแปร --c-side-* (NEWCUTE = ค่าเดิม: ตัวอักษร gray-700 ชี้แล้ว gray-100 เลือกแล้ว brand-100/700) */
+  /* ชี้เมาส์แล้วยกลอย + แถบแสง (ทุกเมนูของทุกร้าน) และ transition ของเมนู อยู่ในหัวข้อ "ยกลอยตอนชี้เมาส์" ด้านล่าง */
   .nav-item {
     @apply flex items-center gap-3 min-h-[44px] px-3 rounded-lg text-[15px] font-medium leading-snug;
     color: rgb(var(--c-side-nav));
-    transition: background-color 0.15s ease, color 0.15s ease;
   }
   @media (hover: hover) {
     .nav-item:not([aria-current='page']):hover { color: rgb(var(--c-side-ink)); background-color: rgb(var(--c-side-hover)); }
@@ -568,6 +569,137 @@
     background-color: rgb(var(--c-side-pill));
     border: 1px solid rgb(var(--c-side-line));
   }
+
+  /* ================= ยกลอยตอนชี้เมาส์ (.lift-hover) =================
+     บอสสั่ง 24/11/2569: "ชี้เมาส์แล้วนูนลอยออกมา พร้อมไล่แสงเงาช้าๆ" — การ์ดหน้าเลือกร้าน, ปุ่มเข้าสู่ระบบ และเมนูข้างทุกร้าน
+     คำสั่งนี้ยกเว้นกติกาธีมทางการ "แบน ไม่มีเงา ไม่มีแอนิเมชัน" (30/09) เฉพาะเอฟเฟกต์ตอนชี้เมาส์นี้เท่านั้น
+     - ชี้: ค่อยๆ ยกขึ้น (--lift-y) + เงานุ่มสีหมึกของร้าน (--c-ink) 0.7 วิ (โค้งนุ่ม ไม่พุ่งขึ้นทันที)
+       + แถบแสงเฉียงวิ่งผ่านช้าๆ 1 รอบต่อการชี้ 1 ครั้ง (เมนู/ปุ่ม 1.6 วิ · การ์ด 2.2 วิ ความเร็วเกือบคงที่ เห็นแถบตลอดทาง)
+       ไม่มีอะไรขยับเองตอนไม่ได้ชี้ (ไม่วนซ้ำ ไม่มีพื้นหลังเคลื่อนไหว) · เอาเมาส์ออก = ค่อยๆ ลงกลับที่เดิม แถบแสงจางหาย
+     - เฉพาะอุปกรณ์ที่ชี้เมาส์ได้จริง (hover: hover + pointer: fine) — มือถือ/iPad ที่ใช้นิ้วแตะไม่มีเอฟเฟกต์ (ไม่ค้างลอยหลังแตะ)
+     - เครื่องตั้ง "ลดการเคลื่อนไหว" = ไม่ยก ไม่มีแถบแสง เหลือแค่เงา/สีเปลี่ยน
+     - แถบแสงอยู่ "ใต้ตัวอักษร" (z-index -1 ภายในกล่อง isolation) → ตัวอักษรไม่จางลงตอนแถบแสงผ่าน · โค้งตามมุมของกล่องเอง
+     - ปุ่ม/ลิงก์ที่ปิดอยู่ (disabled / aria-disabled) ไม่ยก · วงโฟกัสคีย์บอร์ด (:focus-visible) คงเดิม
+     - .nav-item ได้เอฟเฟกต์นี้อัตโนมัติ (ไม่ต้องใส่คลาสเพิ่ม) · การ์ดใหญ่ใส่ .lift-card เพิ่ม (ยกสูงกว่า + ขยาย 1% + แถบแสงช้ากว่า)
+     - กล่องที่ใช้ต้องไม่ใช้ ::before / ::after ทำอย่างอื่น (::after = แถบแสง · ::before = ขอบรับเมาส์ใต้กล่องตอนยก)
+       และต้องไม่มี overflow: hidden (จะตัดขอบรับเมาส์ทิ้ง) */
+  .lift-hover,
+  .nav-item {
+    --lift-y: -2px;
+    --lift-scale: 1;
+    --lift-sweep-dur: 1.6s;
+    /* จุดเริ่ม/จุดจบของแถบแสง = พ้นขอบซ้าย/ขวาของกล่องเตี้ย (ปุ่ม/เมนู สูง:กว้าง ≤ 1:5) พอดี — ไม่เสียเวลาวิ่งนอกกล่อง */
+    --lift-sweep-from: 107%;
+    --lift-sweep-to: -7%;
+    --lift-shadow: 0 10px 22px -8px rgb(var(--c-ink) / 0.2), 0 2px 6px rgb(var(--c-ink) / 0.08);
+    /* สีแถบแสง: ขาวโปร่ง (บนปุ่มสีเน้น) */
+    --lift-sheen: rgb(255 255 255 / 0.55);
+    position: relative;
+    isolation: isolate;
+    /* ยก/เงา ช้าและนุ่ม (0.7 วิ) · สีพื้น/เส้น/ตัวอักษร คงความเร็วเดิมของปุ่มและเมนู 150ms */
+    transition:
+      transform 0.7s cubic-bezier(0.33, 0, 0.2, 1),
+      box-shadow 0.7s cubic-bezier(0.33, 0, 0.2, 1),
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
+  }
+  /* เมนูข้างร้านเช่า/b.oncloud (แถบเมนูสีอ่อนของร้าน): พื้นตอนชี้อ่อนมากอยู่แล้ว → แถบขาวเกือบทึบจึงจะเห็นเป็นแสงวิ่งผ่าน */
+  .nav-item { --lift-sheen: rgb(255 255 255 / 0.95); }
+  /* เมนูที่เลือกอยู่ พื้นเข้มกว่าตอนชี้ → ขาวโปร่งกว่าก็เห็นชัดเท่ากัน */
+  .nav-item[aria-current='page'] { --lift-sheen: rgb(255 255 255 / 0.75); }
+  /* NEWCUTE: แถบเมนูขาว พื้นตอนชี้/ตัวที่เลือกเกือบขาว แถบขาวมองไม่เห็น → ประกายโรสโกลด์ brand-300 */
+  [data-shop='newcute'] .nav-item { --lift-sheen: rgb(var(--c-brand-300) / 0.7); }
+  /* ปุ่มออกจากระบบ (ชี้แล้วพื้นแดงอ่อน) → แถบแสงแดงอ่อน (red-200) */
+  .nav-item.text-red-700 { --lift-sheen: rgb(253 199 199 / 0.8); }
+  /* การ์ดใหญ่ (หน้าเลือกร้าน): ยก 4px + ขยาย 1% + เงาลึกกว่า · การ์ดพื้นขาว → แถบแสงสีของร้าน (brand-300) */
+  .lift-card {
+    --lift-y: -4px;
+    --lift-scale: 1.01;
+    --lift-sweep-dur: 2.2s;
+    /* การ์ดสูง (สูง:กว้าง ถึง ~1.9) แถบเฉียงกินความกว้างมากกว่า → เริ่ม/จบไกลกว่า ไม่ค้างมุมการ์ดตอนเริ่ม/จบ */
+    --lift-sweep-from: 132%;
+    --lift-sweep-to: -32%;
+    --lift-shadow: 0 24px 48px -20px rgb(var(--c-ink) / 0.3), 0 8px 18px -6px rgb(var(--c-ink) / 0.1);
+    --lift-sheen: rgb(var(--c-brand-300) / 0.6);
+  }
+  /* แถบแสง: ภาพไล่สีกว้าง 250% ของกล่อง แถบสว่างกว้าง 24% ของภาพ (แคบพอให้เห็นเป็น "แสงวิ่ง" ไม่ใช่ทั้งกล่องสว่างขึ้น)
+     พักไว้นอกกล่องด้านซ้าย (--lift-sweep-from) */
+  .lift-hover::after,
+  .nav-item::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image: linear-gradient(110deg, transparent 38%, var(--lift-sheen) 50%, transparent 62%);
+    background-repeat: no-repeat;
+    background-size: 250% 100%;
+    background-position: var(--lift-sweep-from) 0;
+    opacity: 0;
+    /* เอาเมาส์ออก: จางหาย 0.3 วิ แล้วค่อยดีดแถบกลับจุดเริ่ม (ไม่วิ่งย้อนกลับ) */
+    transition: opacity 0.3s ease, background-position 0s linear 0.3s;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    /* z-index 1 = เงาของตัวที่ลอยทับเพื่อนข้างๆ (ไม่โดนการ์ด/เมนูถัดไปบัง) */
+    .lift-hover:not(:disabled):not([aria-disabled='true']):hover,
+    .nav-item:not(:disabled):hover {
+      z-index: 1;
+      box-shadow: var(--lift-shadow);
+    }
+  }
+  @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .lift-hover:not(:disabled):not([aria-disabled='true']):hover,
+    .nav-item:not(:disabled):hover {
+      transform: translateY(var(--lift-y)) scale(var(--lift-scale));
+    }
+    /* ขอบรับเมาส์ใต้กล่องตอนยก (ใส มองไม่เห็น): กล่องยกขึ้นแล้ว ขอบล่างเดิมยังนับเป็น "ชี้อยู่"
+       ไม่งั้นเมาส์ที่อยู่ 1-3px ล่างสุดของกล่อง หลุด/กลับมาชี้สลับกันทุกครั้งที่ขยับ → กล่องกระตุกขึ้นลง เงาและแถบแสงเริ่มใหม่ */
+    .lift-hover:not(:disabled):not([aria-disabled='true']):hover::before,
+    .nav-item:not(:disabled):hover::before {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      height: calc(1px - var(--lift-y));
+    }
+    /* ชี้: แถบแสงวิ่งจากซ้ายไปขวา 1 รอบ (--lift-sweep-from → --lift-sweep-to) ความเร็วเกือบคงที่ แล้วพักนอกกล่องด้านขวา */
+    .lift-hover:not(:disabled):not([aria-disabled='true']):hover::after,
+    .nav-item:not(:disabled):hover::after {
+      opacity: 1;
+      background-position: var(--lift-sweep-to) 0;
+      transition: background-position var(--lift-sweep-dur) cubic-bezier(0.3, 0.1, 0.7, 0.9), opacity 0.2s ease;
+    }
+  }
+
+  /* ================= การ์ดเลือกร้าน (/select) ================= */
+  /* การ์ดใหญ่เกือบเต็มจอ (บอสสั่ง 24/11/2569) — ทั้งการ์ดเป็นลิงก์เดียว · สีทั้งหมดจากตัวแปรของร้านที่ครอบการ์ด (<li data-shop>)
+     แถบสีร้านด้านบน 6px (brand-400 วาดเป็นพื้นหลังชั้นบน เพราะ ::before/::after เป็นของ .lift-hover) + ปุ่ม "เข้าสู่ร้าน" พื้นสีร้าน
+     (เหมือนการ์ดในหน้ารวมแอปกลุ่ม) · ไม่ใช้ overflow: hidden (จะตัดขอบรับเมาส์ของ .lift-hover) — พื้นหลังโค้งตามมุมการ์ดเองอยู่แล้ว
+     ห้ามใส่ container-type ที่การ์ด (ทำให้ subgrid ของจอใหญ่ใช้ไม่ได้) — ขนาดชื่อร้านอิงความกว้าง <ul> แทน (app/select/page.tsx) */
+  .shop-card {
+    @apply relative flex w-full flex-col rounded-4xl;
+    background:
+      linear-gradient(rgb(var(--c-brand-400)), rgb(var(--c-brand-400))) 0 0 / 100% 6px no-repeat padding-box,
+      #FFFFFF;
+    border: 1px solid rgb(var(--c-gray-200));
+  }
+  /* ปุ่มในการ์ด (ตกแต่ง — ทั้งการ์ดเป็นลิงก์อยู่แล้ว): พื้น brand-400 + ตัวอักษร on-primary แบบ .btn-primary ของร้านนั้น */
+  .shop-card-cta {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl font-semibold leading-snug text-center;
+    color: rgb(var(--c-on-primary));
+    background-color: rgb(var(--c-brand-400));
+    border: 1px solid rgb(var(--c-brand-400));
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+  }
+  @media (hover: hover) {
+    .shop-card:hover { border-color: rgb(var(--c-gray-300)); }
+    .shop-card:hover .shop-card-cta { background-color: rgb(var(--c-brand-500)); border-color: rgb(var(--c-brand-500)); }
+  }
+  .shop-card:active { background-color: rgb(var(--c-gray-50)); }
+  .shop-card:active .shop-card-cta { background-color: rgb(var(--c-brand-500)); border-color: rgb(var(--c-brand-600)); }
 
   /* ================= ตัวเลือก / ชิป / ป้าย ================= */
 

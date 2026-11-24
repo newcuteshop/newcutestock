@@ -13,7 +13,7 @@ import {
 } from '@/lib/auth/entry-gate'
 import BrandMark from '@/components/theme/BrandMark'
 import ShopThemeSync from '@/components/theme/ShopThemeSync'
-import { ICON_SM } from '@/components/theme/icons'
+import { ICON, ICON_SM } from '@/components/theme/icons'
 
 // รอออกจากระบบเดิมไม่เกินเท่านี้ แล้วเปิดปุ่มเข้าสู่ระบบเลย (กันฟอร์มค้าง)
 // ถ้ายังไม่เสร็จ loginAction จะเข้าคิวต่อท้ายเอง (Next.js รัน server action ทีละตัว) → ไม่มีทางลบ session ใหม่
@@ -122,76 +122,92 @@ export default function LoginPage() {
   }
 
   return (
-    // ไม่ใส่พื้นหลัง: พื้นเทาอ่อนมาจาก body · ขอบบน/ล่างเผื่อรอยบากและแถบ home
-    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center px-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+    // ไม่ใส่พื้นหลัง: พื้นเทาอ่อนมาจาก body · ขอบบน/ล่างเผื่อรอยบากและแถบ home (จอใหญ่ขอบแคบลง ให้การ์ดสูงเกือบเต็มจอ)
+    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center px-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] wide:pt-[max(1rem,env(safe-area-inset-top))] wide:pb-[max(1rem,env(safe-area-inset-bottom))]">
       {/* หน้าเข้าสู่ระบบเป็นของ NEWCUTE (โรสโกลด์) เสมอ — แม้มาจากหน้าร้านเช่า */}
       <ShopThemeSync shop="newcute" />
-      {/* การ์ดขาวเรียบ มุม 12px เส้นบาง 1px (.card) */}
-      <div className="card w-full max-w-sm">
-        <div className="px-6 py-7 sm:px-8 sm:py-8">
-          <div className="flex flex-col items-center text-center mb-6">
-            <BrandMark size="lg" />
-            {/* ชื่อร้านหนา 800 (กติกาเดียวกับ .page-title / ชื่อร้านในเมนู — ฟอนต์ Prompt) */}
-            <h1 className="mt-4 text-2xl font-extrabold leading-tight tracking-wide text-gray-900">NEWCUTE</h1>
-            <p className="text-gray-500 text-sm mt-1">ระบบสต๊อกสินค้าเสื้อผ้า</p>
+      {/* บอสสั่ง 24/11/2569: ใหญ่เกือบเต็มจอ เห็นเด่นชัด — การ์ดขาว มุม 16px เส้นบาง 1px (ตัวการ์ดไม่ยกลอย มีแต่ปุ่มเข้าสู่ระบบ)
+          มือถือ: การ์ดเต็มกว้าง แบรนด์ด้านบน ฟอร์มด้านล่าง · แท็บเล็ต (md): การ์ดกว้าง ~90vw คอลัมน์เดียว
+          จอใหญ่แนวนอน (wide: = กว้าง ≥ 1024px และกว้าง:สูง ≥ 5:4 — tailwind.config.ts): สูง 84dvh แบ่ง 2 ฝั่ง
+          ซ้ายแบรนด์ (พื้นโรสโกลด์อ่อน brand-50) / ขวาฟอร์ม · กว้าง 92vw แต่ไม่เกิน 1.6 เท่าความสูงจอ (ไม่ต่ำกว่า 1200px)
+          → สัดส่วนการ์ดเท่ากันทุกจอ (1366×768 ≈ 1229px · 1440×900 ≈ 1325px · 1920×1080 ≈ 1728px · 2560×1440 ≈ 2304px)
+          ตัวอักษร/โลโก้/ช่องกรอกขยายตามความสูงจอ (dvh) ต่อถึงจอสูง ไม่ปล่อยการ์ดใหญ่โล่ง
+          จอแนวตั้ง (เช่น iPad Pro แนวตั้ง) ใช้แบบแท็บเล็ตคอลัมน์เดียว */}
+      <div className="card w-full max-w-[30rem] overflow-hidden rounded-4xl md:max-w-[min(90vw,46rem)] wide:grid wide:min-h-[84dvh] wide:w-[min(92vw,max(75rem,160dvh))] wide:max-w-none wide:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+        <div className="flex flex-col items-center justify-center border-b border-brand-100 bg-brand-50 px-6 py-8 text-center md:py-12 wide:border-b-0 wide:border-r wide:px-[clamp(2rem,4vw,5rem)] wide:py-[clamp(2rem,6dvh,5rem)]">
+          {/* โลโก้: มือถือ 80px · แท็บเล็ต 128px · จอใหญ่ 144-368px ตามความสูงจอ (26dvh — ทับขนาด lg 64px ด้วย !) */}
+          <BrandMark size="lg" className="!h-20 !w-20 md:!h-32 md:!w-32 wide:!h-[clamp(9rem,26dvh,23rem)] wide:!w-[clamp(9rem,26dvh,23rem)]" />
+          {/* ชื่อร้านหนา 800 (กติกาเดียวกับ .page-title / ชื่อร้านในเมนู — ฟอนต์ Prompt) · จอใหญ่ 48-136px (9dvh) */}
+          <h1 className="mt-5 text-[40px] font-extrabold leading-[1.1] tracking-wide text-gray-900 md:mt-6 md:text-[56px] wide:mt-[clamp(1.25rem,4dvh,3.75rem)] wide:text-[length:clamp(3rem,9dvh,8.5rem)]">
+            NEWCUTE
+          </h1>
+          <p className="mt-2 text-[17px] text-gray-600 md:mt-3 md:text-xl wide:text-[length:clamp(1.25rem,3dvh,2.75rem)]">ระบบสต๊อกสินค้าเสื้อผ้า</p>
+        </div>
+
+        <div className="flex flex-col justify-center px-5 py-7 sm:px-8 md:px-14 md:py-12 wide:px-[clamp(2.5rem,5vw,6rem)] wide:py-[clamp(2rem,6dvh,5rem)]">
+          <div className="mx-auto w-full max-w-[30rem] wide:max-w-[clamp(30rem,52dvh,48rem)]">
+            <h2 className="text-2xl font-semibold leading-tight text-gray-900 md:text-[28px] wide:text-[length:clamp(1.75rem,4.4dvh,4rem)]">เข้าสู่ระบบ</h2>
+            <p className="mt-1.5 text-base text-gray-500 md:text-lg wide:text-[length:clamp(1.125rem,2.2dvh,2rem)]">กรอกชื่อผู้ใช้และรหัสผ่านเพื่อเข้าใช้งาน</p>
+
+            {/* ช่องกรอกใหญ่: สูง 56px (มือถือ) / 60px (แท็บเล็ต) / 64-104px (จอใหญ่ ตามความสูงจอ) ตัวอักษร 18-32px (เกิน 16px → iPhone ไม่ซูมเอง) */}
+            <form method="post" onSubmit={handleLogin} className="mt-6 space-y-5 md:mt-8 md:space-y-6 wide:mt-[clamp(2rem,4dvh,3.5rem)] wide:space-y-[clamp(1.5rem,2.8dvh,2.75rem)]" noValidate>
+              <div>
+                <label htmlFor="login-username" className="field-label mb-2 text-base md:text-lg wide:text-[length:clamp(1.125rem,2.2dvh,2rem)]">ชื่อผู้ใช้</label>
+                {/* ไอคอนเทานำหน้าช่อง (ตกแต่ง — ชื่อช่องอยู่ใน <label>) */}
+                <div className="input-icon [&>svg]:left-4">
+                  <UserRound {...ICON} />
+                  <input
+                    id="login-username" name="username"
+                    type="text" autoComplete="username"
+                    autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                    value={login} onChange={e => { setLogin(e.target.value); setError('') }}
+                    className="input min-h-[56px] pl-12 text-lg md:min-h-[60px] wide:min-h-[clamp(4rem,7.2dvh,6.5rem)] wide:text-[length:clamp(1.125rem,2.2dvh,2rem)]" placeholder="เช่น max" aria-describedby="login-username-hint" required
+                  />
+                </div>
+                <p id="login-username-hint" className="field-hint mt-1.5 text-sm md:text-[15px] wide:text-[length:clamp(0.9375rem,1.7dvh,1.5rem)]">ใช้อีเมลเดิมก็ได้</p>
+              </div>
+              <div>
+                <label htmlFor="login-password" className="field-label mb-2 text-base md:text-lg wide:text-[length:clamp(1.125rem,2.2dvh,2rem)]">รหัสผ่าน</label>
+                <div className="input-icon [&>svg]:left-4">
+                  <Lock {...ICON} />
+                  <input
+                    id="login-password" name="password"
+                    type={showPassword ? 'text' : 'password'} autoComplete="current-password"
+                    autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                    value={password} onChange={e => { setPassword(e.target.value); setError('') }}
+                    className="input min-h-[56px] pl-12 pr-28 text-lg md:min-h-[60px] wide:min-h-[clamp(4rem,7.2dvh,6.5rem)] wide:text-[length:clamp(1.125rem,2.2dvh,2rem)]" placeholder="••••••••" required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(s => !s)}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 min-h-[44px] min-w-[44px] px-3 rounded-lg text-base font-medium text-brand-700 transition-colors md:min-h-[48px] [@media(hover:hover)]:hover:bg-gray-100 active:bg-gray-150 wide:text-[length:clamp(1rem,1.8dvh,1.5rem)]"
+                    aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                  >
+                    {showPassword ? <EyeOff {...ICON} /> : <Eye {...ICON} />}
+                    {showPassword ? 'ซ่อน' : 'แสดง'}
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <div role="alert" className="alert-err text-base">
+                  <AlertCircle {...ICON_SM} />
+                  <span className="min-w-0 break-words">{error}</span>
+                </div>
+              )}
+
+              {/* ปุ่มเข้าสู่ระบบ: ชี้เมาส์แล้วยกลอย + แถบแสงวิ่งผ่าน (.lift-hover — ปุ่มที่ยังกดไม่ได้ไม่ยก) */}
+              <button
+                type="submit"
+                disabled={loading || !hydrated || !ready}
+                className="btn-primary lift-hover w-full min-h-[56px] rounded-xl text-lg md:min-h-[60px] wide:min-h-[clamp(4rem,7.2dvh,6.5rem)] wide:text-[length:clamp(1.125rem,2.2dvh,2rem)]"
+              >
+                {loading && <Loader2 {...ICON} className="animate-spin" />}
+                {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+                {!loading && <ArrowRight {...ICON} />}
+              </button>
+            </form>
           </div>
-
-          <form method="post" onSubmit={handleLogin} className="space-y-4" noValidate>
-            <div>
-              <label htmlFor="login-username" className="field-label">ชื่อผู้ใช้</label>
-              {/* ไอคอนเทานำหน้าช่อง (ตกแต่ง — ชื่อช่องอยู่ใน <label>) */}
-              <div className="input-icon">
-                <UserRound {...ICON_SM} />
-                <input
-                  id="login-username" name="username"
-                  type="text" autoComplete="username"
-                  autoCapitalize="none" autoCorrect="off" spellCheck={false}
-                  value={login} onChange={e => { setLogin(e.target.value); setError('') }}
-                  className="input min-h-[48px] pl-11" placeholder="เช่น max" aria-describedby="login-username-hint" required
-                />
-              </div>
-              <p id="login-username-hint" className="field-hint">ใช้อีเมลเดิมก็ได้</p>
-            </div>
-            <div>
-              <label htmlFor="login-password" className="field-label">รหัสผ่าน</label>
-              <div className="input-icon">
-                <Lock {...ICON_SM} />
-                <input
-                  id="login-password" name="password"
-                  type={showPassword ? 'text' : 'password'} autoComplete="current-password"
-                  autoCapitalize="none" autoCorrect="off" spellCheck={false}
-                  value={password} onChange={e => { setPassword(e.target.value); setError('') }}
-                  className="input min-h-[48px] pl-11 pr-24" placeholder="••••••••" required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(s => !s)}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 min-h-[44px] min-w-[44px] px-3 rounded-lg text-sm font-medium text-brand-700 transition-colors [@media(hover:hover)]:hover:bg-gray-100 active:bg-gray-150"
-                  aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
-                >
-                  {showPassword ? <EyeOff {...ICON_SM} /> : <Eye {...ICON_SM} />}
-                  {showPassword ? 'ซ่อน' : 'แสดง'}
-                </button>
-              </div>
-            </div>
-
-            {error && (
-              <div role="alert" className="alert-err">
-                <AlertCircle {...ICON_SM} />
-                <span className="min-w-0 break-words">{error}</span>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading || !hydrated || !ready}
-              className="btn-primary w-full min-h-[48px] text-base"
-            >
-              {loading && <Loader2 {...ICON_SM} className="animate-spin" />}
-              {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
-              {!loading && <ArrowRight {...ICON_SM} />}
-            </button>
-          </form>
         </div>
       </div>
     </div>

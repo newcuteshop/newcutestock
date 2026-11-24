@@ -364,8 +364,9 @@ export default function Sidebar({
         <ShopBrand shop={shop} shopName={shopName} />
       </div>
 
-      {/* Nav — เมนูที่เลือกอยู่ (aria-current) = พื้นเน้นอ่อน + ตัวอักษรเน้นเข้มของร้าน (มาจาก .nav-item เอง → --c-side-active*) */}
-      <nav aria-label="เมนูหลัก" className="flex-1 overflow-y-auto overscroll-y-contain px-3 py-2 space-y-1">
+      {/* Nav — เมนูที่เลือกอยู่ (aria-current) = พื้นเน้นอ่อน + ตัวอักษรเน้นเข้มของร้าน (มาจาก .nav-item เอง → --c-side-active*)
+          ขอบล่าง 20px (pb-5): จอเตี้ยที่เมนูเลื่อนได้ — เลื่อนสุดแล้วชี้เมนูล่างสุด เงาตอนยกลอย (.nav-item) ไม่ถูกขอบกล่องเลื่อนตัด */}
+      <nav aria-label="เมนูหลัก" className="flex-1 overflow-y-auto overscroll-y-contain px-3 pt-2 pb-5 space-y-1">
         <NavLinks items={items} pathname={pathname} badges={badges} />
       </nav>
 
