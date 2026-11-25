@@ -68,7 +68,7 @@ export default function TabBar<K extends string>({
             aria-controls={active ? `${idPrefix}-panel-${t.key}` : undefined}
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(t.key)}
-            className={clsx('chip-toggle', active && 'font-semibold')}
+            className={clsx('chip-toggle lift-hover lift-tab', active && 'font-semibold')}
             style={active ? ACTIVE_TAB_STYLE : undefined}
           >
             <Icon {...ICON_SM} />

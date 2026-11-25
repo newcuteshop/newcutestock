@@ -180,7 +180,7 @@ export default function ScheduleView({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-2" role="group" aria-label="ชนิดงาน">
             {FILTERS.map(f => (
-              <button key={f.value} type="button" className="chip-toggle" aria-pressed={filter === f.value} onClick={() => setFilter(f.value)}>
+              <button key={f.value} type="button" className="chip-toggle lift-hover lift-tab" aria-pressed={filter === f.value} onClick={() => setFilter(f.value)}>
                 {f.label}
               </button>
             ))}

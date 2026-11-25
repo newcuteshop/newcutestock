@@ -290,12 +290,12 @@ export default function DeliverablesBoardClient({
       {/* ===== ตัวกรอง ===== */}
       <section className="card space-y-3 p-4 sm:p-5" aria-label="ตัวกรองกระดานส่งงาน">
         <div className="flex items-start gap-2">
-          <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto scrollbar-none sm:flex-wrap" role="group" aria-label="ขอบเขตรายการ">
+          <div className="lift-scroll flex min-w-0 flex-1 gap-2 overflow-x-auto scrollbar-none sm:flex-wrap" role="group" aria-label="ขอบเขตรายการ">
             {BOARD_SCOPES.map(s => (
               <button
                 key={s.key}
                 type="button"
-                className="chip-toggle"
+                className="chip-toggle lift-hover lift-tab"
                 aria-pressed={scope === s.key}
                 onClick={() => chooseScope(s.key)}
               >

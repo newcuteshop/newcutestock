@@ -164,7 +164,7 @@ export default function OrdersTab({
         </div>
       )}
 
-      <div className="-mx-1 flex gap-2 overflow-x-auto scrollbar-none px-1 pb-1 md:flex-wrap md:overflow-visible" role="group" aria-label="ตัวกรองออเดอร์">
+      <div className="lift-scroll -mx-1 flex gap-2 overflow-x-auto scrollbar-none px-1 [--lift-scroll-pb:0.25rem] md:flex-wrap md:overflow-visible" role="group" aria-label="ตัวกรองออเดอร์">
         {FILTERS.map(f => {
           const n = filterCount(channel, f.value)
           return (
@@ -173,7 +173,7 @@ export default function OrdersTab({
               type="button"
               aria-pressed={filter === f.value}
               onClick={() => nav.go({ filter: f.value === 'all' ? null : f.value })}
-              className="chip-toggle shrink-0"
+              className="chip-toggle lift-hover lift-tab shrink-0"
             >
               {f.label}
               {n !== null && n > 0 && <span className="tabular-nums opacity-80">{qty(n)}</span>}

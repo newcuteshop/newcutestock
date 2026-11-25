@@ -949,7 +949,7 @@ function DoneStat({ label, value, unit }: { label: string; value: number; unit: 
 
 function FilterButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
-    <button type="button" aria-pressed={active} onClick={onClick} className="chip-toggle tabular-nums">
+    <button type="button" aria-pressed={active} onClick={onClick} className="chip-toggle lift-hover lift-tab tabular-nums">
       {children}
     </button>
   )

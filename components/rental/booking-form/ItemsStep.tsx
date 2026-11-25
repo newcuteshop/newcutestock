@@ -235,16 +235,16 @@ export default function ItemsStep({
         )}
 
         {categories.length > 0 && (
-          <div className="-mx-3 overflow-x-auto px-3 scrollbar-none sm:mx-0 sm:px-0" role="group" aria-label="หมวดชุด">
+          <div className="lift-scroll -mx-3 overflow-x-auto px-3 scrollbar-none sm:mx-0 sm:px-0" role="group" aria-label="หมวดชุด">
             <div className="flex gap-2 sm:flex-wrap">
-              <button type="button" className="chip-toggle shrink-0" aria-pressed={categoryId === ''} onClick={() => setCategoryId('')}>
+              <button type="button" className="chip-toggle lift-hover lift-tab shrink-0" aria-pressed={categoryId === ''} onClick={() => setCategoryId('')}>
                 ทุกหมวด
               </button>
               {categories.map(c => (
                 <button
                   key={c.id}
                   type="button"
-                  className="chip-toggle shrink-0"
+                  className="chip-toggle lift-hover lift-tab shrink-0"
                   aria-pressed={categoryId === c.id}
                   onClick={() => setCategoryId(prev => (prev === c.id ? '' : c.id))}
                 >

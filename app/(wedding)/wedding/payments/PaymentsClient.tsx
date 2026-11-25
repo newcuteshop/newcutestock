@@ -381,11 +381,11 @@ export default function PaymentsClient({
       {/* ===== เลือกช่วง ===== */}
       <div className="card space-y-3 p-3 sm:p-4">
         <div className="flex flex-wrap gap-2" role="group" aria-label="ดูแบบ">
-          <button type="button" className="chip-toggle" aria-pressed={mode === 'day'} onClick={() => go('day', day)}>
+          <button type="button" className="chip-toggle lift-hover lift-tab" aria-pressed={mode === 'day'} onClick={() => go('day', day)}>
             <CalendarDays {...ICON_XS} />
             รายวัน
           </button>
-          <button type="button" className="chip-toggle" aria-pressed={mode === 'month'} onClick={() => go('month', month)}>
+          <button type="button" className="chip-toggle lift-hover lift-tab" aria-pressed={mode === 'month'} onClick={() => go('month', month)}>
             <CalendarClock {...ICON_XS} />
             รายเดือน
           </button>
@@ -630,7 +630,7 @@ export default function PaymentsClient({
             </div>
             <div className="flex gap-2 overflow-x-auto scrollbar-none border-b border-gray-150 px-4 py-3 sm:flex-wrap sm:px-5" role="group" aria-label="กรองรายการ">
               {FILTERS.map(f => (
-                <button key={f.value} type="button" className="chip-toggle" aria-pressed={filter === f.value} onClick={() => setFilter(f.value)}>
+                <button key={f.value} type="button" className="chip-toggle lift-hover lift-tab" aria-pressed={filter === f.value} onClick={() => setFilter(f.value)}>
                   {f.label}
                 </button>
               ))}

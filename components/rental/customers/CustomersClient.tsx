@@ -216,8 +216,8 @@ export default function CustomersClient() {
         </form>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-2" role="group" aria-label="ตัวกรองลูกค้า">
-            <button type="button" className="chip-toggle" aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>ทั้งหมด</button>
-            <button type="button" className="chip-toggle" aria-pressed={filter === 'blacklist'} onClick={() => setFilter('blacklist')}>
+            <button type="button" className="chip-toggle lift-hover lift-tab" aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>ทั้งหมด</button>
+            <button type="button" className="chip-toggle lift-hover lift-tab" aria-pressed={filter === 'blacklist'} onClick={() => setFilter('blacklist')}>
               <Ban size={14} strokeWidth={1.9} aria-hidden="true" />
               บัญชีดำ
             </button>

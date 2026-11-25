@@ -406,7 +406,7 @@ export default function BillsClient({
             <button
               key={opt.value}
               type="button"
-              className="chip-toggle"
+              className="chip-toggle lift-hover lift-tab"
               aria-pressed={status === opt.value}
               onClick={() => setStatus(opt.value)}
             >

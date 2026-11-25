@@ -274,10 +274,10 @@ export default function CatalogClient({ info, todayKey, initialQuery, initialIte
         {info.categories.length > 0 && (
           <div>
             <p className="field-label" id="book-cat-label">หมวดหมู่</p>
-            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none sm:mx-0 sm:flex-wrap sm:px-0" role="group" aria-labelledby="book-cat-label">
+            <div className="lift-scroll -mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none [--lift-scroll-pb:0.25rem] sm:mx-0 sm:flex-wrap sm:px-0" role="group" aria-labelledby="book-cat-label">
               <button
                 type="button"
-                className="chip-toggle"
+                className="chip-toggle lift-hover lift-tab"
                 aria-pressed={query.categoryId === null}
                 onClick={() => setQuery(q => ({ ...q, categoryId: null }))}
               >
@@ -287,7 +287,7 @@ export default function CatalogClient({ info, todayKey, initialQuery, initialIte
                 <button
                   key={c.id}
                   type="button"
-                  className="chip-toggle"
+                  className="chip-toggle lift-hover lift-tab"
                   aria-pressed={query.categoryId === c.id}
                   onClick={() => setQuery(q => ({ ...q, categoryId: q.categoryId === c.id ? null : c.id }))}
                 >

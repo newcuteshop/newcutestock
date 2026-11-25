@@ -95,7 +95,7 @@ export default function CalendarClient({
               onClick={() => changeTab(t.value)}
               onKeyDown={onTabKey}
               className={clsx(
-                'flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg px-4 text-sm whitespace-nowrap transition-colors duration-150',
+                'lift-hover lift-seg flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg px-4 text-sm whitespace-nowrap',
                 active
                   ? 'bg-brand-100 font-semibold text-brand-700'
                   : 'font-medium text-gray-700 active:bg-gray-150 [@media(hover:hover)]:hover:bg-gray-100 [@media(hover:hover)]:hover:text-gray-900',

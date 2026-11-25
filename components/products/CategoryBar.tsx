@@ -151,7 +151,7 @@ export default function CategoryBar({
         ref={rowRef}
         role="group"
         aria-label="กรองตามหมวดหมู่"
-        className="relative -mx-4 flex gap-2 overflow-x-auto overscroll-x-contain scrollbar-none px-4 py-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+        className="lift-scroll relative -mx-4 flex gap-2 overflow-x-auto overscroll-x-contain scrollbar-none px-4 [--lift-scroll-pt:0.25rem] [--lift-scroll-pb:0.25rem] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
       >
         <FilterChip label="ทั้งหมด" count={counts.all} pressed={selected === ''} onClick={() => onSelect('')} />
         {categories.map(c => (
@@ -202,7 +202,7 @@ function FilterChip({ label, count, pressed, onClick, dashed = false }: {
       type="button"
       aria-pressed={pressed}
       onClick={onClick}
-      className={`chip-toggle group shrink-0 max-w-[15rem] ${dashed && !pressed ? 'border-dashed' : ''}`}
+      className={`chip-toggle lift-hover lift-tab group shrink-0 max-w-[15rem] ${dashed && !pressed ? 'border-dashed' : ''}`}
     >
       <span className="min-w-0 truncate">{label}</span>
       {/* จำนวนในชิปที่เลือก (พื้นโรสโกลด์อ่อน) ต้องเป็นสีหมึก ห้ามขาว */}

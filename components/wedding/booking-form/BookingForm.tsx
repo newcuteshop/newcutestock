@@ -969,7 +969,7 @@ export default function BookingForm({
       )}
 
       {/* ===== แถบลัดไปส่วนต่างๆ (มือถือเลื่อนแนวนอนในกล่องของตัวเอง) ===== */}
-      <nav aria-label="ส่วนของฟอร์ม" className="-mx-3 overflow-x-auto px-3 scrollbar-none sm:-mx-4 sm:px-4 md:mx-0 md:px-0">
+      <nav aria-label="ส่วนของฟอร์ม" className="lift-scroll -mx-3 overflow-x-auto px-3 scrollbar-none sm:-mx-4 sm:px-4 md:mx-0 md:px-0">
         <div className="flex gap-2">
           {SECTIONS.map(s => {
             const bad = tried && problemSections.has(s.id)
@@ -977,7 +977,7 @@ export default function BookingForm({
               <button
                 key={s.id}
                 type="button"
-                className={clsx('chip-toggle shrink-0', bad && 'border-red-300 text-red-800')}
+                className={clsx('chip-toggle lift-hover lift-tab shrink-0', bad && 'border-red-300 text-red-800')}
                 onClick={() => scrollToSection(s.id)}
               >
                 {s.label}

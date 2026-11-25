@@ -345,7 +345,7 @@ export default function ReportsClient({
             <button
               key={p.key}
               type="button"
-              className="chip-toggle"
+              className="chip-toggle lift-hover lift-tab"
               aria-pressed={activePreset === p.key}
               onClick={() => choosePreset(p.key)}
             >

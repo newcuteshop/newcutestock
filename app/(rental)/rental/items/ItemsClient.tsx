@@ -200,15 +200,15 @@ export default function ItemsClient({
         {/* หมวด */}
         <div className="space-y-1.5">
           <p className="section-kicker">หมวด</p>
-          <div className="-mx-1 flex gap-2 overflow-x-auto overscroll-x-contain scrollbar-none px-1 pb-1" role="group" aria-label="กรองตามหมวด">
-            <button type="button" className="chip-toggle shrink-0" aria-pressed={activeCat === ''} onClick={() => { setCatFilter(''); setShown(PAGE_STEP) }}>
+          <div className="lift-scroll -mx-1 flex gap-2 overflow-x-auto overscroll-x-contain scrollbar-none px-1 [--lift-scroll-pb:0.25rem]" role="group" aria-label="กรองตามหมวด">
+            <button type="button" className="chip-toggle lift-hover lift-tab shrink-0" aria-pressed={activeCat === ''} onClick={() => { setCatFilter(''); setShown(PAGE_STEP) }}>
               ทั้งหมด <span className="tabular-nums text-gray-500">{items.length}</span>
             </button>
             {categories.map(c => (
               <button
                 key={c.id}
                 type="button"
-                className="chip-toggle shrink-0"
+                className="chip-toggle lift-hover lift-tab shrink-0"
                 aria-pressed={activeCat === c.id}
                 onClick={() => { setCatFilter(c.id); setShown(PAGE_STEP) }}
               >
@@ -218,7 +218,7 @@ export default function ItemsClient({
             {counts.none > 0 && (
               <button
                 type="button"
-                className="chip-toggle shrink-0"
+                className="chip-toggle lift-hover lift-tab shrink-0"
                 aria-pressed={activeCat === NO_CATEGORY}
                 onClick={() => { setCatFilter(NO_CATEGORY); setShown(PAGE_STEP) }}
               >
@@ -231,12 +231,12 @@ export default function ItemsClient({
         {/* สถานะ */}
         <div className="space-y-1.5">
           <p className="section-kicker">สถานะ</p>
-          <div className="-mx-1 flex gap-2 overflow-x-auto overscroll-x-contain scrollbar-none px-1 pb-1" role="group" aria-label="กรองตามสถานะ">
+          <div className="lift-scroll -mx-1 flex gap-2 overflow-x-auto overscroll-x-contain scrollbar-none px-1 [--lift-scroll-pb:0.25rem]" role="group" aria-label="กรองตามสถานะ">
             {STATUS_FILTERS.map(f => (
               <button
                 key={f.value}
                 type="button"
-                className="chip-toggle shrink-0"
+                className="chip-toggle lift-hover lift-tab shrink-0"
                 aria-pressed={status === f.value}
                 onClick={() => { setStatus(f.value); setShown(PAGE_STEP) }}
               >

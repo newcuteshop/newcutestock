@@ -376,13 +376,13 @@ export default function CalendarClient({
           </button>
         </div>
 
-        <div className="-mx-3 overflow-x-auto px-3 scrollbar-none sm:mx-0 sm:px-0">
+        <div className="lift-scroll -mx-3 overflow-x-auto px-3 scrollbar-none sm:mx-0 sm:px-0">
           <div className="flex w-max gap-2 sm:w-auto sm:flex-wrap" role="group" aria-label="ประเภทคิว">
             {TYPE_FILTERS.map(t => (
               <button
                 key={t.value}
                 type="button"
-                className="chip-toggle"
+                className="chip-toggle lift-hover lift-tab"
                 aria-pressed={filters.type === t.value}
                 onClick={() => changeFilters({ type: t.value })}
               >

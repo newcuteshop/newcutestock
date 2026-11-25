@@ -229,10 +229,10 @@ export default function CustomersClient() {
         </form>
         <div className="flex items-start gap-2">
           {/* มือถือ: เลื่อนแนวนอนในแถวเดียว (9 ตัวเลือกไม่กินพื้นที่ทั้งจอ) · จอกว้าง: ขึ้นบรรทัดใหม่ตามปกติ */}
-          <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto scrollbar-none sm:flex-wrap" role="group" aria-label="กรองตามช่องทางที่รู้จักร้าน">
-            <button type="button" className="chip-toggle" aria-pressed={source === 'all'} onClick={() => setSource('all')}>ทุกช่องทาง</button>
+          <div className="lift-scroll flex min-w-0 flex-1 gap-2 overflow-x-auto scrollbar-none sm:flex-wrap" role="group" aria-label="กรองตามช่องทางที่รู้จักร้าน">
+            <button type="button" className="chip-toggle lift-hover lift-tab" aria-pressed={source === 'all'} onClick={() => setSource('all')}>ทุกช่องทาง</button>
             {WED_SOURCES.map(s => (
-              <button key={s} type="button" className="chip-toggle" aria-pressed={source === s} onClick={() => setSource(s)}>
+              <button key={s} type="button" className="chip-toggle lift-hover lift-tab" aria-pressed={source === s} onClick={() => setSource(s)}>
                 {WED_SOURCE_LABELS[s]}
               </button>
             ))}

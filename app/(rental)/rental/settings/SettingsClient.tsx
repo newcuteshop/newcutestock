@@ -356,7 +356,7 @@ export default function SettingsClient({
         {/* ทางลัดไปแต่ละหมวด */}
         <nav aria-label="หมวดการตั้งค่า" className="flex flex-wrap gap-2">
           {SECTION_ORDER.map(s => (
-            <a key={s.anchor} href={`#${s.anchor}`} className="chip-toggle">
+            <a key={s.anchor} href={`#${s.anchor}`} className="chip-toggle lift-hover lift-tab">
               {s.label}
               {s.key !== 'categories' && dirty[s.key] && (
                 <>

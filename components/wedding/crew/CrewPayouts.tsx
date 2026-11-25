@@ -302,7 +302,7 @@ export default function CrewPayouts({ today: initialToday, onMessage }: { today:
             <button
               key={p.key}
               type="button"
-              className="chip-toggle"
+              className="chip-toggle lift-hover lift-tab"
               aria-pressed={activePreset === p.key}
               onClick={() => {
                 const t = bangkokTodayKey()
@@ -403,7 +403,7 @@ export default function CrewPayouts({ today: initialToday, onMessage }: { today:
                 <button
                   key={f.key}
                   type="button"
-                  className="chip-toggle"
+                  className="chip-toggle lift-hover lift-tab"
                   aria-pressed={filter === f.key}
                   onClick={() => setFilter(f.key)}
                 >

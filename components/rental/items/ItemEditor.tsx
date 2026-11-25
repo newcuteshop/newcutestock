@@ -594,7 +594,7 @@ export default function ItemEditor({
       </div>
 
       {loaded && (
-        <div className="-mx-1 flex gap-2 overflow-x-auto overscroll-x-contain scrollbar-none px-1 pb-1" role="group" aria-label="ส่วนของหน้าชุด">
+        <div className="lift-scroll -mx-1 flex gap-2 overflow-x-auto overscroll-x-contain scrollbar-none px-1 [--lift-scroll-pb:0.25rem]" role="group" aria-label="ส่วนของหน้าชุด">
           {TABS.map(t => {
             const Icon = t.icon
             return (
@@ -602,7 +602,7 @@ export default function ItemEditor({
                 key={t.value}
                 type="button"
                 aria-pressed={tab === t.value}
-                className="chip-toggle shrink-0"
+                className="chip-toggle lift-hover lift-tab shrink-0"
                 onClick={() => setTab(t.value)}
               >
                 <Icon {...ICON_XS} className="hidden sm:block" />

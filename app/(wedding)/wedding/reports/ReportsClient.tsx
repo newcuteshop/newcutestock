@@ -239,12 +239,12 @@ export default function ReportsClient({
           <CalendarRange {...ICON} />
           ช่วงวันที่
         </h2>
-        <div className="flex gap-2 overflow-x-auto scrollbar-none sm:flex-wrap" role="group" aria-label="ช่วงวันที่ลัด">
+        <div className="lift-scroll flex gap-2 overflow-x-auto scrollbar-none sm:flex-wrap" role="group" aria-label="ช่วงวันที่ลัด">
           {PRESETS.map(p => (
             <button
               key={p.key}
               type="button"
-              className="chip-toggle"
+              className="chip-toggle lift-hover lift-tab"
               aria-pressed={activePreset === p.key}
               onClick={() => { const r = presetRange(p.key, bangkokTodayKey()); apply(r.from, r.to) }}
             >

@@ -558,7 +558,7 @@ export default function BookingsClient({
           </div>
         ) : (
           // แท็บสถานะ: มือถือเลื่อนแนวนอนในกล่องของตัวเอง (หน้าไม่เลื่อนข้าง)
-          <div className="-mx-4 overflow-x-auto px-4 scrollbar-none sm:-mx-5 sm:px-5" role="group" aria-label="สถานะการจอง">
+          <div className="lift-scroll -mx-4 overflow-x-auto px-4 scrollbar-none sm:-mx-5 sm:px-5" role="group" aria-label="สถานะการจอง">
             <div className="flex gap-2 md:flex-wrap">
               {BOOKING_TABS.map(t => {
                 const n = counts[t.key]
@@ -566,7 +566,7 @@ export default function BookingsClient({
                   <button
                     key={t.key}
                     type="button"
-                    className={clsx('chip-toggle shrink-0', t.key === 'overdue' && (n ?? 0) > 0 && tab !== t.key && 'border-red-300 text-red-800')}
+                    className={clsx('chip-toggle lift-hover lift-tab shrink-0', t.key === 'overdue' && (n ?? 0) > 0 && tab !== t.key && 'border-red-300 text-red-800')}
                     aria-pressed={tab === t.key}
                     onClick={() => setTab(t.key)}
                   >

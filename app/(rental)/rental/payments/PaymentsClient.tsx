@@ -438,7 +438,7 @@ export default function PaymentsClient({
         <button
           type="button"
           onClick={() => changeTab('day')}
-          className="chip-toggle"
+          className="chip-toggle lift-hover lift-tab"
           aria-pressed={tab === 'day'}
         >
           <Wallet {...ICON_XS} />
@@ -447,7 +447,7 @@ export default function PaymentsClient({
         <button
           type="button"
           onClick={() => changeTab('slips')}
-          className="chip-toggle"
+          className="chip-toggle lift-hover lift-tab"
           aria-pressed={tab === 'slips'}
         >
           <ClipboardCheck {...ICON_XS} />
@@ -646,7 +646,7 @@ export default function PaymentsClient({
                     <button
                       key={f.value}
                       type="button"
-                      className="chip-toggle"
+                      className="chip-toggle lift-hover lift-tab"
                       aria-pressed={filter === f.value}
                       onClick={() => setFilter(f.value)}
                     >

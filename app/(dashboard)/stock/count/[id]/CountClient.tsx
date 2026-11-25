@@ -1309,7 +1309,7 @@ export default function CountClient({ initialCount, products, showCost, loadedAt
 
           {!isOpen && <div className="flex">{searchInput}</div>}
 
-          <div ref={tabRowRef} className="-mx-1 flex gap-2 overflow-x-auto scrollbar-none px-1 pb-1" role="group" aria-label="มุมมองรายการ">
+          <div ref={tabRowRef} className="lift-scroll -mx-1 flex gap-2 overflow-x-auto scrollbar-none px-1 [--lift-scroll-pb:0.25rem]" role="group" aria-label="มุมมองรายการ">
             {tabs.filter(t => !t.hidden).map(t => (
               <button
                 key={t.key}
@@ -1317,7 +1317,7 @@ export default function CountClient({ initialCount, products, showCost, loadedAt
                 type="button"
                 aria-pressed={activeTab === t.key}
                 onClick={() => setTab(t.key)}
-                className="chip-toggle shrink-0"
+                className="chip-toggle lift-hover lift-tab shrink-0"
               >
                 {t.label}
                 <span className="tabular-nums opacity-80">{int(t.count)}</span>

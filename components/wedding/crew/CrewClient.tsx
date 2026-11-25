@@ -201,7 +201,7 @@ export default function CrewClient({
             </div>
             <div className="flex flex-wrap gap-2" role="group" aria-label="สถานะทีมงาน">
               {([['active', 'ใช้งานอยู่'], ['inactive', 'ปิดใช้งาน'], ['all', 'ทั้งหมด']] as const).map(([k, label]) => (
-                <button key={k} type="button" className="chip-toggle" aria-pressed={status === k} onClick={() => setStatus(k)}>
+                <button key={k} type="button" className="chip-toggle lift-hover lift-tab" aria-pressed={status === k} onClick={() => setStatus(k)}>
                   {label}
                 </button>
               ))}
