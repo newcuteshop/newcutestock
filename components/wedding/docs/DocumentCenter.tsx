@@ -325,7 +325,12 @@ function DocumentCenterDialog({
             {(pricesToggleApplies(kind, forCrew) || termsToggleApplies(kind)) && (
               <div className="space-y-2">
                 {pricesToggleApplies(kind, forCrew) && (
-                  <ToggleRow label="แสดงราคา" hint="ยอดเงิน งวดชำระ และรายการที่ชำระแล้ว" checked={showPrices} onChange={setShowPrices} />
+                  <ToggleRow
+                    label="แสดงราคา"
+                    hint={kind === 'confirmation' ? 'ราคารายการ ยอดสุทธิ ยอดที่ชำระแล้ว และยอดคงเหลือ' : 'ยอดเงิน งวดชำระ และรายการที่ชำระแล้ว'}
+                    checked={showPrices}
+                    onChange={setShowPrices}
+                  />
                 )}
                 {termsToggleApplies(kind) && (
                   <ToggleRow
@@ -490,7 +495,8 @@ function kindNotices(
   if ((kind === 'confirmation' || kind === 'quote') && b.status === 'cancelled') {
     out.push({ tone: 'warn', text: 'งานนี้ยกเลิกแล้ว — เอกสารมีป้าย "ยกเลิกแล้ว"' })
   }
-  if (!s.portal_enabled && kind !== 'schedule') {
+  // ใบยืนยันการจองเป็นแบบฟอร์มของร้าน (ไม่มี QR หน้าติดตามงาน)
+  if (!s.portal_enabled && kind !== 'schedule' && kind !== 'confirmation') {
     out.push({ tone: 'info', text: 'ร้านปิดลิงก์ติดตามงานอยู่ — เอกสารจึงไม่มี QR หน้าติดตามงาน' })
   }
   return out

@@ -12,10 +12,11 @@ import {
 } from '@/lib/wedding'
 import {
   BankList, CancelledMoneyRows, CoupleHero, DocFooter, DocHeader, NoteBlock, PackageBlock, PaymentChannels, PaymentStatusBlock,
-  PaymentsReceived, PriceBreakdown, SectionTitle, SessionsBlock, StatusBanner, TermsBlock, WedDocFrame,
+  PriceBreakdown, SectionTitle, SessionsBlock, StatusBanner, TermsBlock, WedDocFrame,
   DeliverablesList, deliverableStatusText, deliverableTone, docDayLong, docDueNow, docMoney, shortUrl,
   type DocAssets, type DocMode,
 } from './docKit'
+import { ConfirmationForm } from './ConfirmationForm'
 import { DOC_KIND_LABELS, activeSessions, finalDueDate, pricesShown, type DocKind, type DocOptions } from './docKinds'
 
 export interface WedDocProps {
@@ -55,14 +56,6 @@ function DocMeta({ booking: b, issuedOn, label = 'เลขที่งาน' }
       <p>วันที่ออกเอกสาร {formatThaiDate(issuedOn)}</p>
     </>
   )
-}
-
-function contactLine(b: WedBooking): string {
-  const c = b.customer
-  return [
-    c.name ? `ผู้ติดต่อ ${c.name}` : '',
-    c.phone ? `โทร ${formatPhone(c.phone)}` : '',
-  ].filter(Boolean).join(' · ')
 }
 
 function eventRangeText(b: WedBooking): string {
@@ -115,53 +108,9 @@ function DueReminder({ booking: b }: { booking: WedBooking }) {
 // ---------------------------------------------------------------------------
 // ใบยืนยันการจอง
 // ---------------------------------------------------------------------------
-function ConfirmationDoc({ booking: b, settings, options, assets, issuedOn }: WedDocProps) {
-  const prices = pricesShown('confirmation', options)
-  return (
-    <>
-      <DocHeader
-        settings={settings}
-        logoSrc={assets.logoSrc}
-        title="ใบยืนยันการจอง"
-        meta={
-          <>
-            <DocMeta booking={b} issuedOn={issuedOn} />
-            {b.confirmed_at && <p>ยืนยันเมื่อ {formatThaiDate(b.confirmed_at)}</p>}
-          </>
-        }
-      />
-      <CoupleHero kicker="ขอบคุณที่ไว้วางใจให้เราดูแลวันสำคัญ" couple={b.couple_names} sub={contactLine(b)}>
-        <p style={{ marginTop: '0.4em', fontSize: 'calc(var(--wdoc-u) * 20)' }}>
-          <span className="wdoc-st wdoc-st-brand">{b.status_label}</span>
-        </p>
-      </CoupleHero>
-      <StatusBanner booking={b} />
-
-      {/* ใบยืนยันการจองต้องครบ: ที่อยู่สถานที่ + กำหนดการ/ฤกษ์ (สิ่งที่คู่บ่าวสาวตรวจบ่อยที่สุด) — ไม่มีทีมงาน/เวลาทีมถึง */}
-      <SessionsBlock sessions={activeSessions(b)} variant="couple" />
-      <PackageBlock booking={b} />
-
-      {prices && <PriceBreakdown booking={b} />}
-      {prices && <PaymentStatusBlock booking={b} />}
-      {prices && b.payments.some(p => !p.voided_at) && (
-        <div className="wdoc-sec wdoc-keep">
-          <SectionTitle>รายการชำระเงินที่ได้รับแล้ว</SectionTitle>
-          <PaymentsReceived booking={b} />
-        </div>
-      )}
-
-      {(b.coordinator_name || b.coordinator_phone) && (
-        <div className="wdoc-sec wdoc-keep">
-          <SectionTitle>ผู้ประสานงาน</SectionTitle>
-          <Coordinator booking={b} />
-        </div>
-      )}
-      <NoteBlock title="หมายเหตุ" text={b.customer_note} />
-      {options.showTerms && <TermsBlock settings={settings} />}
-      <NoteBlock text={settings.booking_note} />
-      <DocFooter assets={assets} />
-    </>
-  )
+// แบบฟอร์มกระดาษของร้าน (โลโก้ · ข้อมูลลูกค้า/วันงาน · กล่องรายการบริการ · เงื่อนไข | สรุปยอด · ช่องลงชื่อ) อยู่ใน ConfirmationForm.tsx
+function ConfirmationDoc({ booking, settings, options, assets, issuedOn }: WedDocProps) {
+  return <ConfirmationForm booking={booking} settings={settings} options={options} assets={assets} issuedOn={issuedOn} />
 }
 
 // ---------------------------------------------------------------------------

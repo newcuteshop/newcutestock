@@ -40,7 +40,8 @@ export function register(test) {
     eq(r.installments.map((i) => [i.label, i.status]), [['มัดจำ', 'paid'], ['ยอดคงเหลือ', 'upcoming']]);
     eq([r.next_due.label, r.next_due.amount], ['ยอดคงเหลือ', 31500]);
     eq(r.payment_info, { promptpay_id: '0899998888', promptpay_name: 'บีออนคลาวด์', bank_accounts: [{ bank: 'กสิกรไทย', account_no: '123-4-56789-0', account_name: 'บีออนคลาวด์' }] });
-    ok(r.terms_text.startsWith('1. '), 'ไม่มีเงื่อนไขสัญญา');
+    // เงื่อนไขของร้านหลัง supabase-fix-09 = 3 บรรทัดตามฟอร์มร้าน (ขึ้นต้นด้วย "-")
+    ok(r.terms_text.startsWith('-กรณีลูกค้ายกเลิก/เลื่อนวัน'), 'ไม่มีเงื่อนไขสัญญา');
     const text = JSON.stringify(r);
     for (const secret of ['0812345678"', 'mewjay', 'ลูกค้าจ่ายช้า', 'อยากได้ภาพแคนดิด', 'โน้ตภายในทีม', 'ชุดดำ', 'พี่นุ่น', '0811111111', 'สมชาย', 'ชาย"', '4321',
       '"fee', '"crew', '"logs', '"note"', 'call_time', '"customer"', 'public_token', st.d.cust.id, 'created_by']) {

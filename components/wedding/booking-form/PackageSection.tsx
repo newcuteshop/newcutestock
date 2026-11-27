@@ -5,6 +5,9 @@
 // - งานที่ส่ง (รูป/วิดีโอ/คลิปสั้น + จำนวน + ส่งภายในกี่วันหลังวันงานสุดท้าย): ตั้งตามแพ็กเกจ แก้ได้จนกว่าจะยืนยันงาน
 //   (ยืนยันแล้วระบบสร้างรายการส่งงานจากแผนนี้ — หลังจากนั้นแก้ที่หน้างาน)
 // - บริการเสริม: เลือกจากรายการ หรือพิมพ์เอง ; ยอดต่อแถวจากฐานข้อมูล (wed_quote)
+// 27/11/2569 กรอกเร็ว (ตามใบยืนยันการจองของร้าน: ชื่อ/ราคา/รายละเอียดแพ็กเกจ): หน้าแรกเหลือ เลือกแพ็กเกจ / กำหนดเอง (ชื่อ ราคา รายละเอียด)
+//   + บริการเสริม ; จำนวนชั่วโมงถ่าย + งานที่ส่ง → กล่อง "ข้อมูลเพิ่มเติม (ไม่บังคับ)" (ข้อมูล/ตัวตรวจ/payload เหมือนเดิม)
+//   งานที่ส่งที่ระบบเติมตามแพ็กเกจไม่เปิดกล่องเอง (ป้ายบอกจำนวนรายการ) — เปิดเองเมื่อแก้ไม่ตรงแพ็กเกจ / มีช่องผิด
 import { useId } from 'react'
 import clsx from 'clsx'
 import { Clapperboard, Gift, Info, Package, Pencil, Plus, Trash2 } from 'lucide-react'
@@ -15,9 +18,9 @@ import {
 } from '@/lib/wedding'
 import {
   MAX_ADDON_NAME, MAX_ADDON_UNIT, MAX_ADDONS, MAX_PKG_DESC, MAX_PKG_NAME, MAX_PLAN_NAME, MAX_PLAN_UNIT, checkMoney,
-  visiblePackages, type AddonDraft, type CoreCheck, type PlanItemDraft, type WedDraft,
+  planMatchesDefaults, visiblePackages, type AddonDraft, type CoreCheck, type PlanItemDraft, type WedDraft,
 } from './model'
-import { Field, FormSection, MoneyInput, SwitchRow, fieldAria } from './fields'
+import { Field, FormSection, MoneyInput, MoreFields, SwitchRow, fieldAria } from './fields'
 
 function hoursText(h: number): string {
   return h > 0 ? `${h.toLocaleString('th-TH', { maximumFractionDigits: 1 })} ชม.` : ''
@@ -35,6 +38,7 @@ export default function PackageSection({
   quote,
   quoteFresh,
   originalPackage,
+  reveal = 0,
   mk,
   disabled,
 }: {
@@ -51,6 +55,8 @@ export default function PackageSection({
   quoteFresh: boolean
   /** แก้ไข: แพ็กเกจเดิมของงาน (ชื่อ/ราคา ณ ตอนจอง) */
   originalPackage?: { id: string | null; name: string; price: number; hours: number } | null
+  /** เลขที่เปลี่ยนเมื่อกดแถบลัด/กดบันทึกแล้วยังไม่ครบ → เปิดกล่องพับที่มีช่องผิด */
+  reveal?: number
   mk: () => string
   disabled?: boolean
 }) {
@@ -60,6 +66,21 @@ export default function PackageSection({
   const sameAsOriginal = !!originalPackage && !!originalPackage.id && originalPackage.id === draft.packageId
   const showFields = draft.packageMode === 'custom' || draft.pkgCustomize
   const activeAddons = addonCatalog.filter(a => a.is_active)
+
+  // กล่องพับ "ข้อมูลเพิ่มเติม": จำนวนชั่วโมง (เฉพาะตอนกำหนดเอง/ปรับเฉพาะงานนี้) + งานที่ส่ง
+  const planCount = planOpen ? draft.plan.length : lockedPlan.length
+  const hoursSet = showFields && draft.pkgHours.trim() !== ''
+  // ค่าที่ตรงกับแพ็กเกจที่เลือก = ระบบเติมให้ → ไม่ต้องเปิดกล่องเอง ; ไม่ตรง (แก้เอง / แพ็กเกจกำหนดเอง) = เปิด
+  const planCustom = planOpen && draft.plan.length > 0 && !planMatchesDefaults(draft.plan, selected ? selected.deliverables : [])
+  const hoursCustom = hoursSet && !(draft.packageMode === 'catalog' && selected && Number(draft.pkgHours.trim()) === selected.hours)
+  // ป้าย "มีข้อมูล N ช่อง" นับเฉพาะที่ผู้ใช้กรอก/แก้เอง — งานที่ส่งที่ระบบเติมตามแพ็กเกจไม่นับ (ข้อความพับบอก "(ตามแพ็กเกจ)" อยู่แล้ว)
+  // งานที่บันทึกแล้วที่แก้งานที่ส่งไม่ได้ (lockedPlan) = ข้อมูลของงานจริง นับ
+  const extraFilled = (planCustom || (!planOpen && lockedPlan.length > 0) ? 1 : 0) + (hoursCustom ? 1 : 0)
+  const extraProblem = !!check.pkg.hours || Object.keys(check.plan).length > 0
+  const extraContents = [
+    planCount > 0 ? `งานที่ส่งให้ลูกค้า ${planCount} รายการ${planOpen && !planCustom && selected ? ' (ตามแพ็กเกจ)' : ''}` : 'งานที่ส่งให้ลูกค้า',
+    showFields ? 'จำนวนชั่วโมงถ่าย' : '',
+  ].filter(Boolean).join(' · ')
 
   function pick(p: WedPackage) {
     // แตะการ์ดที่เลือกอยู่แล้วซ้ำ = ไม่ทำอะไร (ไม่ล้างงานที่ส่งที่แก้ไว้)
@@ -203,20 +224,6 @@ export default function PackageSection({
           <Field id={`${uid}-pprice`} label="ราคาแพ็กเกจ (บาท)" error={check.pkg.price}>
             <MoneyInput id={`${uid}-pprice`} value={draft.pkgPrice} onChange={v => patch({ pkgPrice: v })} disabled={disabled} error={check.pkg.price} />
           </Field>
-          <Field id={`${uid}-phours`} label="จำนวนชั่วโมงถ่าย" error={check.pkg.hours} hint="ไม่บังคับ ทศนิยม 1 ตำแหน่ง">
-            <input
-              id={`${uid}-phours`}
-              type="text"
-              inputMode="decimal"
-              className="input text-right tabular-nums"
-              value={draft.pkgHours}
-              maxLength={6}
-              placeholder="0"
-              disabled={disabled}
-              {...fieldAria(`${uid}-phours`, check.pkg.hours, true)}
-              onChange={e => patch({ pkgHours: e.target.value })}
-            />
-          </Field>
           <Field id={`${uid}-pdesc`} label="รายละเอียดแพ็กเกจ (แสดงบนเอกสาร)" error={check.pkg.description} className="sm:col-span-2">
             <textarea
               id={`${uid}-pdesc`}
@@ -231,126 +238,6 @@ export default function PackageSection({
           </Field>
         </div>
       )}
-
-      <hr className="divider !my-0" />
-
-      {/* ===== งานที่ส่ง ===== */}
-      <div className="space-y-2">
-        <p className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-          <Clapperboard {...ICON_SM} className="text-brand-600" />
-          งานที่ส่งให้ลูกค้า
-          {(planOpen ? draft.plan.length : lockedPlan.length) > 0 && (
-            <span className="chip h-5 px-1.5 tabular-nums">{planOpen ? draft.plan.length : lockedPlan.length}</span>
-          )}
-        </p>
-        {planOpen ? (
-          <>
-            <p className="text-xs text-gray-500">
-              ตั้งตามแพ็กเกจ แก้ได้ — ยืนยันงานแล้วระบบสร้างรายการส่งงาน (กำหนดส่ง = วันงานสุดท้าย + จำนวนวัน)
-            </p>
-            {draft.plan.length > 0 && (
-              <ul className="space-y-2">
-                {draft.plan.map((p, i) => {
-                  const e = check.plan[p.key]
-                  const base = `${uid}-pl${i}`
-                  return (
-                    <li key={p.key} className="panel p-2.5 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <label htmlFor={`${base}-n`} className="sr-only">ชื่องานที่ส่ง {i + 1}</label>
-                        <input
-                          id={`${base}-n`}
-                          className="input min-w-0 flex-1"
-                          value={p.name}
-                          maxLength={MAX_PLAN_NAME}
-                          placeholder="เช่น ภาพถ่ายตกแต่ง / วิดีโอไฮไลต์ / คลิปสั้น"
-                          disabled={disabled}
-                          aria-invalid={e ? true : undefined}
-                          aria-describedby={e ? `${base}-err` : undefined}
-                          onChange={ev => setPlan(p.key, { name: ev.target.value })}
-                        />
-                        <button
-                          type="button"
-                          className="btn-icon btn-icon-plain shrink-0"
-                          onClick={() => patch({ plan: draft.plan.filter(x => x.key !== p.key) })}
-                          disabled={disabled}
-                          aria-label={`ลบงานที่ส่งรายการที่ ${i + 1}`}
-                        >
-                          <Trash2 {...ICON_SM} />
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="min-w-0">
-                          <label htmlFor={`${base}-q`} className="text-xs text-gray-600">จำนวน</label>
-                          <input
-                            id={`${base}-q`}
-                            type="text"
-                            inputMode="numeric"
-                            className="input text-right tabular-nums"
-                            value={p.qty}
-                            maxLength={6}
-                            disabled={disabled}
-                            onChange={ev => setPlan(p.key, { qty: ev.target.value })}
-                          />
-                        </div>
-                        <div className="min-w-0">
-                          <label htmlFor={`${base}-u`} className="text-xs text-gray-600">หน่วย</label>
-                          <input
-                            id={`${base}-u`}
-                            className="input"
-                            value={p.unit}
-                            maxLength={MAX_PLAN_UNIT}
-                            placeholder="ภาพ/คลิป"
-                            disabled={disabled}
-                            onChange={ev => setPlan(p.key, { unit: ev.target.value })}
-                          />
-                        </div>
-                        <div className="min-w-0">
-                          <label htmlFor={`${base}-d`} className="text-xs text-gray-600">ส่งภายใน (วัน)</label>
-                          <input
-                            id={`${base}-d`}
-                            type="text"
-                            inputMode="numeric"
-                            className="input text-right tabular-nums"
-                            value={p.due_days}
-                            maxLength={3}
-                            placeholder="30"
-                            disabled={disabled}
-                            onChange={ev => setPlan(p.key, { due_days: ev.target.value })}
-                          />
-                        </div>
-                      </div>
-                      {e && <p id={`${base}-err`} role="alert" className="text-sm font-medium text-red-700">{e}</p>}
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-            <button
-              type="button"
-              className="btn-dashed px-3 text-sm"
-              disabled={disabled || draft.plan.length >= MAX_PACKAGE_DELIVERABLES}
-              onClick={() => patch({ plan: [...draft.plan, { key: mk(), name: '', qty: '1', unit: '', due_days: '30' }] })}
-            >
-              <Plus {...ICON_SM} />
-              เพิ่มงานที่ส่ง
-            </button>
-          </>
-        ) : lockedPlan.length > 0 ? (
-          <>
-            <ul className="panel divide-y divide-gray-200 px-3 text-sm">
-              {lockedPlan.map((p, i) => (
-                <li key={i} className="flex items-center justify-between gap-3 py-2">
-                  <span className="min-w-0 break-words">{p.name}</span>
-                  <span className="shrink-0 text-xs text-gray-500 tabular-nums">{p.qty} {p.unit} · {p.due_days} วัน</span>
-                </li>
-              ))}
-            </ul>
-            <p className="text-xs text-gray-500">ยืนยันงานแล้ว — แก้ชื่อ/กำหนดส่ง/ลิงก์ของงานที่ส่งได้ที่หน้างาน (รายการส่งงาน)</p>
-          </>
-        ) : (
-          <p className="text-xs text-gray-500">ยืนยันงานแล้ว — จัดการรายการส่งงานได้ที่หน้างาน</p>
-        )}
-      </div>
 
       <hr className="divider !my-0" />
 
@@ -464,6 +351,150 @@ export default function PackageSection({
           </button>
         </div>
       </div>
+
+      {/* ===== ข้อมูลเพิ่มเติม (พับไว้): จำนวนชั่วโมง + งานที่ส่ง ===== */}
+      <MoreFields
+        contents={extraContents}
+        filled={extraFilled}
+        initialOpen={planCustom || hoursCustom}
+        problem={extraProblem}
+        signal={reveal}
+      >
+        {showFields && (
+          <Field id={`${uid}-phours`} label="จำนวนชั่วโมงถ่าย" error={check.pkg.hours} hint="ไม่บังคับ ทศนิยม 1 ตำแหน่ง" className="max-w-xs">
+            <input
+              id={`${uid}-phours`}
+              type="text"
+              inputMode="decimal"
+              className="input text-right tabular-nums"
+              value={draft.pkgHours}
+              maxLength={6}
+              placeholder="0"
+              disabled={disabled}
+              {...fieldAria(`${uid}-phours`, check.pkg.hours, true)}
+              onChange={e => patch({ pkgHours: e.target.value })}
+            />
+          </Field>
+        )}
+
+        {/* ===== งานที่ส่ง ===== */}
+        <div className="space-y-2">
+          <p className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+            <Clapperboard {...ICON_SM} className="text-brand-600" />
+            งานที่ส่งให้ลูกค้า
+            {(planOpen ? draft.plan.length : lockedPlan.length) > 0 && (
+              <span className="chip h-5 px-1.5 tabular-nums">{planOpen ? draft.plan.length : lockedPlan.length}</span>
+            )}
+          </p>
+          {planOpen ? (
+            <>
+              <p className="text-xs text-gray-500">
+                ตั้งตามแพ็กเกจ แก้ได้ — ยืนยันงานแล้วระบบสร้างรายการส่งงาน (กำหนดส่ง = วันงานสุดท้าย + จำนวนวัน)
+              </p>
+              {draft.plan.length > 0 && (
+                <ul className="space-y-2">
+                  {draft.plan.map((p, i) => {
+                    const e = check.plan[p.key]
+                    const base = `${uid}-pl${i}`
+                    return (
+                      <li key={p.key} className="panel p-2.5 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <label htmlFor={`${base}-n`} className="sr-only">ชื่องานที่ส่ง {i + 1}</label>
+                          <input
+                            id={`${base}-n`}
+                            className="input min-w-0 flex-1"
+                            value={p.name}
+                            maxLength={MAX_PLAN_NAME}
+                            placeholder="เช่น ภาพถ่ายตกแต่ง / วิดีโอไฮไลต์ / คลิปสั้น"
+                            disabled={disabled}
+                            aria-invalid={e ? true : undefined}
+                            aria-describedby={e ? `${base}-err` : undefined}
+                            onChange={ev => setPlan(p.key, { name: ev.target.value })}
+                          />
+                          <button
+                            type="button"
+                            className="btn-icon btn-icon-plain shrink-0"
+                            onClick={() => patch({ plan: draft.plan.filter(x => x.key !== p.key) })}
+                            disabled={disabled}
+                            aria-label={`ลบงานที่ส่งรายการที่ ${i + 1}`}
+                          >
+                            <Trash2 {...ICON_SM} />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="min-w-0">
+                            <label htmlFor={`${base}-q`} className="text-xs text-gray-600">จำนวน</label>
+                            <input
+                              id={`${base}-q`}
+                              type="text"
+                              inputMode="numeric"
+                              className="input text-right tabular-nums"
+                              value={p.qty}
+                              maxLength={6}
+                              disabled={disabled}
+                              onChange={ev => setPlan(p.key, { qty: ev.target.value })}
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <label htmlFor={`${base}-u`} className="text-xs text-gray-600">หน่วย</label>
+                            <input
+                              id={`${base}-u`}
+                              className="input"
+                              value={p.unit}
+                              maxLength={MAX_PLAN_UNIT}
+                              placeholder="ภาพ/คลิป"
+                              disabled={disabled}
+                              onChange={ev => setPlan(p.key, { unit: ev.target.value })}
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <label htmlFor={`${base}-d`} className="text-xs text-gray-600">ส่งภายใน (วัน)</label>
+                            <input
+                              id={`${base}-d`}
+                              type="text"
+                              inputMode="numeric"
+                              className="input text-right tabular-nums"
+                              value={p.due_days}
+                              maxLength={3}
+                              placeholder="30"
+                              disabled={disabled}
+                              onChange={ev => setPlan(p.key, { due_days: ev.target.value })}
+                            />
+                          </div>
+                        </div>
+                        {e && <p id={`${base}-err`} role="alert" className="text-sm font-medium text-red-700">{e}</p>}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+              <button
+                type="button"
+                className="btn-dashed px-3 text-sm"
+                disabled={disabled || draft.plan.length >= MAX_PACKAGE_DELIVERABLES}
+                onClick={() => patch({ plan: [...draft.plan, { key: mk(), name: '', qty: '1', unit: '', due_days: '30' }] })}
+              >
+                <Plus {...ICON_SM} />
+                เพิ่มงานที่ส่ง
+              </button>
+            </>
+          ) : lockedPlan.length > 0 ? (
+            <>
+              <ul className="panel divide-y divide-gray-200 px-3 text-sm">
+                {lockedPlan.map((p, i) => (
+                  <li key={i} className="flex items-center justify-between gap-3 py-2">
+                    <span className="min-w-0 break-words">{p.name}</span>
+                    <span className="shrink-0 text-xs text-gray-500 tabular-nums">{p.qty} {p.unit} · {p.due_days} วัน</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-gray-500">ยืนยันงานแล้ว — แก้ชื่อ/กำหนดส่ง/ลิงก์ของงานที่ส่งได้ที่หน้างาน (รายการส่งงาน)</p>
+            </>
+          ) : (
+            <p className="text-xs text-gray-500">ยืนยันงานแล้ว — จัดการรายการส่งงานได้ที่หน้างาน</p>
+          )}
+        </div>
+      </MoreFields>
     </FormSection>
   )
 }

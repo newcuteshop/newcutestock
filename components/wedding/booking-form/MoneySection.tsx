@@ -2,16 +2,18 @@
 // ส่วน "ยอดเงิน" ของฟอร์มงาน: ค่าเดินทาง ส่วนลด (+ เหตุผล) มัดจำ (พิมพ์เองได้ — ว่าง = อัตโนมัติ)
 // วันครบกำหนดชำระยอดคงเหลือ (กำหนดเองได้)
 // + สรุปยอดจากฐานข้อมูล (มือถือแสดงในส่วนนี้ — จอกว้างอยู่ที่แถบสรุปข้างจอ)
+// 27/11/2569 กรอกเร็ว: หน้าแรกเหลือ ค่าเดินทาง ส่วนลด มัดจำ ; เหตุผลส่วนลด + วันครบกำหนดชำระ (กำหนดเอง) → กล่อง "ข้อมูลเพิ่มเติม"
+//   (ยอดคงเหลือครบกำหนดตามนโยบายร้าน — ค่าเริ่มต้นตอนนี้ = วันงาน ; ข้อมูล/ตัวตรวจ/payload เหมือนเดิม)
 import type { ReactNode } from 'react'
 import { useId } from 'react'
 import { Wallet } from 'lucide-react'
 import { ICON } from '@/components/theme/icons'
 import { baht, formatThaiDate } from '@/lib/format'
 import {
-  balanceDueShortNotice, wedDepositCap, type WedBooking, type WedBookingStatus, type WedMoney, type WedQuote,
+  balanceDuePolicyText, balanceDueShortNotice, wedDepositCap, type WedBooking, type WedBookingStatus, type WedMoney, type WedQuote,
 } from '@/lib/wedding'
-import { MAX_DISCOUNT_NOTE, checkMoney, type CoreCheck, type WedDraft } from './model'
-import { DateField, Field, FormSection, MoneyInput, fieldAria } from './fields'
+import { MAX_DISCOUNT_NOTE, checkMoney, moneyExtraFilled, type CoreCheck, type WedDraft } from './model'
+import { DateField, Field, FormSection, MoneyInput, MoreFields, fieldAria } from './fields'
 
 /** ข้อความเมื่อฐานข้อมูลยังไม่รองรับมัดจำกำหนดเอง (ยังไม่ได้รัน fix-07 รุ่นล่าสุด) — BookingForm ใช้กันบันทึก */
 export const DEPOSIT_OVERRIDE_UNSUPPORTED = 'ฐานข้อมูลยังไม่รองรับมัดจำกำหนดเอง — ให้ผู้ดูแลรัน supabase-fix-07-wedding.sql ใหม่ (หรือเว้นว่างให้คิดอัตโนมัติ)'
@@ -57,6 +59,7 @@ export default function MoneySection({
   booking,
   balanceDueDays,
   summary,
+  reveal = 0,
   disabled,
 }: {
   draft: WedDraft
@@ -68,6 +71,8 @@ export default function MoneySection({
   balanceDueDays: number
   /** สรุปยอด (แสดงเฉพาะจอเล็ก) */
   summary: ReactNode
+  /** เลขที่เปลี่ยนเมื่อกดแถบลัด/กดบันทึกแล้วยังไม่ครบ → เปิดกล่องพับที่มีช่องผิด */
+  reveal?: number
   disabled?: boolean
 }) {
   const uid = useId()
@@ -106,6 +111,9 @@ export default function MoneySection({
     qm.deposit_required > booking.money.deposit_required + 0.005 && qm.deposit_required > qm.paid + 0.005
     ? `งานยืนยันแล้ว — มัดจำใหม่มากกว่ายอดที่รับแล้ว (${baht(qm.paid)}) หลังบันทึกงานจะขึ้นว่ามัดจำยังขาด ${baht(qm.deposit_due)}`
     : null
+  // กล่องพับ "ข้อมูลเพิ่มเติม"
+  const extraFilled = moneyExtraFilled(draft)
+  const extraProblem = !!(check.money.discountNote || check.money.balanceDueOverride)
 
   return (
     <FormSection section="money" title="ค่าเดินทาง ส่วนลด และการชำระ" icon={<Wallet {...ICON} />}>
@@ -128,18 +136,6 @@ export default function MoneySection({
             disabled={disabled}
             error={discountErr}
             describedBy={`${uid}-disc-hint`}
-          />
-        </Field>
-        <Field id={`${uid}-dnote`} label="เหตุผลส่วนลด" error={check.money.discountNote} className="sm:col-span-2">
-          <input
-            id={`${uid}-dnote`}
-            className="input"
-            maxLength={MAX_DISCOUNT_NOTE}
-            value={draft.discountNote}
-            placeholder="เช่น โปรจองล่วงหน้า / ลูกค้าแนะนำ"
-            disabled={disabled || disc.value <= 0}
-            {...fieldAria(`${uid}-dnote`, check.money.discountNote)}
-            onChange={e => patch({ discountNote: e.target.value })}
           />
         </Field>
         <Field
@@ -176,29 +172,53 @@ export default function MoneySection({
             ใช้ค่าอัตโนมัติ
           </button>
         )}
-        <DateField
-          id={`${uid}-bal`}
-          label="ครบกำหนดชำระยอดคงเหลือ (กำหนดเอง)"
-          value={draft.balanceDueOverride}
-          onChange={v => patch({ balanceDueOverride: v })}
-          disabled={disabled}
-          error={check.money.balanceDueOverride}
-          hint={policyDate
-            ? `เว้นว่าง = ${formatThaiDate(policyDate)} (${shortNotice ? 'งานกระชั้นชิด — ภายในวันที่จอง' : `ก่อนวันงานแรก ${balanceDueDays} วัน`})`
-            : `เว้นว่าง = ก่อนวันงานแรก ${balanceDueDays} วัน`}
-          className="sm:col-span-2 sm:max-w-sm"
-        />
-        {draft.balanceDueOverride && (
-          <button
-            type="button"
-            className="btn-ghost -mt-2 justify-self-start px-2 text-sm"
-            disabled={disabled}
-            onClick={() => { patch({ balanceDueOverride: '' }); focusField(`${uid}-bal`) }}
-          >
-            ใช้ตามนโยบายร้าน
-          </button>
-        )}
       </div>
+
+      {/* ===== ข้อมูลเพิ่มเติม (พับไว้): เหตุผลส่วนลด + วันครบกำหนดชำระยอดคงเหลือ ===== */}
+      <MoreFields
+        contents={`เหตุผลส่วนลด · วันครบกำหนดชำระยอดคงเหลือ (ปกติ = ${balanceDuePolicyText(balanceDueDays)})`}
+        filled={extraFilled}
+        initialOpen={extraFilled > 0}
+        problem={extraProblem}
+        signal={reveal}
+      >
+        <Field id={`${uid}-dnote`} label="เหตุผลส่วนลด" error={check.money.discountNote} className="sm:max-w-md">
+          <input
+            id={`${uid}-dnote`}
+            className="input"
+            maxLength={MAX_DISCOUNT_NOTE}
+            value={draft.discountNote}
+            placeholder="เช่น โปรจองล่วงหน้า / ลูกค้าแนะนำ"
+            disabled={disabled || disc.value <= 0}
+            {...fieldAria(`${uid}-dnote`, check.money.discountNote)}
+            onChange={e => patch({ discountNote: e.target.value })}
+          />
+        </Field>
+        <div className="space-y-2">
+          <DateField
+            id={`${uid}-bal`}
+            label="ครบกำหนดชำระยอดคงเหลือ (กำหนดเอง)"
+            value={draft.balanceDueOverride}
+            onChange={v => patch({ balanceDueOverride: v })}
+            disabled={disabled}
+            error={check.money.balanceDueOverride}
+            hint={policyDate
+              ? `เว้นว่าง = ${formatThaiDate(policyDate)} (${shortNotice ? 'งานกระชั้นชิด — ภายในวันที่จอง' : balanceDuePolicyText(balanceDueDays)})`
+              : `เว้นว่าง = ${balanceDuePolicyText(balanceDueDays)}`}
+            className="sm:max-w-sm"
+          />
+          {draft.balanceDueOverride && (
+            <button
+              type="button"
+              className="btn-ghost px-2 text-sm"
+              disabled={disabled}
+              onClick={() => { patch({ balanceDueOverride: '' }); focusField(`${uid}-bal`) }}
+            >
+              ใช้ตามนโยบายร้าน
+            </button>
+          )}
+        </div>
+      </MoreFields>
 
       <div className="lg:hidden">
         <hr className="divider !mt-0" />

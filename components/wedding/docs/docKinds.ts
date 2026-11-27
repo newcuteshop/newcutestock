@@ -4,7 +4,7 @@ import { bangkokTodayKey } from '@/lib/format'
 import { sessionsByDate, type WedBooking, type WedPayment, type WedSession } from '@/lib/wedding'
 
 /**
- * confirmation    = ใบยืนยันการจอง (รายละเอียดครบ)
+ * confirmation    = ใบยืนยันการจอง (แบบฟอร์มของร้าน: ลูกค้า วันงาน รายการบริการ เงื่อนไข สรุปยอด ช่องลงชื่อ)
  * quote           = ใบเสนอราคา
  * payment_request = ใบแจ้งชำระเงิน (ยอดที่ต้องชำระตอนนี้ + QR พร้อมเพย์ + บัญชีธนาคาร)
  * receipt         = ใบเสร็จรับเงิน / ใบคืนเงิน (เลือกรายการเงิน)
@@ -26,7 +26,7 @@ export const DOC_KIND_LABELS: Readonly<Record<DocKind, string>> = {
 
 /** คำอธิบายสั้นใต้ชื่อเอกสารในตัวเลือก */
 export const DOC_KIND_HINTS: Readonly<Record<DocKind, string>> = {
-  confirmation: 'คิวงาน แพ็กเกจ ยอดเงิน งวดชำระ',
+  confirmation: 'วันงาน รายการบริการ ยอดเงิน เงื่อนไข ช่องลงชื่อ',
   quote: 'ราคาแพ็กเกจและบริการเสริม',
   payment_request: 'ยอดที่ต้องชำระ + QR พร้อมเพย์',
   receipt: 'รายการรับเงิน/คืนเงิน 1 รายการ',

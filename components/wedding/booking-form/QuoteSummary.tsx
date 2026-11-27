@@ -9,7 +9,7 @@ import { AlertTriangle, Loader2 } from 'lucide-react'
 import { ICON_SM, ICON_XS } from '@/components/theme/icons'
 import { baht, formatThaiDate } from '@/lib/format'
 import { round2 } from '@/lib/money'
-import { wedDefaultPlanPreview, wedDepositCap, wedDepositPercent, type WedQuote } from '@/lib/wedding'
+import { balanceDuePolicyText, wedDefaultPlanPreview, wedDepositCap, wedDepositPercent, type WedQuote } from '@/lib/wedding'
 
 function Row({ label, value, strong, tone, hint }: {
   label: string
@@ -46,6 +46,7 @@ export default function QuoteSummary({
   error,
   create,
   payNow,
+  balanceDueDays,
   emptyText = 'กรอกคิวงานและแพ็กเกจเพื่อดูยอดเงิน',
 }: {
   quote: WedQuote | null
@@ -53,6 +54,8 @@ export default function QuoteSummary({
   error: string
   create: boolean
   payNow?: number
+  /** นโยบายวันชำระยอดคงเหลือ (วันก่อนวันงานแรก) — wed_quote ไม่ส่งค่านี้มา ฟอร์มส่งจากตั้งค่าร้าน/งาน */
+  balanceDueDays: number
   emptyText?: string
 }) {
   if (!quote) {
@@ -133,7 +136,12 @@ export default function QuoteSummary({
               <span className="min-w-0 text-gray-600">
                 งวดที่ {i + 1} {r.label}
                 <span className="text-xs text-gray-500">
-                  {' '}({r.due === 'deposit' ? 'วันจอง' : m.balance_due_date ? formatThaiDate(m.balance_due_date) : 'ก่อนวันงาน'})
+                  {' '}({r.due === 'deposit'
+                    ? 'วันจอง'
+                    : m.balance_due_date
+                      ? formatThaiDate(m.balance_due_date)
+                      // ยังไม่มีวันงาน: บอกตามนโยบายร้าน (0 = "วันงานแรก" / N = "N วันก่อนวันงานแรก") เหมือนส่วนการเงิน
+                      : balanceDuePolicyText(balanceDueDays)})
                 </span>
               </span>
               <span className="shrink-0 font-medium tabular-nums text-gray-900">{baht(r.amount)}</span>

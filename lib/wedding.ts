@@ -579,7 +579,7 @@ export interface WedSettings {
   bank_accounts: WedBankAccount[]
   deposit_percent: number        // มัดจำ % ของยอดก่อนค่าใช้จ่ายเพิ่ม (base_total)
   min_deposit: number
-  balance_due_days: number       // ชำระยอดคงเหลือก่อนวันงานแรกกี่วัน
+  balance_due_days: number       // ชำระยอดคงเหลือก่อนวันงานแรกกี่วัน (0 = ชำระในวันงาน — บอสสั่ง 27/11/2569)
   hold_hours: number             // ล็อกคิวรอมัดจำได้กี่ชั่วโมง
   max_jobs_per_day: number       // 0 = ไม่จำกัด
   overtime_rate: number          // บาท/ชั่วโมง (ตัวช่วยคิดค่าล่วงเวลา)
@@ -609,7 +609,7 @@ export const DEFAULT_WEDDING_SETTINGS: Readonly<WedSettings> = {
   bank_accounts: [],
   deposit_percent: 30,
   min_deposit: 0,
-  balance_due_days: 7,
+  balance_due_days: 0,
   hold_hours: 72,
   max_jobs_per_day: 2,
   overtime_rate: 0,
@@ -674,11 +674,14 @@ export function parseWeddingSettings(raw: unknown): WedSettings {
   }, () => ({ ...DEFAULT_WEDDING_SETTINGS, bank_accounts: [] }))
 }
 
-/** เงื่อนไขสัญญาเป็นรายข้อ (ตัดบรรทัดว่าง + ตัดเลขข้อเดิม '1.' / '1)' ออก ให้เอกสารใส่เลขใหม่เอง) */
+/**
+ * เงื่อนไขสัญญาเป็นรายข้อ (ตัดบรรทัดว่าง + ตัดเลขข้อเดิม '1.' / '1)' หรือขีด/จุดนำหน้า '-' '•' ออก
+ * ให้เอกสารใส่เลข/ขีดเองตามแบบของเอกสาร — บอสพิมพ์ "-กรณี..." แบบฟอร์มร้าน 27/11/2569 แล้วเอกสารที่ใส่เลขไม่ขึ้น "1. -กรณี")
+ */
 export function termsLines(termsText: string | null | undefined): string[] {
   return String(termsText ?? '')
     .split(/\r?\n/)
-    .map(line => line.trim().replace(/^(?:\d+|[๐-๙]+)\s*[.)]\s*/, '').trim())
+    .map(line => line.trim().replace(/^(?:(?:\d+|[๐-๙]+)\s*[.)]|[-–—•*])\s*/, '').trim())
     .filter(line => line !== '')
 }
 
@@ -1496,6 +1499,11 @@ export interface WedSession {
  * ฐานข้อมูล (wed_recalc / wed_quote) ไม่ให้วันนี้ย้อนไปก่อนวันครบกำหนดมัดจำ (วันจอง/ล็อกคิว) → ข้อความ "N วันก่อนวันงานแรก" ไม่จริง
  * firstDate = วันงานแรกของคิวที่ไม่ยกเลิก (กฎเดียวกับฐานข้อมูล)
  */
+/** ข้อความนโยบายวันชำระยอดคงเหลือ: 0 = "วันงานแรก" (ไม่เขียน "0 วันก่อนวันงานแรก") */
+export function balanceDuePolicyText(days: number): string {
+  return days > 0 ? `${days} วันก่อนวันงานแรก` : 'วันงานแรก'
+}
+
 export function balanceDueShortNotice(dueDate: string | null, firstDate: string | null, days: number | null): boolean {
   if (!dueDate || !firstDate || days === null || !Number.isFinite(days)) return false
   const policy = addDaysToKey(firstDate, -days)

@@ -33,6 +33,7 @@ export const MIGRATIONS = [
   'supabase-fix-06-rental-online.sql',
   'supabase-fix-07-wedding.sql',
   'supabase-fix-08-lock-order.sql',
+  'supabase-fix-09-wedding-pay-on-event-day.sql',
 ];
 
 // ----- ของ Supabase ที่ไฟล์ SQL พึ่ง (จำลองแบบน้อยที่สุด) -----

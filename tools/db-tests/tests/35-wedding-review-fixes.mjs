@@ -6,6 +6,10 @@
 import { eq, ok, money, expectErr, uuid } from '../run.mjs';
 import { makeUsers, seed, payload, create, pay, bkkToday, addDays } from './lib/wed.js';
 
+// ทดสอบกฎของ fix-07 ด้วยค่าตั้งต้นเดิม (ชำระยอดคงเหลือก่อนวันงาน 7 วัน / เงื่อนไขตั้งต้นหลายข้อ) — ข้อมูลร้านที่ fix-09 ตั้งให้บอส
+//   (ชำระวันงาน + เงื่อนไข 3 ข้อ) ทดสอบใน 33-wedding-pay-on-event-day.mjs
+export const dbOptions = { upTo: 'supabase-fix-08-lock-order.sql' };
+
 export async function setup(ctx, st) {
   st.u = await makeUsers(ctx);
   st.d = await seed(ctx, st.u);

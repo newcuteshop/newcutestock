@@ -520,7 +520,7 @@ export default function SettingsClient({ initial }: { initial: WedSettings }) {
                 name="balance_due_days"
                 label="ชำระยอดคงเหลือก่อนวันงาน"
                 unit="วัน"
-                hint={`0–${MAX_BALANCE_DUE_DAYS} วัน นับจากวันงานวันแรก — ใช้ตั้งวันครบกำหนดงวดสุดท้ายให้อัตโนมัติ`}
+                hint={`0–${MAX_BALANCE_DUE_DAYS} วัน นับจากวันงานวันแรก (0 = ชำระในวันงาน) — ใช้ตั้งวันครบกำหนดงวดสุดท้ายให้อัตโนมัติ`}
               />
               <NumberField
                 section="policy"

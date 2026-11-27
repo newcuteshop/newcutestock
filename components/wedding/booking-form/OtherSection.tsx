@@ -1,35 +1,56 @@
 'use client'
 // ส่วน "ติดตามลูกค้า / ผู้ประสานงาน / มู้ดแอนด์โทน / หมายเหตุ" ของฟอร์มงาน
 // วันติดตามลูกค้า → ขึ้นตัวเลขบนเมนู "งาน/การจอง" เมื่อถึงวัน (งานสอบถาม/ล็อกคิว/ยืนยัน/เลื่อน)
+// 27/11/2569 กรอกเร็ว: ทั้งส่วนพับไว้ (ไม่บังคับ) — เปิดเองเมื่อมีข้อมูลอยู่แล้ว / มีช่องผิด / กดแถบลัด "อื่นๆ"
 import { useId } from 'react'
 import { ExternalLink, StickyNote } from 'lucide-react'
 import { ICON } from '@/components/theme/icons'
 import { addDaysToKey } from '@/lib/format'
 import { safeHttpUrl } from '@/lib/wedding'
 import {
-  MAX_COORD_NAME, MAX_COORD_PHONE, MAX_CUSTOMER_NOTE, MAX_FOLLOWUP_NOTE, MAX_MOOD, MAX_NOTE, type CoreCheck, type WedDraft,
+  MAX_COORD_NAME, MAX_COORD_PHONE, MAX_CUSTOMER_NOTE, MAX_FOLLOWUP_NOTE, MAX_MOOD, MAX_NOTE, otherFilled, type CoreCheck,
+  type WedDraft,
 } from './model'
-import { DateField, Field, FormSection, fieldAria } from './fields'
+import { DateField, Field, FoldBadge, FormSection, fieldAria, useDisclosure } from './fields'
 
 export default function OtherSection({
   draft,
   patch,
   check,
   today,
+  reveal = 0,
+  revealOpen = false,
   disabled,
 }: {
   draft: WedDraft
   patch: (p: Partial<WedDraft>) => void
   check: CoreCheck
   today: string
+  /** เลขที่เปลี่ยนเมื่อกดแถบลัด/กดบันทึกแล้วยังไม่ครบ */
+  reveal?: number
+  /** reveal ครั้งนี้มาจากแถบลัด "อื่นๆ" → เปิดส่วนนี้แม้ไม่มีช่องผิด */
+  revealOpen?: boolean
   disabled?: boolean
 }) {
   const uid = useId()
   const o = check.other
   const mood = safeHttpUrl(draft.moodLink)
+  const filled = otherFilled(draft)
+  const problem = !!(o.followupDate || o.followupNote || o.coordinatorName || o.coordinatorPhone || o.moodLink || o.customerNote || o.note)
+  const [open, setOpen] = useDisclosure(filled > 0, problem, reveal, revealOpen)
 
   return (
-    <FormSection section="other" title="ติดตามลูกค้า ผู้ประสานงาน และหมายเหตุ" icon={<StickyNote {...ICON} />}>
+    <FormSection
+      section="other"
+      title="ติดตามลูกค้า ผู้ประสานงาน และหมายเหตุ"
+      icon={<StickyNote {...ICON} />}
+      describe={open ? undefined : 'ไม่บังคับ · วันติดตามลูกค้า ผู้ประสานงาน ความต้องการลูกค้า หมายเหตุภายในร้าน'}
+      collapse={{
+        open,
+        onToggle: () => setOpen(v => !v),
+        badge: open ? null : <FoldBadge problem={problem} filled={filled} />,
+      }}
+    >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <DateField
           id={`${uid}-fu`}

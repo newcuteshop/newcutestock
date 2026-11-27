@@ -440,6 +440,50 @@ export function draftFromBooking(
   }
 }
 
+// ---------------------------------------------------------------------------
+// ช่องที่พับไว้ใน "ข้อมูลเพิ่มเติม (ไม่บังคับ)" (27/11/2569 เจ้าของร้านขอให้ฟอร์มสร้างงานกรอกเร็ว)
+// แค่ซ่อนจากหน้าจอ — ค่าใน draft / ตัวตรวจ / payload เหมือนเดิมทุกอย่าง (เว้นว่าง = null เหมือนเดิม)
+// ใช้นับว่ากล่องมีข้อมูลกี่ช่อง (เปิดกล่องเองเมื่อมีค่าอยู่แล้ว + ป้าย "มีข้อมูล N ช่อง")
+// ---------------------------------------------------------------------------
+/** ลูกค้าใหม่: ช่องที่อยู่ในกล่องพับ (หน้าแรกเหลือ ชื่อ เบอร์ LINE Facebook) */
+export const CUSTOMER_EXTRA_FIELDS: readonly (keyof CustomerDraft)[] = ['partner_name', 'phone2', 'instagram', 'email', 'address', 'note']
+
+export function customerExtraFilled(c: CustomerDraft): number {
+  return CUSTOMER_EXTRA_FIELDS.filter(k => c[k].trim() !== '').length
+}
+
+/** คิวงาน: ช่องข้อความที่อยู่ในกล่องพับ (หน้าแรกเหลือ วันที่ เวลาเริ่ม-เลิก สถานที่) */
+export const SESSION_EXTRA_FIELDS: readonly SessionField[] = [
+  'title', 'call_time', 'map_url', 'venue_address', 'venue_contact', 'dress_code', 'notes',
+]
+
+/** ประเภทคิวไม่นับ (มีค่าเสมอ และแสดงที่หัวการ์ดอยู่แล้ว) ; กำหนดการ/ทีมงาน นับเป็นอย่างละ 1 ช่อง ; ยกเลิกคิว = 1 ช่อง */
+export function sessionExtraFilled(s: SessionDraft): number {
+  const text = SESSION_EXTRA_FIELDS.filter(k => s[k].trim() !== '').length
+  return text + (s.run_sheet.length > 0 ? 1 : 0) + (s.crew.length > 0 ? 1 : 0) + (s.status === 'cancelled' ? 1 : 0)
+}
+
+/** ยอดเงิน: เหตุผลส่วนลด + วันครบกำหนดชำระที่กำหนดเอง */
+export function moneyExtraFilled(d: WedDraft): number {
+  return (d.discountNote.trim() !== '' ? 1 : 0) + (d.balanceDueOverride.trim() !== '' ? 1 : 0)
+}
+
+/** ส่วน "อื่นๆ" (พับทั้งส่วน) */
+export function otherFilled(d: WedDraft): number {
+  return [d.followupDate, d.followupNote, d.coordinatorName, d.coordinatorPhone, d.moodLink, d.customerNote, d.note]
+    .filter(v => v.trim() !== '').length
+}
+
+/** งานที่ส่งในฟอร์มตรงกับที่แพ็กเกจตั้งไว้ไหม (ตรง = ค่าที่ระบบเติมจากแพ็กเกจ ไม่ใช่ข้อมูลที่ผู้ใช้แก้เอง → ไม่ต้องเปิดกล่อง) */
+export function planMatchesDefaults(plan: readonly PlanItemDraft[], defaults: readonly WedDeliverablePlanItem[]): boolean {
+  if (plan.length !== defaults.length) return false
+  return plan.every((p, i) => {
+    const d = defaults[i]
+    return p.name.trim() === d.name.trim() && p.qty.trim() === String(d.qty) && p.unit.trim() === (d.unit ?? '').trim() &&
+      p.due_days.trim() === String(d.due_days)
+  })
+}
+
 /** แผนงานที่ส่งของงานนี้ยังแก้ได้ไหม (ตรงกับ wed_read_head: ก่อนยืนยันงานเท่านั้น) */
 export function planEditable(mode: FormMode, b: WedBooking | null | undefined): boolean {
   if (mode === 'create' || !b) return true

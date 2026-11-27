@@ -240,14 +240,21 @@ class Page {
         return Math.max(0, Math.ceil(best)); })()`).catch(() => 0);
     }
     const v = this.view;
-    if (extra > 0) {
-      await this.send('Emulation.setDeviceMetricsOverride', { width: v.width, height: Math.min(v.height + extra, maxHeight), deviceScaleFactor: v.dpr, mobile: v.mobile, screenWidth: v.width, screenHeight: v.height });
-      await sleep(400);
+    // แท็บที่ไม่ได้อยู่หน้าสุด Chrome ไม่วาดหน้า → captureScreenshot ค้างจนหมดเวลา → ดึงแท็บขึ้นหน้าก่อนถ่ายเสมอ
+    await this.send('Page.bringToFront').catch(() => {});
+    let r;
+    try {
+      if (extra > 0) {
+        await this.send('Emulation.setDeviceMetricsOverride', { width: v.width, height: Math.min(v.height + extra, maxHeight), deviceScaleFactor: v.dpr, mobile: v.mobile, screenWidth: v.width, screenHeight: v.height });
+        await sleep(400);
+      }
+      r = await this.send('Page.captureScreenshot', { format: 'png' });
+    } finally {
+      // ถ่ายไม่สำเร็จก็ต้องคืนขนาดจอเดิม (ไม่งั้นแท็บค้างที่ความสูงที่ขยายไว้)
+      if (extra > 0) { await this.setViewport(v).catch(() => {}); await sleep(150); }
     }
-    const r = await this.send('Page.captureScreenshot', { format: 'png' });
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(file, Buffer.from(r.data, 'base64'));
-    if (extra > 0) { await this.setViewport(v); await sleep(150); }
     return file;
   }
   async close() { try { await this.conn.send('Target.closeTarget', { targetId: this.targetId }); } catch {} }

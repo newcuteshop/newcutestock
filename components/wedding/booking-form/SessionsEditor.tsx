@@ -1,6 +1,7 @@
 'use client'
 // ส่วน "คิวงาน" ของฟอร์ม: งานหนึ่งมีได้ 1–10 คิว (หมั้น/พิธีเช้า/งานเลี้ยง/พรีเวดดิ้ง/อื่นๆ) — เพิ่ม ลบ เลื่อนลำดับ
 // ลำดับในฟอร์ม = ลำดับบนเอกสาร (ฐานข้อมูลเก็บเป็น sort_order) ; ลบคิวเดิมที่บันทึกแล้ว/มีข้อมูล → ถามยืนยันก่อน
+// ปุ่ม "เพิ่มคิว" แยกตามประเภท = ตั้งประเภทของคิวใหม่ (ช่องเลือกประเภทในการ์ดอยู่ในกล่องพับ "ข้อมูลเพิ่มเติม")
 import { useState } from 'react'
 import { CalendarClock, Plus } from 'lucide-react'
 import { ICON, ICON_SM } from '@/components/theme/icons'
@@ -26,6 +27,7 @@ export default function SessionsEditor({
   crewList,
   crewError,
   sessionsProblem,
+  reveal = 0,
   mk,
   disabled,
 }: {
@@ -39,6 +41,8 @@ export default function SessionsEditor({
   crewList: readonly WedCrew[]
   crewError: string
   sessionsProblem: string | null
+  /** เลขที่เปลี่ยนเมื่อกดแถบลัด/กดบันทึกแล้วยังไม่ครบ → เปิดกล่องพับของคิวที่มีช่องผิด */
+  reveal?: number
   mk: () => string
   disabled?: boolean
 }) {
@@ -97,7 +101,7 @@ export default function SessionsEditor({
       section="sessions"
       title={<>คิวงาน <span className="chip tabular-nums">{list.length}/{MAX_WED_SESSIONS}</span></>}
       icon={<CalendarClock {...ICON} />}
-      describe="แต่ละคิวคือช่วงที่ทีมต้องไปถ่าย (หมั้น พิธีเช้า งานเลี้ยง พรีเวดดิ้ง) — วัน เวลา สถานที่ และทีมงาน"
+      describe="แต่ละคิวคือช่วงที่ทีมต้องไปถ่าย (หมั้น พิธีเช้า งานเลี้ยง พรีเวดดิ้ง) — วัน เวลา สถานที่ (ทีมงาน/กำหนดการอยู่ในข้อมูลเพิ่มเติม)"
     >
       {sessionsProblem && <p role="alert" className="text-sm font-medium text-red-700">{sessionsProblem}</p>}
       <p className="sr-only" aria-live="polite">{announce}</p>
@@ -121,6 +125,7 @@ export default function SessionsEditor({
             onRemove={() => askRemove(s)}
             onDuplicate={() => duplicateAfter(i)}
             canDuplicate={!full}
+            reveal={reveal}
             mk={mk}
             disabled={disabled}
           />

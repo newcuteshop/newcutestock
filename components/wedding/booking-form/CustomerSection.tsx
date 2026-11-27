@@ -2,6 +2,8 @@
 // ส่วน "ลูกค้า / คู่บ่าวสาว" ของฟอร์มงาน — ค้นลูกค้าในระบบ (เบอร์/ชื่อ/ชื่อคู่/LINE/IG) หรือกรอกลูกค้าใหม่
 // (ระบบสร้างลูกค้าให้ตอนบันทึกงาน) + ชื่อคู่บ่าวสาวที่แสดงบนเอกสาร + ช่องทางที่ลูกค้าติดต่อมา
 // ลูกค้าใหม่ที่เบอร์ซ้ำกับลูกค้าเดิม → เสนอให้ใช้ลูกค้าเดิม (ไม่สร้างลูกค้าซ้ำ — ประวัติงานของลูกค้าจะรวมอยู่ที่เดียว)
+// ลูกค้าใหม่ (27/11/2569 กรอกเร็ว): หน้าแรกเหลือ ชื่อผู้ติดต่อ เบอร์ LINE Facebook (ตามใบยืนยันการจองของร้าน)
+//   ชื่อคู่ เบอร์สำรอง IG อีเมล ที่อยู่ หมายเหตุ → กล่อง "ข้อมูลเพิ่มเติม (ไม่บังคับ)" (ข้อมูล/ตัวตรวจเหมือนเดิม)
 import { useEffect, useId, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { Contact, Heart, Phone, Search, SearchX, UserCheck, UserPlus, UserRound, X, XCircle } from 'lucide-react'
@@ -13,9 +15,10 @@ import { FIX07_MISSING_MSG, WED_SOURCES, WED_SOURCE_LABELS, formatPhone, phoneDi
 import { recentCustomers, searchCustomers } from './search'
 import {
   EMPTY_CUSTOMER_DRAFT, MAX_COUPLE, MAX_CUST_ADDRESS, MAX_CUST_EMAIL, MAX_CUST_FB, MAX_CUST_IG, MAX_CUST_LINE, MAX_CUST_NAME,
-  MAX_CUST_NOTE, coupleSuggestion, type CustomerCheck, type CustomerDraft, type CustomerLite, type WedDraft,
+  MAX_CUST_NOTE, CUSTOMER_EXTRA_FIELDS, coupleSuggestion, customerExtraFilled, type CustomerCheck, type CustomerDraft,
+  type CustomerLite, type WedDraft,
 } from './model'
-import { Field, FormSection, fieldAria } from './fields'
+import { Field, FormSection, MoreFields, fieldAria } from './fields'
 
 const DEBOUNCE_MS = 300
 const RECENT_LIMIT = 8
@@ -29,6 +32,7 @@ export default function CustomerSection({
   dupes,
   dupLookupFailed,
   showErrors,
+  reveal = 0,
   disabled,
 }: {
   supabase: BrowserSupabase
@@ -40,6 +44,8 @@ export default function CustomerSection({
   dupes: readonly CustomerLite[]
   dupLookupFailed: boolean
   showErrors: boolean
+  /** เลขที่เปลี่ยนเมื่อกดแถบลัด/กดบันทึกแล้วยังไม่ครบ → เปิดกล่องพับที่มีช่องผิด */
+  reveal?: number
   disabled?: boolean
 }) {
   const uid = useId()
@@ -53,11 +59,13 @@ export default function CustomerSection({
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
   const [touched, setTouched] = useState<Partial<Record<keyof CustomerDraft, boolean>>>({})
-  const [moreOpen, setMoreOpen] = useState(false)
   const reqRef = useRef(0)
 
   const selected = draft.customerMode === 'existing' ? draft.customer : null
   const nc = draft.newCustomer
+  // กล่องพับของลูกค้าใหม่: จำนวนช่องที่มีค่า + มีช่องผิดข้างในไหม
+  const extraFilled = customerExtraFilled(nc)
+  const extraProblem = CUSTOMER_EXTRA_FIELDS.some(k => !!check.errors[k])
 
   // ค้นลูกค้า (คำค้นว่าง = ลูกค้าที่แก้ไขล่าสุด)
   useEffect(() => {
@@ -276,20 +284,6 @@ export default function CustomerSection({
                 onBlur={() => blur('name')}
               />
             </Field>
-            <Field id={ids.partner} label="ชื่อคู่ (เจ้าบ่าว/เจ้าสาว)" error={fieldError('partner_name')}>
-              <input
-                id={ids.partner}
-                className="input"
-                value={nc.partner_name}
-                maxLength={MAX_CUST_NAME}
-                autoComplete="off"
-                placeholder="เช่น เจ ธนพล"
-                disabled={disabled}
-                {...fieldAria(ids.partner, fieldError('partner_name'))}
-                onChange={e => setField('partner_name', e.target.value)}
-                onBlur={() => blur('partner_name')}
-              />
-            </Field>
             <Field id={ids.phone} label="เบอร์โทร *" error={fieldError('phone')}>
               <div className="input-icon">
                 <Phone {...ICON_SM} />
@@ -324,6 +318,20 @@ export default function CustomerSection({
                 onBlur={() => blur('line_id')}
               />
             </Field>
+            <Field id={ids.fb} label="Facebook" error={fieldError('facebook')}>
+              <input
+                id={ids.fb}
+                className="input"
+                value={nc.facebook}
+                maxLength={MAX_CUST_FB}
+                autoComplete="off"
+                placeholder="ชื่อหรือลิงก์ Facebook"
+                disabled={disabled}
+                {...fieldAria(ids.fb, fieldError('facebook'))}
+                onChange={e => setField('facebook', e.target.value)}
+                onBlur={() => blur('facebook')}
+              />
+            </Field>
           </div>
 
           {dupLookupFailed && (
@@ -350,16 +358,28 @@ export default function CustomerSection({
             </div>
           )}
 
-          <button
-            type="button"
-            className="btn-ghost -ml-2 px-2 text-sm"
-            aria-expanded={moreOpen}
-            onClick={() => setMoreOpen(o => !o)}
+          <MoreFields
+            contents="ชื่อคู่ เบอร์สำรอง Instagram อีเมล ที่อยู่ หมายเหตุลูกค้า"
+            filled={extraFilled}
+            initialOpen={extraFilled > 0}
+            problem={extraProblem}
+            signal={reveal}
           >
-            {moreOpen ? 'ซ่อนข้อมูลติดต่อเพิ่มเติม' : 'ข้อมูลติดต่อเพิ่มเติม (เบอร์สำรอง IG Facebook อีเมล ที่อยู่)'}
-          </button>
-          {(moreOpen || Object.keys(check.errors).some(k => k !== 'name' && k !== 'phone' && k !== 'line_id' && k !== 'partner_name')) && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field id={ids.partner} label="ชื่อคู่ (เจ้าบ่าว/เจ้าสาว)" error={fieldError('partner_name')}>
+                <input
+                  id={ids.partner}
+                  className="input"
+                  value={nc.partner_name}
+                  maxLength={MAX_CUST_NAME}
+                  autoComplete="off"
+                  placeholder="เช่น เจ ธนพล"
+                  disabled={disabled}
+                  {...fieldAria(ids.partner, fieldError('partner_name'))}
+                  onChange={e => setField('partner_name', e.target.value)}
+                  onBlur={() => blur('partner_name')}
+                />
+              </Field>
               <Field id={ids.phone2} label="เบอร์โทรสำรอง" error={fieldError('phone2')}>
                 <input
                   id={ids.phone2}
@@ -388,19 +408,6 @@ export default function CustomerSection({
                   {...fieldAria(ids.ig, fieldError('instagram'))}
                   onChange={e => setField('instagram', e.target.value)}
                   onBlur={() => blur('instagram')}
-                />
-              </Field>
-              <Field id={ids.fb} label="Facebook" error={fieldError('facebook')}>
-                <input
-                  id={ids.fb}
-                  className="input"
-                  value={nc.facebook}
-                  maxLength={MAX_CUST_FB}
-                  autoComplete="off"
-                  disabled={disabled}
-                  {...fieldAria(ids.fb, fieldError('facebook'))}
-                  onChange={e => setField('facebook', e.target.value)}
-                  onBlur={() => blur('facebook')}
                 />
               </Field>
               <Field id={ids.email} label="อีเมล" error={fieldError('email')}>
@@ -448,7 +455,7 @@ export default function CustomerSection({
                 />
               </Field>
             </div>
-          )}
+          </MoreFields>
           {(nc.name || nc.phone) && (
             <button
               type="button"

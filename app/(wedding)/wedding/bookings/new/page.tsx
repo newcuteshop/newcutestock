@@ -12,7 +12,7 @@ import BookingForm from '@/components/wedding/booking-form/BookingForm'
 import { loadFormCatalog, loadPrefillCustomer } from '@/components/wedding/booking-form/catalog'
 
 const TITLE = 'สร้างงาน'
-const SUBTITLE = 'ลูกค้า → คิวงาน (วัน เวลา สถานที่ ทีมงาน) → แพ็กเกจ → ยอดเงิน → สถานะและรับมัดจำ'
+const SUBTITLE = 'ลูกค้า → คิวงาน (วัน เวลา สถานที่) → แพ็กเกจ → ยอดเงิน → สถานะและรับมัดจำ'
 
 export async function generateMetadata(): Promise<Metadata> {
   const shop = await loadWeddingShopName(createClient())

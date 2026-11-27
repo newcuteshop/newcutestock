@@ -29,6 +29,7 @@ const LOG_LABELS: Record<string, string> = {
   installments_reset: 'กลับไปใช้งวดมาตรฐาน',
   installments_absorb: 'ปรับยอดงวดตามยอดสุทธิใหม่ (อัตโนมัติ)',
   installments_rebuild: 'สร้างงวดชำระใหม่ตามยอดสุทธิ (อัตโนมัติ)',
+  policy_update: 'เปลี่ยนวันชำระยอดคงเหลือเป็นวันงาน',
   payment: 'รับชำระ',
   refund: 'คืนเงิน',
   payment_void: 'ยกเลิกรายการเงิน',
@@ -252,6 +253,15 @@ export function describeLog(
     case 'installments_rebuild': {
       const g = dNum(d, 'grand_total')
       if (g !== null) lines.push(`ยอดสุทธิใหม่ ${fmtMoney(g)}`)
+      break
+    }
+    case 'policy_update': {
+      // supabase-fix-09 (27/11/2569) — ยอดเงินไม่เปลี่ยน เปลี่ยนแค่วันครบกำหนด
+      const a = dText(d, 'old_balance_due_date')
+      const b = dText(d, 'new_balance_due_date')
+      if (a || b) lines.push(`ชำระยอดคงเหลือภายใน ${a ? fmtDay(a) : '-'} → ${b ? fmtDay(b) : '-'}`)
+      // งานที่บอสแก้งวดเอง: วันในงวดชำระไม่เปลี่ยน (เปลี่ยนแค่วันครบกำหนดของงาน)
+      if (dBool(d, 'installments_kept')) lines.push('งวดชำระที่แก้เองคงวันเดิม')
       break
     }
     case 'payment':

@@ -12,7 +12,10 @@
 //   - แก้ไข: ล็อกเวอร์ชันด้วย updated_at + payload.client_id (ข้อมูลชุดเดิม = รหัสเดิม → ฐานข้อมูลคืนผลเดิม ไม่ชนล็อกของตัวเอง)
 //     ไม่รู้ผล/ชนล็อก → โหลดงานล่าสุดมาเทียบ ตรงกับที่ส่ง = บันทึกแล้ว ไม่ใช่ "เครื่องอื่นแก้"
 // คิวเต็ม (hint wed_capacity) / ยืนยันงานก่อนได้มัดจำ (hint wed_deposit) → กล่องยืนยัน แล้วส่งใหม่พร้อม force
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+// กรอกเร็ว (27/11/2569): ช่องที่ไม่จำเป็นของแต่ละส่วนพับไว้ใน "ข้อมูลเพิ่มเติม (ไม่บังคับ)" ส่วน "อื่นๆ" พับทั้งส่วน
+//   - กล่องเปิดเองเมื่อมีข้อมูลอยู่แล้ว: ประเมินตอน mount → แทนที่ฟอร์มทั้งก้อน (กู้ฟอร์มค้าง/ล้างฟอร์ม) ต้อง remount ส่วนต่างๆ (formGen)
+//   - กดแถบลัด / กดบันทึกแล้วยังไม่ครบ → ส่งเลข reveal ให้ส่วนนั้นเปิดกล่องที่มีช่องผิด (แถบลัด "อื่นๆ" = เปิดทั้งส่วน)
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import clsx from 'clsx'
@@ -220,6 +223,10 @@ export default function BookingForm({
     return d
   })
   const [tried, setTried] = useState(false)
+  // เพิ่มทุกครั้งที่แทนที่ฟอร์มทั้งก้อน → ส่วนต่างๆ remount แล้วประเมินกล่องพับใหม่ (มีข้อมูล = เปิด)
+  const [formGen, setFormGen] = useState(0)
+  // กดแถบลัด (to = ส่วนนั้น) / กดบันทึกแล้วยังไม่ครบ (to = 'fix' ทุกส่วน) → n เพิ่ม = สั่งเปิดกล่องพับที่มีช่องผิด
+  const [jump, setJump] = useState<{ to: SectionId | 'fix'; n: number }>({ to: 'fix', n: 0 })
   const [quote, setQuote] = useState<QuoteState>({ sig: '', keys: [], data: null, loading: false, error: '' })
   const [quoteRetry, setQuoteRetry] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -340,6 +347,7 @@ export default function BookingForm({
       : null
     if (freshDraft && !hasPrefill) {
       setDraft(freshDraft)
+      setFormGen(g => g + 1)
       setRestored(true)
       restoredNow = true
       fromStoreRef.current = true
@@ -383,6 +391,7 @@ export default function BookingForm({
           // ฟอร์มที่กู้มา = ข้อมูลของงานที่บันทึกไปแล้ว → ล้างทิ้ง (ไม่ให้กดบันทึกซ้ำเป็นงานที่สอง)
           fromStoreRef.current = false
           setDraft(emptyDraft(holdDefault))
+          setFormGen(g => g + 1)
           setRestored(false)
           writeStorage(null)
         } else {
@@ -568,6 +577,8 @@ export default function BookingForm({
       document.getElementById(sectionDomId(s))?.scrollIntoView({ block: 'start', behavior: 'smooth' })
     })
   }, [])
+  // เลขสั่งเปิดกล่องพับของแต่ละส่วน (0 = ไม่มีคำสั่งสำหรับส่วนนี้)
+  const revealOf = (s: SectionId) => (jump.to === s || jump.to === 'fix' ? jump.n : 0)
 
   // ===== บันทึก =====
   function showError(msg: string) {
@@ -760,6 +771,8 @@ export default function BookingForm({
   function submit() {
     if (!canSubmit) {
       setTried(true)
+      // เปิดกล่องพับที่มีช่องผิดทุกส่วนก่อน แล้วค่อยเลื่อนไปส่วนแรกที่ยังไม่ครบ
+      setJump(j => ({ to: 'fix', n: j.n + 1 }))
       const firstProblem = problems[0]
       if (firstProblem) scrollToSection(firstProblem.section)
       return
@@ -819,6 +832,7 @@ export default function BookingForm({
     setDraftChoice(null)
     const d = emptyDraft(holdDefault)
     setDraft(d)
+    setFormGen(g => g + 1)
     setTried(false)
     setRestored(false)
     setDupTab(false)
@@ -834,6 +848,7 @@ export default function BookingForm({
     choiceRef.current = false
     fromStoreRef.current = true
     setDraft(draftChoice)
+    setFormGen(g => g + 1)
     setDraftChoice(null)
     setRestored(true)
     setSubmitError('')
@@ -861,6 +876,7 @@ export default function BookingForm({
       error={quote.sig === quoteSig ? quote.error : ''}
       create={create}
       payNow={create ? plan.amount : undefined}
+      balanceDueDays={booking?.money.balance_due_days ?? settings.balance_due_days}
     />
   )
 
@@ -978,7 +994,10 @@ export default function BookingForm({
                 key={s.id}
                 type="button"
                 className={clsx('chip-toggle lift-hover lift-tab shrink-0', bad && 'border-red-300 text-red-800')}
-                onClick={() => scrollToSection(s.id)}
+                onClick={() => {
+                  setJump(j => ({ to: s.id, n: j.n + 1 }))
+                  scrollToSection(s.id)
+                }}
               >
                 {s.label}
                 {bad && <span className="sr-only"> (ยังไม่ครบ)</span>}
@@ -992,74 +1011,89 @@ export default function BookingForm({
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         {/* ===== เนื้อหาฟอร์ม ===== */}
         <div className="min-w-0 space-y-4">
-          <CustomerSection
-            supabase={supabase}
-            draft={draft}
-            patch={patch}
-            check={custCheck}
-            coupleError={core.other.couple}
-            dupes={dupes}
-            dupLookupFailed={dupLookupFailed}
-            showErrors={tried}
-            disabled={disabled}
-          />
+          {/* key = formGen: กู้ฟอร์มค้าง/ล้างฟอร์ม → remount ทุกส่วน (กล่องพับประเมิน "มีข้อมูล = เปิด" ใหม่) */}
+          <Fragment key={formGen}>
+            <CustomerSection
+              supabase={supabase}
+              draft={draft}
+              patch={patch}
+              check={custCheck}
+              coupleError={core.other.couple}
+              dupes={dupes}
+              dupLookupFailed={dupLookupFailed}
+              showErrors={tried}
+              reveal={revealOf('customer')}
+              disabled={disabled}
+            />
 
-          <SessionsEditor
-            draft={draft}
-            setSessions={setSessions}
-            checks={core.sessions}
-            hintsFor={hintsFor}
-            showErrors={tried}
-            manager={manager}
-            showStatus={!create}
-            crewList={catalog.crew}
-            crewError={catalog.crewError}
-            sessionsProblem={core.problems.find(p => p.section === 'sessions' && !p.text.startsWith('คิวที่'))?.text ?? null}
-            mk={mk}
-            disabled={disabled}
-          />
+            <SessionsEditor
+              draft={draft}
+              setSessions={setSessions}
+              checks={core.sessions}
+              hintsFor={hintsFor}
+              showErrors={tried}
+              manager={manager}
+              showStatus={!create}
+              crewList={catalog.crew}
+              crewError={catalog.crewError}
+              sessionsProblem={core.problems.find(p => p.section === 'sessions' && !p.text.startsWith('คิวที่'))?.text ?? null}
+              reveal={revealOf('sessions')}
+              mk={mk}
+              disabled={disabled}
+            />
 
-          <PackageSection
-            draft={draft}
-            patch={patch}
-            packages={catalog.packages}
-            addonCatalog={catalog.addons}
-            catalogError={catalog.catalogError}
-            check={core}
-            planOpen={planOpen}
-            lockedPlan={booking?.deliverables_plan ?? []}
-            quote={q}
-            quoteFresh={quoteFresh}
-            originalPackage={booking ? { id: booking.package.id, name: booking.package.name, price: booking.package.price, hours: booking.package.hours } : null}
-            mk={mk}
-            disabled={disabled}
-          />
+            <PackageSection
+              draft={draft}
+              patch={patch}
+              packages={catalog.packages}
+              addonCatalog={catalog.addons}
+              catalogError={catalog.catalogError}
+              check={core}
+              planOpen={planOpen}
+              lockedPlan={booking?.deliverables_plan ?? []}
+              quote={q}
+              quoteFresh={quoteFresh}
+              originalPackage={booking ? { id: booking.package.id, name: booking.package.name, price: booking.package.price, hours: booking.package.hours } : null}
+              reveal={revealOf('package')}
+              mk={mk}
+              disabled={disabled}
+            />
 
-          <MoneySection
-            draft={draft}
-            patch={patch}
-            check={core}
-            quote={quoteFresh ? q : null}
-            booking={create ? null : booking}
-            balanceDueDays={booking?.money.balance_due_days ?? settings.balance_due_days}
-            summary={<div className="space-y-3">{quoteErrorBox}{summaryNode}</div>}
-            disabled={disabled}
-          />
+            <MoneySection
+              draft={draft}
+              patch={patch}
+              check={core}
+              quote={quoteFresh ? q : null}
+              booking={create ? null : booking}
+              balanceDueDays={booking?.money.balance_due_days ?? settings.balance_due_days}
+              summary={<div className="space-y-3">{quoteErrorBox}{summaryNode}</div>}
+              reveal={revealOf('money')}
+              disabled={disabled}
+            />
 
-          <StatusSection
-            create={create}
-            booking={booking}
-            draft={draft}
-            patch={patch}
-            quote={q}
-            plan={plan}
-            holdProblem={holdProblem}
-            holdDefault={holdDefault}
-            depositShort={depositShort}
-            disabled={disabled}
-          />
+            <StatusSection
+              create={create}
+              booking={booking}
+              draft={draft}
+              patch={patch}
+              quote={q}
+              plan={plan}
+              holdProblem={holdProblem}
+              holdDefault={holdDefault}
+              depositShort={depositShort}
+              disabled={disabled}
+            />
 
-          <OtherSection draft={draft} patch={patch} check={core} today={today} disabled={disabled} />
+            <OtherSection
+              draft={draft}
+              patch={patch}
+              check={core}
+              today={today}
+              reveal={revealOf('other')}
+              revealOpen={jump.to === 'other'}
+              disabled={disabled}
+            />
+          </Fragment>
 
           {/* ===== ผลการบันทึก ===== */}
           <div ref={errorRef} className="scroll-mb-40 space-y-2">

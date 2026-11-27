@@ -13,7 +13,7 @@ import { ICON, ICON_SM, ICON_XS } from '@/components/theme/icons'
 import { baht, formatThaiDate, formatThaiDayLong } from '@/lib/format'
 import {
   INSTALLMENT_STATUS_CHIP, INSTALLMENT_STATUS_LABELS, SESSION_STATUS_LABELS, callTimeText, crewConflictText, crewDisplayName,
-  balanceDueShortNotice, crewRoleLabel, formatPhone, phoneDigits, sessionTimeText, wedDepositCap, wedDepositPercent, wedNoDeposit,
+  balanceDuePolicyText, balanceDueShortNotice, crewRoleLabel, formatPhone, phoneDigits, sessionTimeText, wedDepositCap, wedDepositPercent, wedNoDeposit,
   wedSourceLabel,
   type WedBooking, type WedCapacityWarning, type WedSession,
 } from '@/lib/wedding'
@@ -525,7 +525,7 @@ export function MoneyCard({ booking, onOpenPayment }: { booking: WedBooking; onO
               label="ชำระยอดคงเหลือภายใน"
               sub={m.balance_due_date_override ? 'กำหนดเองสำหรับงานนี้'
                 : balanceDueShortNotice(m.balance_due_date, booking.first_date, m.balance_due_days) ? 'งานกระชั้นชิด — ภายในวันที่จอง'
-                : m.balance_due_days !== null ? `${m.balance_due_days} วันก่อนวันงานแรก` : undefined}
+                : m.balance_due_days !== null ? balanceDuePolicyText(m.balance_due_days) : undefined}
               value={formatThaiDate(m.balance_due_date)}
             />
           )}

@@ -66,7 +66,7 @@ export async function seedAll(mock) {
         { bank: 'กสิกรไทย', account_no: '123-4-56789-0', account_name: 'บจก. บีออนคลาวด์' },
         { bank: 'ไทยพาณิชย์', account_no: '987-6-54321-0', account_name: 'บจก. บีออนคลาวด์' },
       ],
-      deposit_percent: 30, min_deposit: 5000, balance_due_days: 7, hold_hours: 72, max_jobs_per_day: 2, overtime_rate: 1500,
+      deposit_percent: 30, min_deposit: 5000, balance_due_days: 0, hold_hours: 72, max_jobs_per_day: 2, overtime_rate: 1500,
       booking_note: 'กรุณาตรวจสอบวันเวลาและสถานที่ หากต้องการแก้ไขแจ้งทาง LINE @boncloud ภายใน 3 วัน',
       receipt_footer: 'ขอบคุณที่ไว้วางใจ b.oncloud.wedding content',
     },
