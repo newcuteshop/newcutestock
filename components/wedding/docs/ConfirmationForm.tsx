@@ -159,14 +159,13 @@ function cfTime(s: WedSession): string {
 }
 
 /**
- * ผู้กดยืนยันงาน = ชื่อผู้ใช้ในประวัติ 'confirm' ครั้งแรก (logs เรียงใหม่ก่อน) ; วันที่ = confirmed_at ของงาน
- * ไม่มีประวัติ/ชื่อเป็น 'ระบบ' → ชื่อว่าง (ไม่เดาชื่อจากคนสร้างงาน)
+ * วันที่ยืนยันการจอง = confirmed_at ของงาน (ไม่มี → วันในประวัติ 'confirm' ครั้งแรก — logs เรียงใหม่ก่อน)
+ * ไม่พิมพ์ชื่อผู้ใช้ที่กดยืนยัน (บอสสั่ง 27/11/2569 "ลบ max ออก" — ชื่อล็อกอินไม่ใช่ชื่อที่ลูกค้าควรเห็น ; ผู้ยืนยันเซ็นเหนือเส้นเอง)
  */
-function confirmerOf(b: WedBooking): { name: string; date: string } {
+function confirmedDayOf(b: WedBooking): string {
   let log: WedBooking['logs'][number] | null = null
   for (const l of b.logs) if (l.action === 'confirm') log = l
-  const raw = String(log?.actor_name ?? '').trim()
-  return { name: raw && raw !== 'ระบบ' ? raw : '', date: dayTextShort(b.confirmed_at ?? log?.created_at ?? null) }
+  return dayTextShort(b.confirmed_at ?? log?.created_at ?? null)
 }
 
 /** ข้อความ + สีของ "สถานะ" ที่หัวเอกสาร */
@@ -369,7 +368,7 @@ export function ConfirmationForm({ booking: b, settings, options, assets, issued
   const prices = pricesShown('confirmation', options)
   const terms = options.showTerms ? textLines(settings.terms_text) : []
   const st = statusOf(b)
-  const confirmer = confirmerOf(b)
+  const confirmedDay = confirmedDayOf(b)
   const channels = contactChannels(b)
   const c = b.customer
   const couple = b.couple_names || [c.name, c.partner_name].filter(Boolean).join(' / ')
@@ -468,7 +467,7 @@ export function ConfirmationForm({ booking: b, settings, options, assets, issued
         <div className="wdoc-cf-sign">
           <div>
             <p className="wdoc-cf-sign-role">ชื่อผู้ยืนยันการจอง</p>
-            <p className="wdoc-cf-sign-sub">{confirmer.name || blank} / {confirmer.date || blank}</p>
+            <p className="wdoc-cf-sign-sub">{confirmedDay || blank}</p>
           </div>
           <div>
             <p className="wdoc-cf-sign-role">ลูกค้า</p>
