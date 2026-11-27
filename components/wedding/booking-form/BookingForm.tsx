@@ -38,7 +38,7 @@ import { customersByPhone } from './search'
 import {
   DRAFT_MAX_AGE_MS, DRAFT_STORAGE_KEY, EMPTY_SOURCE_MEMO, MAX_HOLD_HOURS, MAX_SENT_SIGS, SECTIONS, bookingMatchesEdit, checkCore,
   checkCustomerDraft, clampHold, coupleSuggestion, createPayloadOf, draftFromBooking, draftHasContent, emptyDraft,
-  holdHoursValue, newDatesOf, parseStoredDraft, planEditable, requestSig, planPayment, quotePayloadOf, sectionDomId,
+  holdHoursValue, newDatesOf, normalizeCouple, parseStoredDraft, planEditable, requestSig, planPayment, quotePayloadOf, sectionDomId,
   sourceHandle, syncSourceDetail, updateBodyOf, type SourceDetailMemo,
   type CoreCtx, type CustomerLite, type FormMode, type PaymentPlan, type SectionId, type SessionDraft, type StoredDraft,
   type WedDraft,
@@ -948,7 +948,7 @@ export default function BookingForm({
           <Info {...ICON_SM} />
           <div className="min-w-0 space-y-2">
             <p className="min-w-0">
-              แท็บนี้มีฟอร์มสร้างงานที่กรอกค้างไว้{draftChoice.coupleNames.trim() ? <> (<b>{draftChoice.coupleNames.trim()}</b>)</> : null}
+              แท็บนี้มีฟอร์มสร้างงานที่กรอกค้างไว้{normalizeCouple(draftChoice.coupleNames) ? <> (<b>{normalizeCouple(draftChoice.coupleNames)}</b>)</> : null}
               {' '}— จะกู้ฟอร์มนั้น หรือเริ่มใหม่ด้วย{prefill && isDayKey(prefill.date) ? `วันที่ ${formatThaiDate(prefill.date)}` : 'ข้อมูลที่เลือกมา'}?
             </p>
             <div className="flex flex-wrap gap-2">
@@ -1148,7 +1148,7 @@ export default function BookingForm({
               {!create && booking && <span className={WED_STATUS_CHIP[booking.status]}>{booking.status_label}</span>}
             </h2>
             <div className="space-y-1.5 text-sm">
-              <p className="text-base font-semibold text-gray-900 break-words">{draft.coupleNames.trim() || <span className="font-normal text-gray-400">ยังไม่ใส่ชื่อคู่บ่าวสาว</span>}</p>
+              <p className="text-base font-semibold text-gray-900 break-words">{normalizeCouple(draft.coupleNames) || <span className="font-normal text-gray-400">ยังไม่ใส่ชื่อคู่บ่าวสาว</span>}</p>
               <p className="flex items-center gap-2 text-gray-600">
                 <UserRound {...ICON_SM} className="shrink-0 text-brand-600" />
                 {draft.customerMode === 'existing' && draft.customer ? (

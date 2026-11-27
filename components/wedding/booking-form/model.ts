@@ -516,6 +516,32 @@ export function coupleSuggestion(name: string | null | undefined, partner: strin
   return out.slice(0, MAX_COUPLE)
 }
 
+// ชื่อคู่บ่าวสาว = 2 ช่องในฟอร์ม มี "&" คั่นให้เอง (บอสสั่ง 27/11/2569 — ไม่ต้องพิมพ์ & เอง)
+//   draft.coupleNames ยังเป็นข้อความเดียว (เก็บ/กู้ฟอร์ม/โหลดงานเดิมแบบเดิม) = ช่อง 1 + " & " + ช่อง 2 แบบไม่ตัดช่องว่าง
+//   (ตัดช่องว่างตอนส่ง/แสดงเท่านั้น ไม่งั้นพิมพ์เว้นวรรคท้ายช่องแล้วช่องว่างหายระหว่างพิมพ์)
+export const COUPLE_SEP = ' & '
+
+/** แยกชื่อคู่บ่าวสาวเป็น 2 ช่อง — งานเก่าที่พิมพ์ "&" เอง (เว้นวรรคหรือไม่ก็ได้) แยกได้เหมือนกัน ; ไม่มี & = ช่อง 1 ทั้งหมด */
+export function splitCouple(s: string): [string, string] {
+  const i = s.indexOf(COUPLE_SEP)
+  if (i >= 0) return [s.slice(0, i), s.slice(i + COUPLE_SEP.length)]
+  const m = /^([\s\S]*?)\s*&\s*([\s\S]*)$/.exec(s)
+  return m ? [m[1], m[2]] : [s, '']
+}
+
+/** รวม 2 ช่องกลับเป็นข้อความเดียว (ช่อง 2 ว่าง = ไม่มี &) */
+export function joinCouple(a: string, b: string): string {
+  return b === '' ? a : `${a}${COUPLE_SEP}${b}`
+}
+
+/** ชื่อคู่บ่าวสาวที่ส่งเข้าระบบ/แสดงในสรุป: "คุณพลอย & คุณโพสท์" (มีชื่อเดียว = ชื่อนั้น) */
+export function normalizeCouple(s: string): string {
+  const [a, b] = splitCouple(s)
+  const x = a.trim()
+  const y = b.trim()
+  return x && y ? `${x}${COUPLE_SEP}${y}` : x || y
+}
+
 // ---------------------------------------------------------------------------
 // ตัวช่วยอ่านช่องกรอก
 // ---------------------------------------------------------------------------
@@ -903,7 +929,7 @@ export function checkCore(d: WedDraft, ctx: CoreCtx): CoreCheck {
 
   // ----- ชื่อคู่บ่าวสาว -----
   const other: CoreCheck['other'] = {}
-  const couple = d.coupleNames.trim()
+  const couple = normalizeCouple(d.coupleNames)
   if (!couple) other.couple = 'กรุณากรอกชื่อคู่บ่าวสาว (เช่น คุณมิว & คุณเจ)'
   else if (couple.length > MAX_COUPLE) other.couple = `ชื่อคู่บ่าวสาวยาวเกินไป (สูงสุด ${MAX_COUPLE} ตัวอักษร)`
   add('customer', other.couple)

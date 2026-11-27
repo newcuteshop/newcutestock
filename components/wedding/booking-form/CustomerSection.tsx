@@ -22,7 +22,8 @@ import {
 import { recentCustomers, searchCustomers } from './search'
 import {
   EMPTY_CUSTOMER_DRAFT, MAX_COUPLE, MAX_CUST_ADDRESS, MAX_CUST_EMAIL, MAX_CUST_FB, MAX_CUST_IG, MAX_CUST_LINE, MAX_CUST_NAME,
-  MAX_CUST_NOTE, CUSTOMER_EXTRA_FIELDS, coupleSuggestion, customerExtraFilled, type CustomerCheck, type CustomerDraft,
+  MAX_CUST_NOTE, CUSTOMER_EXTRA_FIELDS, coupleSuggestion, customerExtraFilled, joinCouple, normalizeCouple, splitCouple,
+  type CustomerCheck, type CustomerDraft,
   type CustomerLite, type WedDraft,
 } from './model'
 import { Field, FormSection, MoreFields, fieldAria } from './fields'
@@ -124,7 +125,11 @@ export default function CustomerSection({
   const suggestion = selected
     ? coupleSuggestion(selected.name, selected.partner_name)
     : draft.customerMode === 'new' ? coupleSuggestion(nc.name, nc.partner_name) : ''
-  const showSuggestion = suggestion !== '' && suggestion !== draft.coupleNames.trim()
+  const showSuggestion = suggestion !== '' && suggestion !== normalizeCouple(draft.coupleNames)
+  // ชื่อคู่บ่าวสาว 2 ช่อง + "&" คั่นให้เอง — พิมพ์ & มาเองก็ตัดทิ้ง (กัน "คุณมิว & & คุณเจ")
+  const [coupleA, coupleB] = splitCouple(draft.coupleNames)
+  const coupleErr = showErrors || draft.coupleNames !== '' ? coupleError : null
+  const noAmp = (s: string) => s.replace(/&/g, '')
 
   function choose(c: CustomerLite) {
     const p: Partial<WedDraft> = { customerMode: 'existing', customer: c }
@@ -501,20 +506,44 @@ export default function CustomerSection({
       <Field
         id={ids.couple}
         label="ชื่อคู่บ่าวสาว *"
-        error={showErrors || draft.coupleNames !== '' ? coupleError : null}
-        hint="แสดงบนใบยืนยันการจอง ใบเสร็จ และหน้าติดตามงานของลูกค้า"
+        error={coupleErr}
+        hint="แสดงบนใบยืนยันการจอง ใบเสร็จ และหน้าติดตามงานของลูกค้า — ระบบใส่ & คั่นให้เอง"
       >
-        <input
-          id={ids.couple}
-          className="input text-base font-semibold"
-          value={draft.coupleNames}
-          maxLength={MAX_COUPLE}
-          autoComplete="off"
-          placeholder="เช่น คุณมิว & คุณเจ"
-          disabled={disabled}
-          {...fieldAria(ids.couple, showErrors || draft.coupleNames !== '' ? coupleError : null, true)}
-          onChange={e => patch({ coupleNames: e.target.value })}
-        />
+        <div className="flex items-center gap-2">
+          <input
+            id={ids.couple}
+            className="input min-w-0 flex-1 text-base font-semibold"
+            value={coupleA}
+            maxLength={MAX_COUPLE}
+            autoComplete="off"
+            placeholder="เช่น คุณมิว"
+            disabled={disabled}
+            {...fieldAria(ids.couple, coupleErr, true)}
+            onChange={e => {
+              const v = e.target.value
+              // วาง/พิมพ์ "คุณมิว & คุณเจ" ลงช่องแรก → แยกให้ 2 ช่อง (ช่อง 2 มีชื่ออยู่แล้วไม่ทับ)
+              if (v.includes('&')) {
+                const [x, y] = splitCouple(v)
+                patch({ coupleNames: joinCouple(noAmp(x), coupleB || noAmp(y).trim()) })
+              } else {
+                patch({ coupleNames: joinCouple(v, coupleB) })
+              }
+            }}
+          />
+          <span className="shrink-0 text-lg font-bold text-gray-500" aria-hidden="true">&amp;</span>
+          <input
+            id={`${ids.couple}-2`}
+            className="input min-w-0 flex-1 text-base font-semibold"
+            value={coupleB}
+            maxLength={MAX_COUPLE}
+            autoComplete="off"
+            placeholder="เช่น คุณเจ"
+            disabled={disabled}
+            aria-label="ชื่อคู่บ่าวสาว คนที่ 2"
+            aria-invalid={coupleErr ? true : undefined}
+            onChange={e => patch({ coupleNames: joinCouple(coupleA, noAmp(e.target.value)) })}
+          />
+        </div>
       </Field>
       {showSuggestion && (
         <button
