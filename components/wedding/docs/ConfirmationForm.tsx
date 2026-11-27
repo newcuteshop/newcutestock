@@ -7,7 +7,7 @@
 import type { ReactNode } from 'react'
 import { bangkokDateKey } from '@/lib/format'
 import {
-  formatPhone, sameHandle, sessionTimeText, sourceDetailText, type WedBooking, type WedSession, type WedSettings, type WedSource,
+  formatPhone, sessionTimeText, sourceDetailText, wedSourceLabel, type WedBooking, type WedSession, type WedSettings,
 } from '@/lib/wedding'
 import { StatusBanner, type DocAssets } from './docKit'
 import { activeSessions, pricesShown, type DocOptions } from './docKinds'
@@ -140,29 +140,19 @@ function socialShort(v: string | null | undefined): string {
 }
 
 /**
- * ช่องทางติดต่อลูกค้า ตามฟอร์มร้าน = ช่องโซเชียลที่มี (FB → LINE → IG)
- * เบอร์โทรเป็นช่องบังคับของลูกค้า (มีทุกคน) จึงไม่ใส่ซ้ำ — แสดงเบอร์เฉพาะลูกค้าที่ไม่มีช่องโซเชียลเลย จะได้ไม่ว่าง
- * งานที่กรอก "ชื่อช่องทาง" ไว้ (source_detail — fix-11): ขึ้นก่อนเป็น "<ป้ายสั้น>: <ชื่อ>" เช่น "FB: Phodjanee Dicharoen"
- *   แล้วตามด้วยช่องโซเชียลของลูกค้า — ตัดเฉพาะช่องเดียวกับช่องทางของงานที่ชื่อเดียวกันทิ้ง (ไม่ขึ้นซ้ำ)
- *   ไม่มีชื่อช่องทาง (งานเก่า) = แสดงแบบเดิม
+ * ช่องทางติดต่อลูกค้า = ช่องทางเดียวที่เลือกในงานนี้ (บอสสั่ง 27/11/2569 "ให้เหลือแค่ช่องทางเดียวที่เลือกตามระบบ")
+ *   "<ป้ายสั้น>: <ชื่อ>" เช่น "FB: Phodjanee Dicharoen" — ชื่อ = ที่กรอกในงาน (source_detail — fix-11)
+ *   งานเก่าที่ไม่ได้กรอก = ชื่อในช่องเดียวกันของข้อมูลลูกค้า ; ไม่มีชื่อเลย = ชื่อช่องทางอย่างเดียว
+ *   ไม่ใส่ LINE / IG / Facebook อื่นของลูกค้าที่ไม่ใช่ช่องทางของงานนี้ ; ไม่รู้ช่องทาง = เบอร์โทร (ช่องไม่ว่าง)
  */
 function contactChannels(b: WedBooking): string[] {
   const c = b.customer
-  const handles: { src: WedSource; value: string | null; text: string }[] = [
-    { src: 'facebook' as const, value: c.facebook, text: c.facebook?.trim() ? `FB: ${socialShort(c.facebook)}` : '' },
-    { src: 'line' as const, value: c.line_id, text: c.line_id?.trim() ? `LINE: ${c.line_id.trim()}` : '' },
-    { src: 'instagram' as const, value: c.instagram, text: c.instagram?.trim() ? `IG: ${socialShort(c.instagram)}` : '' },
-  ].filter(h => h.text !== '')
-  const detail = b.source_detail?.trim() ?? ''
-  if (detail) {
-    // ตัดเฉพาะช่องเดียวกับช่องทางของงานที่ชื่อเดียวกัน (กติกาเดียวกับการ์ดลูกค้าในหน้ารายละเอียดงาน BookingCards dupOf)
-    //   ช่องทางอื่น (TikTok / แนะนำ / เว็บ / อื่นๆ) ชื่อเหมือนกันก็ยังเป็นคนละช่องทาง → แสดงทั้งคู่
-    const rest = handles.filter(h => !(h.src === b.source && sameHandle(h.value, detail)))
-    const first = sourceDetailText(b.source, socialShort(detail))
-    return [first, ...rest.map(h => h.text).filter(t => t !== first)]
-  }
-  if (handles.length > 0) return handles.map(h => h.text)
-  return [c.phone ? `โทร ${formatPhone(c.phone)}` : '', c.phone2 ? `โทร ${formatPhone(c.phone2)}` : ''].filter(Boolean)
+  const src = b.source
+  const own = src === 'facebook' ? c.facebook : src === 'instagram' ? c.instagram : src === 'line' ? c.line_id : null
+  const name = b.source_detail?.trim() || own?.trim() || ''
+  if (name) return [sourceDetailText(src, socialShort(name))]
+  if (src) return [wedSourceLabel(src)]
+  return [c.phone ? `โทร ${formatPhone(c.phone)}` : ''].filter(Boolean)
 }
 
 /** เวลาแบบฟอร์มร้าน '08:00-12:00' (มีทั้งเริ่ม-จบ) ; แบบอื่นใช้ข้อความกลางของแอปตามเดิม */

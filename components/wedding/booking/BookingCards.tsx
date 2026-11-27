@@ -14,8 +14,8 @@ import { baht, formatThaiDate, formatThaiDayLong } from '@/lib/format'
 import {
   INSTALLMENT_STATUS_CHIP, INSTALLMENT_STATUS_LABELS, SESSION_STATUS_LABELS, callTimeText, crewConflictText, crewDisplayName,
   balanceDuePolicyText, balanceDueShortNotice, crewRoleLabel, formatPhone, phoneDigits, sessionTimeText, wedDepositCap, wedDepositPercent, wedNoDeposit,
-  safeHttpUrl, sameHandle, wedSourceLabel,
-  type WedBooking, type WedCapacityWarning, type WedSession, type WedSource,
+  safeHttpUrl, wedSourceLabel,
+  type WedBooking, type WedCapacityWarning, type WedSession,
 } from '@/lib/wedding'
 import { EPS, copyText, facebookUrl, instagramUrl, lineIdUrl } from './rpc'
 
@@ -90,14 +90,13 @@ export function CustomerCard({ booking }: { booking: WedBooking }) {
   const c = booking.customer
   const tel = phoneDigits(c.phone)
   const tel2 = phoneDigits(c.phone2)
-  const lineUrl = lineIdUrl(c.line_id)
-  const ig = instagramUrl(c.instagram)
-  const fb = facebookUrl(c.facebook)
   const coordTel = phoneDigits(booking.coordinator_phone)
-  // ช่องทางที่ติดต่อมาของงานนี้ + ชื่อในช่องทางนั้น (source_detail — fix-11) ขึ้นเป็นแถวแรก
-  //   ไม่มีชื่อ (งานเก่า / ไม่ได้กรอก) = ไม่มีแถวนี้ (แบบเดิม) ; ชื่อเดียวกับช่องเดียวกันของลูกค้า = ไม่ขึ้นซ้ำอีกแถว
+  // ช่องทางติดต่อ = ช่องทางเดียวที่เลือกในงานนี้ (บอสสั่ง 27/11/2569 "ให้เหลือแค่ช่องทางเดียวที่เลือกตามระบบ")
+  //   ชื่อ = ชื่อที่กรอกในงาน (source_detail — fix-11) ; งานเก่าที่ไม่ได้กรอก = ชื่อในช่องเดียวกันของข้อมูลลูกค้า
+  //   ไม่แสดง LINE / IG / Facebook อื่นของลูกค้าที่ไม่ใช่ช่องทางของงานนี้ (ดูได้ที่หน้าประวัติลูกค้า)
   const src = booking.source
-  const srcDetail = booking.source_detail
+  const ownHandle = src === 'facebook' ? c.facebook : src === 'instagram' ? c.instagram : src === 'line' ? c.line_id : null
+  const srcDetail = booking.source_detail?.trim() || ownHandle?.trim() || null
   const srcHref = !srcDetail ? ''
     : src === 'facebook' ? facebookUrl(srcDetail)
       : src === 'instagram' ? instagramUrl(srcDetail)
@@ -107,7 +106,6 @@ export function CustomerCard({ booking }: { booking: WedBooking }) {
     : src === 'facebook' ? <UserRound {...ICON_SM} />
       : src === 'referral' ? <Users {...ICON_SM} />
         : src === 'website' ? <ExternalLink {...ICON_SM} /> : <MessageCircle {...ICON_SM} />
-  const dupOf = (s: WedSource, v: string | null) => !!srcDetail && src === s && sameHandle(v, srcDetail)
   return (
     <section className="card" aria-labelledby="wb-customer">
       <div className="card-header">
@@ -124,7 +122,7 @@ export function CustomerCard({ booking }: { booking: WedBooking }) {
           {c.source && <p className="text-xs text-gray-500 mt-0.5">รู้จักร้านจาก {wedSourceLabel(c.source)}</p>}
         </div>
         <div className="space-y-2">
-          {srcDetail && (
+          {srcDetail ? (
             <ContactRow
               icon={srcIcon}
               label={src ? `ติดต่อมาทาง ${wedSourceLabel(src)}` : 'ช่องทางที่ติดต่อมา'}
@@ -133,12 +131,14 @@ export function CustomerCard({ booking }: { booking: WedBooking }) {
               hrefLabel={src ? `เปิด ${wedSourceLabel(src)}` : 'เปิดลิงก์'}
               external
             />
-          )}
+          ) : src ? (
+            <p className="flex items-center gap-2 text-sm text-gray-600">
+              {srcIcon}
+              ติดต่อมาทาง {wedSourceLabel(src)}
+            </p>
+          ) : null}
           {tel && <ContactRow icon={<Phone {...ICON_SM} />} label="เบอร์โทร" value={formatPhone(c.phone)} copyValue={tel} href={`tel:${tel}`} hrefLabel={`โทร ${formatPhone(c.phone)}`} />}
           {tel2 && <ContactRow icon={<Phone {...ICON_SM} />} label="เบอร์สำรอง" value={formatPhone(c.phone2)} copyValue={tel2} href={`tel:${tel2}`} hrefLabel={`โทร ${formatPhone(c.phone2)}`} />}
-          {c.line_id && !dupOf('line', c.line_id) && <ContactRow icon={<MessageCircle {...ICON_SM} />} label="LINE ID" value={c.line_id} href={lineUrl || undefined} hrefLabel="เปิด LINE" external />}
-          {c.instagram && !dupOf('instagram', c.instagram) && <ContactRow icon={<Instagram {...ICON_SM} />} label="Instagram" value={c.instagram} href={ig || undefined} hrefLabel="เปิด Instagram" external />}
-          {c.facebook && !dupOf('facebook', c.facebook) && <ContactRow icon={<UserRound {...ICON_SM} />} label="Facebook" value={c.facebook} href={fb || undefined} hrefLabel="เปิด Facebook" external />}
           {c.email && <ContactRow icon={<Mail {...ICON_SM} />} label="อีเมล" value={c.email} href={`mailto:${c.email}`} hrefLabel="ส่งอีเมล" actionIcon={<Mail {...ICON_SM} />} />}
         </div>
         {c.address && (
