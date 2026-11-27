@@ -77,6 +77,11 @@ const moneyWhole = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
 const moneyCents = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 /** เงินแบบฟอร์มร้าน: '฿5,900' (บาทเต็มไม่มี .00) · มีสตางค์ '฿5,900.50' · ติดลบ '-฿500' */
+/** จำนวนในรายละเอียดแพ็กเกจ: 4 → "4", 4.5 → "4.5", 1500 → "1,500" */
+function qtyText(n: number): string {
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(n)
+}
+
 export function cfMoney(n: number | null | undefined): string {
   const v = Number(n)
   if (!Number.isFinite(v)) return '฿0'
@@ -255,6 +260,14 @@ function ServiceBox({ booking: b, prices }: { booking: WedBooking; prices: boole
   const m = b.money
   const p = b.package
   const desc = String(p.description ?? '').replace(/\s+$/, '').replace(/^\s*\n/, '')
+  // แพ็กเกจไม่มีรายละเอียด → สร้างรายการจากข้อมูลที่มี (ชั่วโมงถ่าย + งานที่ส่งให้ลูกค้าพร้อมกำหนดส่ง) แบบเดียวกับฟอร์มร้าน
+  //   (บอส 27/11/2569: เดิมขึ้นแค่ "ถ่ายทำ 4 ชั่วโมง" ดูไม่ครบ — รายละเอียดเต็มพิมพ์ได้ที่ ตั้งค่า → แพ็กเกจ → รายละเอียด)
+  const autoLines = desc ? [] : [
+    ...(p.hours > 0 ? [`-ถ่าย ${qtyText(p.hours)} ชม.`] : []),
+    ...b.deliverables_plan.map(d =>
+      `-${d.name}${d.qty > 0 ? ` ${qtyText(d.qty)}${d.unit ? ` ${d.unit}` : ''}` : ''}`
+      + (d.due_days > 0 ? ` ส่งงานภายใน ${qtyText(d.due_days)} วัน` : '')),
+  ]
   const charges = prices ? b.charges.filter(c => !c.voided_at) : []
   const travel = prices && m.travel_fee > 0.005
   const hasExtra = b.addons.length > 0 || travel || charges.length > 0
@@ -266,8 +279,8 @@ function ServiceBox({ booking: b, prices }: { booking: WedBooking; prices: boole
       </div>
       {desc ? (
         <p className="wdoc-cf-desc">{desc}</p>
-      ) : p.hours > 0 ? (
-        <p className="wdoc-cf-desc">ถ่ายทำ {p.hours} ชั่วโมง</p>
+      ) : autoLines.length > 0 ? (
+        <p className="wdoc-cf-desc">{autoLines.join('\n')}</p>
       ) : null}
       {hasExtra && <div className="wdoc-cf-div" />}
       {b.addons.map(a => (
