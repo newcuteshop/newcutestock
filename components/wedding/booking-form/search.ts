@@ -9,7 +9,7 @@ import { isUuid, type CustomerLite } from './model'
 export { cleanBookingNoTerm, cleanNameTerm, phoneTerm }
 
 /** คอลัมน์ลูกค้าที่ฟอร์มงานใช้ */
-export const CUSTOMER_LITE_COLUMNS = 'id, name, partner_name, phone, phone2, line_id, instagram, source'
+export const CUSTOMER_LITE_COLUMNS = 'id, name, partner_name, phone, phone2, line_id, instagram, facebook, source'
 
 /** ตัวกรอง .or() สำหรับค้นลูกค้าด้วยเบอร์โทร / ชื่อ / ชื่อคู่ / LINE / IG ; คำค้นใช้ไม่ได้ → null */
 export function customerOrFilter(raw: string): string | null {
@@ -36,6 +36,7 @@ export function toCustomerLite(raw: unknown): CustomerLite | null {
     phone2: s(o.phone2),
     line_id: s(o.line_id),
     instagram: s(o.instagram),
+    facebook: s(o.facebook),
     source: typeof o.source === 'string' && (WED_SOURCES as readonly string[]).includes(o.source) ? (o.source as WedSource) : null,
   }
 }

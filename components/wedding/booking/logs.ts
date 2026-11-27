@@ -128,6 +128,17 @@ export function describeLog(
       if (n !== null) lines.push(`คิวงาน ${n} คิว`)
       if (dBool(d, 'capacity_over')) lines.push('บันทึกทั้งที่คิววันนั้นเต็ม (ยืนยันแล้ว)')
       if (dBool(d, 'customer_changed')) lines.push('เปลี่ยนลูกค้า')
+      // ช่องทางที่ติดต่อมา [เดิม, ใหม่] (fix-11 — ประวัติก่อนหน้าไม่มี) ขึ้นก่อนชื่อช่องทาง: "ช่องทาง Facebook → LINE"
+      const sp = dPair(d, 'source')
+      if (sp && typeof sp[0] === 'string' && typeof sp[1] === 'string' && sp[0] !== sp[1]) {
+        lines.push(`ช่องทาง ${wedSourceLabel(sp[0])} → ${wedSourceLabel(sp[1])}`)
+      }
+      // ชื่อช่องทางติดต่อ [เดิม, ใหม่] (fix-11) — null = ไม่มี
+      const sd = dPair(d, 'source_detail')
+      if (sd) {
+        const t = (v: unknown) => (typeof v === 'string' && v.trim() !== '' ? v.trim() : '-')
+        if (t(sd[0]) !== t(sd[1])) lines.push(`ชื่อช่องทางติดต่อ ${t(sd[0])} → ${t(sd[1])}`)
+      }
       const pkg = dPair(d, 'package')
       if (pkg) lines.push(`แพ็กเกจ ${String(pkg[0] ?? '-')} → ${String(pkg[1] ?? '-')}`)
       const pp = dPair(d, 'package_price')

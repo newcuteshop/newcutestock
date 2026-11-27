@@ -36,10 +36,10 @@ import {
 import ConfirmDialog from '@/components/integrations/ConfirmDialog'
 import { customersByPhone } from './search'
 import {
-  DRAFT_MAX_AGE_MS, DRAFT_STORAGE_KEY, MAX_HOLD_HOURS, MAX_SENT_SIGS, SECTIONS, bookingMatchesEdit, checkCore,
+  DRAFT_MAX_AGE_MS, DRAFT_STORAGE_KEY, EMPTY_SOURCE_MEMO, MAX_HOLD_HOURS, MAX_SENT_SIGS, SECTIONS, bookingMatchesEdit, checkCore,
   checkCustomerDraft, clampHold, coupleSuggestion, createPayloadOf, draftFromBooking, draftHasContent, emptyDraft,
   holdHoursValue, newDatesOf, parseStoredDraft, planEditable, requestSig, planPayment, quotePayloadOf, sectionDomId,
-  updateBodyOf,
+  sourceHandle, syncSourceDetail, updateBodyOf, type SourceDetailMemo,
   type CoreCtx, type CustomerLite, type FormMode, type PaymentPlan, type SectionId, type SessionDraft, type StoredDraft,
   type WedDraft,
 } from './model'
@@ -219,6 +219,8 @@ export default function BookingForm({
       d.customer = prefill.customer
       d.coupleNames = coupleSuggestion(prefill.customer.name, prefill.customer.partner_name)
       if (prefill.customer.source) d.source = prefill.customer.source
+      // ชื่อช่องทาง = ชื่อของลูกค้าในช่องทางนั้น (Facebook / IG / LINE) — แก้ได้
+      d.sourceDetail = sourceHandle(d.source, prefill.customer)
     }
     return d
   })
@@ -261,8 +263,18 @@ export default function BookingForm({
   const draftRef = useRef(draft)
   draftRef.current = draft
 
+  // ชื่อช่องทางที่พิมพ์เองไว้ต่อช่องทาง (กติกาอยู่ที่ syncSourceDetail ใน model.ts) — อยู่ในหน่วยความจำของหน้าเท่านั้น
+  const sourceMemoRef = useRef<SourceDetailMemo>(EMPTY_SOURCE_MEMO)
+  // แทนที่ฟอร์มทั้งก้อน (กู้ฟอร์มค้าง / ล้างฟอร์ม) → ลืมค่าที่จำไว้ของฟอร์มเดิม
+  useEffect(() => { sourceMemoRef.current = EMPTY_SOURCE_MEMO }, [formGen])
+
   const patch = useCallback((p: Partial<WedDraft>) => {
-    setDraft(d => ({ ...d, ...p }))
+    setDraft(d => {
+      // คำนวณจาก d เสมอ (ไม่มีผลข้างเคียงอื่น — React เรียกซ้ำได้ ผลเท่าเดิม)
+      const r = syncSourceDetail(d, { ...d, ...p }, sourceMemoRef.current)
+      sourceMemoRef.current = r.memo
+      return r.draft
+    })
     setSubmitError('')
   }, [])
 
@@ -1019,6 +1031,7 @@ export default function BookingForm({
               patch={patch}
               check={custCheck}
               coupleError={core.other.couple}
+              sourceDetailError={core.other.sourceDetail}
               dupes={dupes}
               dupLookupFailed={dupLookupFailed}
               showErrors={tried}

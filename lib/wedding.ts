@@ -319,6 +319,55 @@ export const WED_SOURCE_LABELS: Readonly<Record<WedSource, string>> = {
   other: 'อื่นๆ',
 }
 
+// ---------------------------------------------------------------------------
+// ชื่อช่องทางติดต่อของงาน (wed_bookings.source_detail — supabase-fix-11, 27/11/2569)
+// "ถ้าเลือกช่องทางไหน ต้องมีให้ใส่ชื่อช่องทางนั้นด้วย" เช่น เลือก Facebook → ชื่อ Facebook ของลูกค้า
+// ไม่บังคับ ไม่เกิน 200 ตัวอักษร (ว่าง = ไม่มี) ; งานเก่าก่อน fix-11 = null → แสดงแบบเดิมทุกที่
+// ---------------------------------------------------------------------------
+export const MAX_SOURCE_DETAIL = 200
+
+/** ป้ายช่องกรอกในฟอร์มงาน (เปลี่ยนตามช่องทางที่เลือก) */
+export const WED_SOURCE_DETAIL_LABELS: Readonly<Record<WedSource, string>> = {
+  instagram: 'ชื่อ Instagram',
+  facebook: 'ชื่อ Facebook',
+  tiktok: 'ชื่อ TikTok',
+  line: 'LINE ID',
+  referral: 'แนะนำโดย',
+  walkin: 'รายละเอียด (ถ้ามี)',
+  website: 'เว็บไซต์ / ลิงก์',
+  other: 'ระบุช่องทาง',
+}
+
+/** ป้ายสั้นหน้าชื่อช่องทางในเอกสาร แบบฟอร์มกระดาษของร้าน เช่น "FB: Phodjanee Dicharoen" */
+export const WED_SOURCE_SHORT_LABELS: Readonly<Record<WedSource, string>> = {
+  instagram: 'IG',
+  facebook: 'FB',
+  tiktok: 'TikTok',
+  line: 'LINE',
+  referral: 'แนะนำโดย',
+  walkin: WED_SOURCE_LABELS.walkin,
+  website: 'เว็บไซต์',
+  other: WED_SOURCE_LABELS.other,
+}
+
+/** "<ป้ายสั้น>: <ชื่อ>" ของงาน ; ไม่มีชื่อช่องทาง → '' (แสดงแบบเดิม) */
+export function sourceDetailText(source: WedSource | null, detail: string | null | undefined): string {
+  const d = String(detail ?? '').trim()
+  if (!d) return ''
+  return `${source ? WED_SOURCE_SHORT_LABELS[source] : 'ช่องทาง'}: ${d}`
+}
+
+/**
+ * ชื่อบัญชี/ช่องทางเดียวกันไหม (ไว้ตัดรายการซ้ำ) — ไม่สนตัวพิมพ์เล็กใหญ่ ช่องว่าง @ นำหน้า และ https://www. / / ท้ายลิงก์
+ * เช่น "@mewjay" = "mewjay" · "https://www.facebook.com/abc/" = "facebook.com/abc"
+ */
+export function sameHandle(a: string | null | undefined, b: string | null | undefined): boolean {
+  const norm = (v: string | null | undefined) => String(v ?? '').trim().toLowerCase()
+    .replace(/^https?:\/\/(?:www\.|m\.)?/, '').replace(/\/+$/, '').replace(/^@+/, '').replace(/\s+/g, ' ')
+  const x = norm(a)
+  return x !== '' && x === norm(b)
+}
+
 export type WedDeliverableStatus = 'pending' | 'editing' | 'review' | 'delivered'
 export const WED_DELIVERABLE_STATUSES: readonly WedDeliverableStatus[] = ['pending', 'editing', 'review', 'delivered'] as const
 export const DELIVERABLE_STATUS_LABELS: Readonly<Record<WedDeliverableStatus, string>> = {
@@ -1709,6 +1758,8 @@ export interface WedBooking {
   status_label: string
   status_before_postpone: WedBookingStatus | null
   source: WedSource | null
+  /** ชื่อในช่องทางที่ลูกค้าติดต่อมา (เช่น ชื่อ Facebook) — fix-11 ; null = ไม่มี (งานเก่า / ไม่ได้กรอก) */
+  source_detail: string | null
   couple_names: string
   customer: WedBookingCustomer
   public_token: string | null
@@ -2060,6 +2111,7 @@ export function parseWedBooking(raw: unknown): WedBooking | null {
       status_label: textOrNull(o.status_label) ?? WED_STATUS_LABELS[status],
       status_before_postpone: oneOfOrNull(o.status_before_postpone, WED_BOOKING_STATUSES),
       source: oneOfOrNull(o.source, WED_SOURCES),
+      source_detail: textOrNull(o.source_detail)?.trim() ?? null,
       couple_names: text(o.couple_names),
       customer: parseBookingCustomer(o.customer),
       public_token: token,

@@ -6,7 +6,9 @@
 // คลาส .wdoc-cf-* เป็นของเอกสารนี้อย่างเดียว ไม่แตะชิ้นส่วนร่วมใน docKit ที่เอกสารแบบอื่นใช้อยู่
 import type { ReactNode } from 'react'
 import { bangkokDateKey } from '@/lib/format'
-import { formatPhone, sessionTimeText, type WedBooking, type WedSession, type WedSettings } from '@/lib/wedding'
+import {
+  formatPhone, sameHandle, sessionTimeText, sourceDetailText, type WedBooking, type WedSession, type WedSettings, type WedSource,
+} from '@/lib/wedding'
 import { StatusBanner, type DocAssets } from './docKit'
 import { activeSessions, pricesShown, type DocOptions } from './docKinds'
 
@@ -140,15 +142,26 @@ function socialShort(v: string | null | undefined): string {
 /**
  * ช่องทางติดต่อลูกค้า ตามฟอร์มร้าน = ช่องโซเชียลที่มี (FB → LINE → IG)
  * เบอร์โทรเป็นช่องบังคับของลูกค้า (มีทุกคน) จึงไม่ใส่ซ้ำ — แสดงเบอร์เฉพาะลูกค้าที่ไม่มีช่องโซเชียลเลย จะได้ไม่ว่าง
+ * งานที่กรอก "ชื่อช่องทาง" ไว้ (source_detail — fix-11): ขึ้นก่อนเป็น "<ป้ายสั้น>: <ชื่อ>" เช่น "FB: Phodjanee Dicharoen"
+ *   แล้วตามด้วยช่องโซเชียลของลูกค้า — ตัดเฉพาะช่องเดียวกับช่องทางของงานที่ชื่อเดียวกันทิ้ง (ไม่ขึ้นซ้ำ)
+ *   ไม่มีชื่อช่องทาง (งานเก่า) = แสดงแบบเดิม
  */
 function contactChannels(b: WedBooking): string[] {
   const c = b.customer
-  const social = [
-    c.facebook?.trim() ? `FB: ${socialShort(c.facebook)}` : '',
-    c.line_id?.trim() ? `LINE: ${c.line_id.trim()}` : '',
-    c.instagram?.trim() ? `IG: ${socialShort(c.instagram)}` : '',
-  ].filter(Boolean)
-  if (social.length > 0) return social
+  const handles: { src: WedSource; value: string | null; text: string }[] = [
+    { src: 'facebook' as const, value: c.facebook, text: c.facebook?.trim() ? `FB: ${socialShort(c.facebook)}` : '' },
+    { src: 'line' as const, value: c.line_id, text: c.line_id?.trim() ? `LINE: ${c.line_id.trim()}` : '' },
+    { src: 'instagram' as const, value: c.instagram, text: c.instagram?.trim() ? `IG: ${socialShort(c.instagram)}` : '' },
+  ].filter(h => h.text !== '')
+  const detail = b.source_detail?.trim() ?? ''
+  if (detail) {
+    // ตัดเฉพาะช่องเดียวกับช่องทางของงานที่ชื่อเดียวกัน (กติกาเดียวกับการ์ดลูกค้าในหน้ารายละเอียดงาน BookingCards dupOf)
+    //   ช่องทางอื่น (TikTok / แนะนำ / เว็บ / อื่นๆ) ชื่อเหมือนกันก็ยังเป็นคนละช่องทาง → แสดงทั้งคู่
+    const rest = handles.filter(h => !(h.src === b.source && sameHandle(h.value, detail)))
+    const first = sourceDetailText(b.source, socialShort(detail))
+    return [first, ...rest.map(h => h.text).filter(t => t !== first)]
+  }
+  if (handles.length > 0) return handles.map(h => h.text)
   return [c.phone ? `โทร ${formatPhone(c.phone)}` : '', c.phone2 ? `โทร ${formatPhone(c.phone2)}` : ''].filter(Boolean)
 }
 

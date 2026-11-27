@@ -6,8 +6,8 @@
 import { parseMoneyInput, round2 } from '@/lib/money'
 import { addDaysToKey, isDayKey } from '@/lib/format'
 import {
-  MAX_PACKAGE_DELIVERABLES, MAX_RUN_SHEET_ROWS, MAX_WED_MONEY, MAX_WED_SESSIONS, WED_CREW_ROLES, WED_PAYMENT_METHODS,
-  WED_SESSION_STATUSES, WED_SESSION_TYPES, WED_SOURCES, normTime, phoneDigits, safeHttpUrl,
+  MAX_PACKAGE_DELIVERABLES, MAX_RUN_SHEET_ROWS, MAX_SOURCE_DETAIL, MAX_WED_MONEY, MAX_WED_SESSIONS, WED_CREW_ROLES,
+  WED_PAYMENT_METHODS, WED_SESSION_STATUSES, WED_SESSION_TYPES, WED_SOURCES, normTime, phoneDigits, safeHttpUrl,
   type WedBooking, type WedCrew, type WedCrewRole, type WedCustomer, type WedDeliverablePlanItem, type WedPackage,
   type WedPaymentMethod, type WedQuote, type WedSessionStatus, type WedSessionType, type WedSource,
 } from '@/lib/wedding'
@@ -86,6 +86,8 @@ export interface CustomerLite {
   phone2: string | null
   line_id: string | null
   instagram: string | null
+  /** ใช้เติมช่อง "ชื่อ Facebook" ของงานให้เอง (fix-11) */
+  facebook: string | null
   source: WedSource | null
 }
 
@@ -171,6 +173,8 @@ export interface WedDraft {
   newCustomer: CustomerDraft
   coupleNames: string
   source: WedSource
+  /** ชื่อในช่องทางที่ติดต่อมา (ชื่อ Facebook / ชื่อ IG / LINE ID / ผู้แนะนำ ...) ↔ payload source_detail — ไม่บังคับ */
+  sourceDetail: string
   status: CreateStatus
   holdHours: string
   sessions: SessionDraft[]
@@ -265,6 +269,7 @@ export function emptyDraft(holdHours: number, firstDate = ''): WedDraft {
     newCustomer: { ...EMPTY_CUSTOMER_DRAFT },
     coupleNames: '',
     source: 'instagram',
+    sourceDetail: '',
     status: 'inquiry',
     holdHours: String(clampHold(holdHours)),
     sessions: [newSessionDraft('s1', 'reception', firstDate)],
@@ -307,7 +312,7 @@ export function clampHold(h: number): number {
 export function customerLiteFromCustomer(c: WedCustomer): CustomerLite {
   return {
     id: c.id, name: c.name, partner_name: c.partner_name, phone: c.phone, phone2: c.phone2, line_id: c.line_id,
-    instagram: c.instagram, source: c.source,
+    instagram: c.instagram, facebook: c.facebook, source: c.source,
   }
 }
 
@@ -373,10 +378,13 @@ export function draftFromBooking(
       phone2: b.customer.phone2,
       line_id: b.customer.line_id,
       instagram: b.customer.instagram,
+      facebook: b.customer.facebook,
       source: b.customer.source,
     },
     coupleNames: b.couple_names,
     source: b.source ?? 'other',
+    // งานเก่า (null) = ว่าง — ไม่เติมจากข้อมูลลูกค้าตอนเปิดแก้ (กดบันทึกโดยไม่แตะช่องนี้ = งานเดิมไม่เปลี่ยน)
+    sourceDetail: b.source_detail ?? '',
     status: b.status === 'hold' ? 'hold' : b.status === 'inquiry' ? 'inquiry' : 'confirmed',
     sessions: b.sessions.map(s => ({
       key: s.id,
@@ -445,8 +453,11 @@ export function draftFromBooking(
 // แค่ซ่อนจากหน้าจอ — ค่าใน draft / ตัวตรวจ / payload เหมือนเดิมทุกอย่าง (เว้นว่าง = null เหมือนเดิม)
 // ใช้นับว่ากล่องมีข้อมูลกี่ช่อง (เปิดกล่องเองเมื่อมีค่าอยู่แล้ว + ป้าย "มีข้อมูล N ช่อง")
 // ---------------------------------------------------------------------------
-/** ลูกค้าใหม่: ช่องที่อยู่ในกล่องพับ (หน้าแรกเหลือ ชื่อ เบอร์ LINE Facebook) */
-export const CUSTOMER_EXTRA_FIELDS: readonly (keyof CustomerDraft)[] = ['partner_name', 'phone2', 'instagram', 'email', 'address', 'note']
+/** ลูกค้าใหม่: ช่องที่อยู่ในกล่องพับ (หน้าแรกเหลือ ชื่อ เบอร์)
+ *  LINE ID / Facebook ย้ายเข้ากล่องพับ 27/11/2569 — ซ้ำกับช่อง "ชื่อช่องทาง" ใต้ปุ่ม "ลูกค้าติดต่อมาทาง" (กรอกที่นั่นแล้วเติมให้ลูกค้าเอง) */
+export const CUSTOMER_EXTRA_FIELDS: readonly (keyof CustomerDraft)[] = [
+  'partner_name', 'phone2', 'line_id', 'facebook', 'instagram', 'email', 'address', 'note',
+]
 
 export function customerExtraFilled(c: CustomerDraft): number {
   return CUSTOMER_EXTRA_FIELDS.filter(k => c[k].trim() !== '').length
@@ -616,6 +627,100 @@ export function customerPayload(c: CustomerDraft, source: WedSource): Record<str
 }
 
 // ---------------------------------------------------------------------------
+// ช่อง "ชื่อช่องทาง" ใต้ปุ่ม "ลูกค้าติดต่อมาทาง" (source_detail — supabase-fix-11, 27/11/2569)
+// ---------------------------------------------------------------------------
+/** ช่องทางที่มีช่องเดียวกันในข้อมูลลูกค้า (เติมกันไปมาได้) + เพดานความยาวของช่องนั้นในตารางลูกค้า */
+export const SOURCE_CUSTOMER_FIELD: Partial<Record<WedSource, { key: 'facebook' | 'instagram' | 'line_id'; max: number }>> = {
+  facebook: { key: 'facebook', max: MAX_CUST_FB },
+  instagram: { key: 'instagram', max: MAX_CUST_IG },
+  line: { key: 'line_id', max: MAX_CUST_LINE },
+}
+
+type Handles = { line_id?: string | null; instagram?: string | null; facebook?: string | null }
+
+/** ชื่อของลูกค้าในช่องทางนี้ (เฉพาะ Facebook / Instagram / LINE) ; ไม่มี = '' */
+export function sourceHandle(source: WedSource, c: Handles | null | undefined): string {
+  const f = SOURCE_CUSTOMER_FIELD[source]
+  if (!f || !c) return ''
+  return String(c[f.key] ?? '').trim().slice(0, MAX_SOURCE_DETAIL)
+}
+
+/** ข้อมูลติดต่อของลูกค้าของฟอร์มตอนนี้ (ลูกค้าในระบบที่เลือก / ลูกค้าใหม่ที่กำลังกรอก) */
+function draftHandles(d: WedDraft): Handles | null {
+  if (d.customerMode === 'existing') return d.customer
+  return d.newCustomer
+}
+
+/** ตัวตนลูกค้าของฟอร์ม — เปลี่ยนคน = ลืมชื่อช่องทางที่พิมพ์ไว้ของคนเดิม */
+function customerWho(d: WedDraft): string {
+  return d.customerMode === 'existing' ? `c:${d.customer?.id ?? ''}` : 'new'
+}
+
+/**
+ * ยังไม่รู้ว่าลูกค้าคนไหน (ลูกค้าในระบบที่ยังไม่ได้เลือก / ลูกค้าใหม่ที่กำลังกรอก)
+ * ชื่อช่องทางที่พิมพ์ตอนนี้เป็นของ "งานนี้" (ยังไม่ผูกกับลูกค้าคนไหน) → เลือกลูกค้าแล้วยกไปให้คนนั้น ไม่ลืม
+ */
+function anonymousWho(who: string): boolean {
+  return who === 'c:' || who === 'new'
+}
+
+/** จำ/ลืมค่าที่ผู้ใช้พิมพ์เองของช่องทางนี้ — ว่าง หรือตรงกับชื่อที่เติมให้อัตโนมัติ = ไม่นับว่าพิมพ์เอง (ลืม) */
+function rememberTyped(m: SourceDetailMemo, source: WedSource, value: string, auto: string): SourceDetailMemo {
+  const typed = { ...m.typed }
+  if (value.trim() !== '' && value !== auto) typed[source] = value
+  else delete typed[source]
+  return { who: m.who, typed }
+}
+
+/** ชื่อช่องทางที่ผู้ใช้พิมพ์เองไว้ต่อช่องทาง (อยู่ในหน่วยความจำของหน้าเท่านั้น ไม่เก็บลงฟอร์มค้าง) */
+export interface SourceDetailMemo {
+  who: string
+  typed: Partial<Record<WedSource, string>>
+}
+
+export const EMPTY_SOURCE_MEMO: SourceDetailMemo = { who: '', typed: {} }
+
+/**
+ * กติกาช่อง "ชื่อช่องทาง" เมื่อฟอร์มเปลี่ยน (prev → next) — เรียกทุกครั้งที่แก้ฟอร์ม (คืนฟอร์ม + หน่วยความจำใหม่ ไม่แก้ของเดิม)
+ *   1) ผู้ใช้พิมพ์ช่องนี้เอง → ไม่ยุ่งช่อง แค่จำไว้ว่าช่องทางนี้พิมพ์อะไร (ลบจนว่าง / แก้กลับเป็นชื่อที่เติมให้ = ลืมค่าที่จำไว้)
+ *   2) เปลี่ยนปุ่มช่องทาง → ช่องนี้เปลี่ยนตามช่องทางใหม่เสมอ (ชื่อที่พิมพ์ไว้เป็นของช่องทางเดิม ห้ามติดไปช่องทางใหม่เงียบๆ):
+ *        เคยพิมพ์ไว้ตอนเลือกช่องทางใหม่นั้น (ลูกค้าคนเดิม) → ได้ค่าที่พิมพ์คืน (กดผิดแล้วกดกลับ ไม่ต้องพิมพ์ใหม่)
+ *        ไม่เคย → ชื่อของลูกค้าในช่องทางนั้น (Facebook / IG / LINE จากข้อมูลลูกค้า) / ไม่มี = ว่าง
+ *      ยกเว้น: กดช่องทาง + พิมพ์ชื่อไว้ก่อนเลือกลูกค้า แล้วตอนเลือกลูกค้าฟอร์มจะเปลี่ยนเป็นช่องทางเดิมของลูกค้าให้เอง
+ *        → คงช่องทาง + ชื่อที่ผู้ใช้ใส่ไว้ (ผู้ใช้บอกเองว่างานนี้มาทางไหน ชนะช่องทางเดิมในข้อมูลลูกค้า ; กดเปลี่ยนเองได้)
+ *   3) ช่องทางเดิม แต่ลูกค้าเปลี่ยน (เลือกคนอื่น / แก้ชื่อ Facebook ของลูกค้าใหม่) → ช่องยังว่าง หรือยังเป็นชื่อที่เติมให้อัตโนมัติ
+ *      = เปลี่ยนตามลูกค้าปัจจุบัน ; ถ้าผู้ใช้พิมพ์เองไว้ = คงไว้
+ *   ค่าที่จำไว้: เปลี่ยนจากลูกค้าคนหนึ่งไปอีกคน = ลืมของคนเดิม ; ก่อนหน้ายังไม่ได้เลือกลูกค้า = ยกไปให้คนที่เพิ่งเลือก
+ */
+export function syncSourceDetail(prev: WedDraft, next: WedDraft, memo: SourceDetailMemo): { draft: WedDraft; memo: SourceDetailMemo } {
+  const whoPrev = customerWho(prev)
+  const whoNext = customerWho(next)
+  let m: SourceDetailMemo = memo.who === whoNext ? memo
+    : anonymousWho(whoPrev) && memo.who === whoPrev ? { who: whoNext, typed: memo.typed }
+      : { who: whoNext, typed: {} }
+  const nextAuto = sourceHandle(next.source, draftHandles(next))
+  if (next.sourceDetail !== prev.sourceDetail) {
+    return { draft: next, memo: rememberTyped(m, next.source, next.sourceDetail, nextAuto) }
+  }
+  const cur = prev.sourceDetail
+  const prevAuto = sourceHandle(prev.source, draftHandles(prev))
+  if (next.source !== prev.source) {
+    // ฟอร์มเปลี่ยนช่องทางให้เองตอนเลือกลูกค้า (CustomerSection choose) แต่ผู้ใช้พิมพ์ชื่อของช่องทางที่เลือกไว้แล้ว → คงช่องทางเดิม
+    if (anonymousWho(whoPrev) && !anonymousWho(whoNext) && cur.trim() !== '' && m.typed[prev.source] === cur) {
+      return { draft: { ...next, source: prev.source }, memo: m }
+    }
+    // ผู้ใช้กดเปลี่ยนช่องทาง (ลูกค้าคนเดิม): จำ/ลืมค่าของช่องทางเดิมตามที่อยู่ในช่องตอนนี้ (ไม่ใช่ค่าเก่าที่ผู้ใช้ลบ/แก้ไปแล้ว)
+    if (whoPrev === whoNext) m = rememberTyped(m, prev.source, cur, prevAuto)
+    const back = m.typed[next.source]
+    return { draft: { ...next, sourceDetail: back ?? nextAuto }, memo: m }
+  }
+  if (nextAuto !== prevAuto && (cur.trim() === '' || cur === prevAuto)) {
+    return { draft: { ...next, sourceDetail: nextAuto }, memo: m }
+  }
+  return { draft: next, memo: m }
+}
+
+// ---------------------------------------------------------------------------
 // ตรวจคิวงาน (กติกาเดียวกับ wed_read_sessions)
 // ---------------------------------------------------------------------------
 export type SessionField =
@@ -770,8 +875,8 @@ export interface CoreCheck {
   plan: Record<string, string>
   addons: Record<string, string>
   money: Partial<Record<'travelFee' | 'discount' | 'discountNote' | 'depositOverride' | 'balanceDueOverride', string>>
-  other: Partial<Record<'couple' | 'followupDate' | 'followupNote' | 'coordinatorName' | 'coordinatorPhone' | 'moodLink' |
-    'customerNote' | 'note' | 'holdHours', string>>
+  other: Partial<Record<'couple' | 'sourceDetail' | 'followupDate' | 'followupNote' | 'coordinatorName' | 'coordinatorPhone' |
+    'moodLink' | 'customerNote' | 'note' | 'holdHours', string>>
   warnings: string[]
   payload: Record<string, unknown>
 }
@@ -802,6 +907,9 @@ export function checkCore(d: WedDraft, ctx: CoreCtx): CoreCheck {
   if (!couple) other.couple = 'กรุณากรอกชื่อคู่บ่าวสาว (เช่น คุณมิว & คุณเจ)'
   else if (couple.length > MAX_COUPLE) other.couple = `ชื่อคู่บ่าวสาวยาวเกินไป (สูงสุด ${MAX_COUPLE} ตัวอักษร)`
   add('customer', other.couple)
+  // ชื่อช่องทางติดต่อ: ไม่บังคับ — ผิดได้อย่างเดียวคือยาวเกิน (ไม่ส่งไปถามราคา จึงไม่กระทบ quotable)
+  if (tooLong(d.sourceDetail, MAX_SOURCE_DETAIL)) other.sourceDetail = `ชื่อช่องทางติดต่อยาวเกินไป (สูงสุด ${MAX_SOURCE_DETAIL} ตัวอักษร)`
+  add('customer', other.sourceDetail)
 
   // ----- คิวงาน -----
   const sessions: Record<string, SessionCheck> = {}
@@ -1137,6 +1245,7 @@ function readCustomerLite(raw: unknown): CustomerLite | null {
     phone2: strOrNull(o.phone2, 40),
     line_id: strOrNull(o.line_id, 100),
     instagram: strOrNull(o.instagram, 200),
+    facebook: strOrNull(o.facebook, 300),
     source: typeof o.source === 'string' && (WED_SOURCES as readonly string[]).includes(o.source) ? (o.source as WedSource) : null,
   }
 }
@@ -1248,6 +1357,7 @@ export function readStoredDraftValue(raw: unknown, holdHours: number): WedDraft 
     },
     coupleNames: str(o.coupleNames, MAX_COUPLE + 50),
     source: oneOf(o.source, WED_SOURCES, base.source),
+    sourceDetail: str(o.sourceDetail, MAX_SOURCE_DETAIL + 50),
     status,
     holdHours: str(o.holdHours, 6) || base.holdHours,
     sessions: sessions.length > 0 ? sessions : base.sessions,
@@ -1310,7 +1420,7 @@ export function parseStoredDraft(json: string | null, holdHours: number): Stored
 
 /** ฟอร์มนี้มีอะไรที่ผู้ใช้กรอกไว้แล้วหรือยัง (ไม่มี = ไม่ต้องกู้คืน/ไม่ต้องเตือน) */
 export function draftHasContent(d: WedDraft): boolean {
-  if (d.customer || d.newCustomer.name.trim() || d.newCustomer.phone.trim() || d.coupleNames.trim()) return true
+  if (d.customer || d.newCustomer.name.trim() || d.newCustomer.phone.trim() || d.coupleNames.trim() || d.sourceDetail.trim()) return true
   if (d.packageId || d.addons.length > 0 || d.travelFee.trim() || d.discount.trim() || d.depositOverride.trim()) return true
   return d.sessions.some(s => s.date !== '' || s.venue_name.trim() !== '' || s.crew.length > 0 || s.start_time !== '' || s.title.trim() !== '')
 }
@@ -1325,6 +1435,7 @@ const sameMoney = (a: unknown, b: unknown) =>
 export function bookingMatchesEdit(latest: WedBooking, payload: Record<string, unknown>): boolean {
   if (latest.couple_names.trim() !== String(payload.couple_names ?? '').trim()) return false
   if ('source' in payload && !same(latest.source, payload.source)) return false
+  if ('source_detail' in payload && !same(latest.source_detail, payload.source_detail)) return false
   if (typeof payload.customer_id === 'string') {
     if (latest.customer.id !== payload.customer_id) return false
   } else {
@@ -1381,7 +1492,18 @@ export function visiblePackages(all: readonly WedPackage[], selectedId: string |
 /** ลูกค้าของงาน: เลือกจากในระบบ = customer_id / ลูกค้าใหม่ = customer (ฐานข้อมูลสร้างให้ตอนบันทึก) */
 export function customerPartOf(d: WedDraft): Record<string, unknown> {
   if (d.customerMode === 'existing' && d.customer) return { customer_id: d.customer.id }
-  return { customer: customerPayload(d.newCustomer, d.source) }
+  const c = customerPayload(d.newCustomer, d.source)
+  // ลูกค้าใหม่ + ช่องทาง Facebook/IG/LINE: ชื่อที่พิมพ์ในช่อง "ชื่อช่องทาง" = ข้อมูลติดต่อของลูกค้าด้วย
+  //   (เติมเฉพาะช่องของลูกค้าที่ยังว่าง และยาวไม่เกินเพดานของช่องนั้น — เกิน = ข้าม ไม่ตัดทิ้งครึ่งๆ)
+  const f = SOURCE_CUSTOMER_FIELD[d.source]
+  const detail = tOrNull(d.sourceDetail)
+  if (f && detail && c[f.key] === null && detail.length <= f.max) c[f.key] = detail
+  return { customer: c }
+}
+
+/** ชื่อช่องทางสำหรับ payload (ตัดช่องว่าง ; ว่าง = null) */
+export function sourceDetailValue(d: WedDraft): string | null {
+  return tOrNull(d.sourceDetail)
 }
 
 /** wed_quote: ส่วนหลักของงาน + สถานะ (สร้างใหม่) หรือ booking_id (แก้ไข — ฐานข้อมูลใช้ยอดที่รับแล้ว/ค่าใช้จ่ายเพิ่มของงานเดิม) */
@@ -1394,7 +1516,9 @@ export function quotePayloadOf(core: CoreCheck, mode: FormMode, status: CreateSt
 
 /** wed_create_booking (p_payload) */
 export function createPayloadOf(d: WedDraft, core: CoreCheck, plan: PaymentPlan, force: boolean): Record<string, unknown> {
-  const p: Record<string, unknown> = { ...customerPartOf(d), ...core.payload, source: d.source, status: d.status }
+  const p: Record<string, unknown> = {
+    ...customerPartOf(d), ...core.payload, source: d.source, source_detail: sourceDetailValue(d), status: d.status,
+  }
   if (d.status === 'hold') p.hold_hours = holdHoursValue(d.holdHours)
   if (plan.payments.length > 0) {
     p.payments = plan.payments.map(x => {
@@ -1410,7 +1534,8 @@ export function createPayloadOf(d: WedDraft, core: CoreCheck, plan: PaymentPlan,
 
 /** wed_update_booking (p_payload ก่อนเติม client_id) — คีย์ที่ส่ง = แทนค่าเดิม (คิว/บริการเสริม = รายการทั้งหมด) */
 export function updateBodyOf(d: WedDraft, core: CoreCheck, force: boolean): Record<string, unknown> {
-  const p: Record<string, unknown> = { ...customerPartOf(d), ...core.payload, source: d.source }
+  // source_detail ส่งเสมอ (ช่องว่าง = ล้างค่าเดิม) แบบเดียวกับช่องข้อความอื่นของฟอร์มแก้ไข
+  const p: Record<string, unknown> = { ...customerPartOf(d), ...core.payload, source: d.source, source_detail: sourceDetailValue(d) }
   if (force) p.force = true
   return p
 }

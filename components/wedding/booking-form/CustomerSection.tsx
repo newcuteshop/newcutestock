@@ -2,8 +2,12 @@
 // ส่วน "ลูกค้า / คู่บ่าวสาว" ของฟอร์มงาน — ค้นลูกค้าในระบบ (เบอร์/ชื่อ/ชื่อคู่/LINE/IG) หรือกรอกลูกค้าใหม่
 // (ระบบสร้างลูกค้าให้ตอนบันทึกงาน) + ชื่อคู่บ่าวสาวที่แสดงบนเอกสาร + ช่องทางที่ลูกค้าติดต่อมา
 // ลูกค้าใหม่ที่เบอร์ซ้ำกับลูกค้าเดิม → เสนอให้ใช้ลูกค้าเดิม (ไม่สร้างลูกค้าซ้ำ — ประวัติงานของลูกค้าจะรวมอยู่ที่เดียว)
-// ลูกค้าใหม่ (27/11/2569 กรอกเร็ว): หน้าแรกเหลือ ชื่อผู้ติดต่อ เบอร์ LINE Facebook (ตามใบยืนยันการจองของร้าน)
-//   ชื่อคู่ เบอร์สำรอง IG อีเมล ที่อยู่ หมายเหตุ → กล่อง "ข้อมูลเพิ่มเติม (ไม่บังคับ)" (ข้อมูล/ตัวตรวจเหมือนเดิม)
+// ลูกค้าใหม่ (27/11/2569 กรอกเร็ว): หน้าแรกเหลือ ชื่อผู้ติดต่อ เบอร์
+//   ชื่อคู่ เบอร์สำรอง LINE Facebook IG อีเมล ที่อยู่ หมายเหตุ → กล่อง "ข้อมูลเพิ่มเติม (ไม่บังคับ)" (ข้อมูล/ตัวตรวจเหมือนเดิม)
+// ชื่อช่องทาง (27/11/2569 "ถ้าเลือกช่องทางไหน ต้องมีให้ใส่ชื่อช่องทางนั้นด้วย"): ช่องเดียวใต้ปุ่ม "ลูกค้าติดต่อมาทาง"
+//   ป้ายเปลี่ยนตามช่องทาง (ชื่อ Facebook / ชื่อ Instagram / LINE ID / ...) → ขึ้นในใบยืนยันการจอง "FB: ชื่อ"
+//   ไม่บังคับ ; เติมให้เองจากข้อมูลลูกค้า + กติกาเปลี่ยนช่องทาง = syncSourceDetail (model.ts, ฟอร์มหลักเรียกทุกครั้งที่ patch)
+//   ลูกค้าใหม่ + Facebook/IG/LINE: ชื่อที่พิมพ์เติมให้ลูกค้าเองตอนบันทึก (ช่อง LINE/Facebook ของลูกค้าจึงย้ายเข้ากล่องพับ)
 import { useEffect, useId, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { Contact, Heart, Phone, Search, SearchX, UserCheck, UserPlus, UserRound, X, XCircle } from 'lucide-react'
@@ -11,7 +15,10 @@ import { ICON, ICON_SM, ICON_XS } from '@/components/theme/icons'
 import { thaiError } from '@/lib/format'
 import { isMigrationMissing } from '@/lib/migration'
 import type { BrowserSupabase } from '@/lib/products'
-import { FIX07_MISSING_MSG, WED_SOURCES, WED_SOURCE_LABELS, formatPhone, phoneDigits } from '@/lib/wedding'
+import {
+  FIX07_MISSING_MSG, MAX_SOURCE_DETAIL, WED_SOURCES, WED_SOURCE_DETAIL_LABELS, WED_SOURCE_LABELS, formatPhone, phoneDigits,
+  type WedSource,
+} from '@/lib/wedding'
 import { recentCustomers, searchCustomers } from './search'
 import {
   EMPTY_CUSTOMER_DRAFT, MAX_COUPLE, MAX_CUST_ADDRESS, MAX_CUST_EMAIL, MAX_CUST_FB, MAX_CUST_IG, MAX_CUST_LINE, MAX_CUST_NAME,
@@ -23,12 +30,27 @@ import { Field, FormSection, MoreFields, fieldAria } from './fields'
 const DEBOUNCE_MS = 300
 const RECENT_LIMIT = 8
 
+// ตัวอย่างในช่องชื่อช่องทาง (ตามช่องทางที่เลือก)
+const SOURCE_DETAIL_PLACEHOLDERS: Readonly<Record<WedSource, string>> = {
+  instagram: 'เช่น @username',
+  facebook: 'เช่น Phodjanee Dicharoen',
+  tiktok: 'เช่น @username',
+  line: 'เช่น mewjay',
+  referral: 'เช่น คุณแพร (ลูกค้าเก่า)',
+  walkin: 'เช่น มาดูชุดที่ร้าน',
+  website: 'เช่น https://...',
+  other: 'เช่น งานแต่งแฟร์ / ป้ายหน้าร้าน',
+}
+// ชื่อบัญชี/ลิงก์ — ไม่ให้แป้นพิมพ์มือถือขึ้นตัวใหญ่/แก้คำให้เอง
+const HANDLE_SOURCES: readonly WedSource[] = ['instagram', 'tiktok', 'line', 'website']
+
 export default function CustomerSection({
   supabase,
   draft,
   patch,
   check,
   coupleError,
+  sourceDetailError,
   dupes,
   dupLookupFailed,
   showErrors,
@@ -40,6 +62,8 @@ export default function CustomerSection({
   patch: (p: Partial<WedDraft>) => void
   check: CustomerCheck
   coupleError?: string | null
+  /** ชื่อช่องทางยาวเกิน (ไม่บังคับกรอก) */
+  sourceDetailError?: string | null
   /** ลูกค้าใหม่: ลูกค้าในระบบที่ใช้เบอร์เดียวกัน (ฟอร์มหลักเป็นคนค้น) */
   dupes: readonly CustomerLite[]
   dupLookupFailed: boolean
@@ -52,7 +76,7 @@ export default function CustomerSection({
   const ids = {
     search: `${uid}-search`, name: `${uid}-name`, partner: `${uid}-partner`, phone: `${uid}-phone`, phone2: `${uid}-phone2`,
     line: `${uid}-line`, ig: `${uid}-ig`, fb: `${uid}-fb`, email: `${uid}-email`, address: `${uid}-address`,
-    note: `${uid}-note`, couple: `${uid}-couple`,
+    note: `${uid}-note`, couple: `${uid}-couple`, srcDetail: `${uid}-src-detail`,
   }
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<CustomerLite[]>([])
@@ -107,6 +131,7 @@ export default function CustomerSection({
     // ชื่อคู่บ่าวสาวยังว่าง → เติมให้จากลูกค้า (แก้ได้)
     if (!draft.coupleNames.trim()) p.coupleNames = coupleSuggestion(c.name, c.partner_name)
     // ช่องทางของลูกค้าเดิม → ใช้เป็นช่องทางของงานนี้ (เปลี่ยนได้)
+    //   ยกเว้นพิมพ์ชื่อช่องทางไว้ก่อนเลือกลูกค้า → ฟอร์มคงช่องทางที่เลือกไว้ (syncSourceDetail ใน model.ts)
     if (c.source) p.source = c.source
     patch(p)
   }
@@ -303,35 +328,6 @@ export default function CustomerSection({
                 />
               </div>
             </Field>
-            <Field id={ids.line} label="LINE ID" error={fieldError('line_id')}>
-              <input
-                id={ids.line}
-                className="input"
-                value={nc.line_id}
-                maxLength={MAX_CUST_LINE}
-                autoComplete="off"
-                autoCapitalize="none"
-                spellCheck={false}
-                disabled={disabled}
-                {...fieldAria(ids.line, fieldError('line_id'))}
-                onChange={e => setField('line_id', e.target.value)}
-                onBlur={() => blur('line_id')}
-              />
-            </Field>
-            <Field id={ids.fb} label="Facebook" error={fieldError('facebook')}>
-              <input
-                id={ids.fb}
-                className="input"
-                value={nc.facebook}
-                maxLength={MAX_CUST_FB}
-                autoComplete="off"
-                placeholder="ชื่อหรือลิงก์ Facebook"
-                disabled={disabled}
-                {...fieldAria(ids.fb, fieldError('facebook'))}
-                onChange={e => setField('facebook', e.target.value)}
-                onBlur={() => blur('facebook')}
-              />
-            </Field>
           </div>
 
           {dupLookupFailed && (
@@ -359,7 +355,7 @@ export default function CustomerSection({
           )}
 
           <MoreFields
-            contents="ชื่อคู่ เบอร์สำรอง Instagram อีเมล ที่อยู่ หมายเหตุลูกค้า"
+            contents="ชื่อคู่ เบอร์สำรอง LINE Facebook Instagram อีเมล ที่อยู่ หมายเหตุลูกค้า"
             filled={extraFilled}
             initialOpen={extraFilled > 0}
             problem={extraProblem}
@@ -393,6 +389,35 @@ export default function CustomerSection({
                   {...fieldAria(ids.phone2, fieldError('phone2'))}
                   onChange={e => setField('phone2', e.target.value)}
                   onBlur={() => blur('phone2')}
+                />
+              </Field>
+              <Field id={ids.line} label="LINE ID" error={fieldError('line_id')}>
+                <input
+                  id={ids.line}
+                  className="input"
+                  value={nc.line_id}
+                  maxLength={MAX_CUST_LINE}
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  disabled={disabled}
+                  {...fieldAria(ids.line, fieldError('line_id'))}
+                  onChange={e => setField('line_id', e.target.value)}
+                  onBlur={() => blur('line_id')}
+                />
+              </Field>
+              <Field id={ids.fb} label="Facebook" error={fieldError('facebook')}>
+                <input
+                  id={ids.fb}
+                  className="input"
+                  value={nc.facebook}
+                  maxLength={MAX_CUST_FB}
+                  autoComplete="off"
+                  placeholder="ชื่อหรือลิงก์ Facebook"
+                  disabled={disabled}
+                  {...fieldAria(ids.fb, fieldError('facebook'))}
+                  onChange={e => setField('facebook', e.target.value)}
+                  onBlur={() => blur('facebook')}
                 />
               </Field>
               <Field id={ids.ig} label="Instagram" error={fieldError('instagram')}>
@@ -519,6 +544,30 @@ export default function CustomerSection({
           ))}
         </div>
       </div>
+
+      {/* ===== ชื่อช่องทาง (ป้ายตามปุ่มที่เลือก) — ไม่บังคับ ขึ้นในใบยืนยันการจอง ===== */}
+      <Field
+        id={ids.srcDetail}
+        label={WED_SOURCE_DETAIL_LABELS[draft.source]}
+        error={showErrors || draft.sourceDetail !== '' ? sourceDetailError : null}
+        hint={'ไม่บังคับ · ขึ้นในใบยืนยันการจองช่อง "ช่องทางติดต่อ"'}
+        className="-mt-2"
+      >
+        <input
+          id={ids.srcDetail}
+          className="input"
+          value={draft.sourceDetail}
+          maxLength={MAX_SOURCE_DETAIL}
+          autoComplete="off"
+          placeholder={SOURCE_DETAIL_PLACEHOLDERS[draft.source]}
+          inputMode={draft.source === 'website' ? 'url' : undefined}
+          autoCapitalize={HANDLE_SOURCES.includes(draft.source) ? 'none' : undefined}
+          spellCheck={HANDLE_SOURCES.includes(draft.source) ? false : undefined}
+          disabled={disabled}
+          {...fieldAria(ids.srcDetail, showErrors || draft.sourceDetail !== '' ? sourceDetailError : null, true)}
+          onChange={e => patch({ sourceDetail: e.target.value })}
+        />
+      </Field>
     </FormSection>
   )
 }
