@@ -8,10 +8,11 @@ import { getSession, shopAccess, shopCount, singleShopHome, type ShopAccess } fr
 import { displayLogin } from '@/lib/auth/credentials'
 import { loadRentalShopName } from '@/lib/rental'
 import { WEDDING_SHOP_KIND } from '@/lib/wedding'
-import { loadWeddingShopName } from '@/lib/weddingServer'
+import { loadWeddingBrand } from '@/lib/weddingServer'
 import BrandMark from '@/components/theme/BrandMark'
 import RentalMark from '@/components/theme/RentalMark'
 import WeddingMark from '@/components/theme/WeddingMark'
+import WeddingLogo from '@/components/theme/WeddingLogo'
 import { ICON, ICON_SM } from '@/components/theme/icons'
 import LogoutButton from './LogoutButton'
 
@@ -24,6 +25,16 @@ export const dynamic = 'force-dynamic'
 // (ค่าที่ลบออก = จอเตี้ยในเบราว์เซอร์จริง เช่น 1280×600 ยังอยู่ในจอเดียว ส่วนจอสูงได้โลโก้ใหญ่เต็มที่)
 const MARK_CLS =
   '!h-[72px] !w-[72px] sm:!h-24 sm:!w-24 wide:!h-[clamp(4.5rem,calc(30dvh_-_5.5rem),21rem)] wide:!w-[clamp(4.5rem,calc(30dvh_-_5.5rem),21rem)]'
+
+// โลโก้ที่ร้าน b.oncloud อัปโหลด (แทนสัญลักษณ์ก้อนเมฆ): สูงไม่เกินช่องโลโก้เดียวกับการ์ดอื่น (แถวโลโก้ตรงกันทุกใบ) กว้างตามสัดส่วนรูป
+// มือถือกว้างไม่เกิน 96px (ชื่อร้านยาวข้างโลโก้ยังไม่ถูกตัดกลางคำ) · แท็บเล็ต 168px
+// จอใหญ่ (โลโก้อยู่เหนือชื่อ): กว้างไม่เกิน 1.4 เท่าของช่องโลโก้ — โลโก้แนวนอน (~1.85:1) สูงเต็มช่องจะกว้าง ~1.85 เท่า
+//   ดูหนักกว่าสัญลักษณ์สี่เหลี่ยมของการ์ดข้างๆ → จำกัดให้พื้นที่ใกล้เคียงกัน (แนวนอนเตี้ยลงเล็กน้อย อยู่กลางแถวโลโก้)
+// มุมมนตามขนาด ไม่มีกรอบ/พื้น/เงา (โลโก้ที่มีพื้นในตัวเป็นแผ่นมุมมน)
+const LOGO_CLS =
+  'max-h-[72px] max-w-[96px] rounded-xl sm:max-h-24 sm:max-w-[168px] wide:max-h-[clamp(4.5rem,calc(30dvh_-_5.5rem),21rem)] wide:max-w-[calc(clamp(4.5rem,calc(30dvh_-_5.5rem),21rem)*1.4)] wide:rounded-2xl'
+// กล่องจองที่ให้โลโก้ (มือถือ/แท็บเล็ต วางข้างชื่อ → ชื่อไม่กระโดดตอนรูปโหลดเสร็จ) · จอใหญ่ ความสูงแถวมาจากการ์ดอื่นอยู่แล้ว → กล่องตามรูป อยู่กลางแถว
+const LOGO_SLOT = 'h-[72px] w-24 sm:h-24 sm:w-[168px] wide:h-auto wide:w-auto wide:self-center'
 
 // ช่องของการ์ดแต่ละใบ: มือถือ = flex (การ์ดยืดเต็มช่อง) · จอใหญ่ = subgrid กิน 4 แถวร่วมของ <ul>
 const SHOP_LI = 'flex min-w-0 wide:row-span-4 wide:grid wide:grid-rows-subgrid'
@@ -46,11 +57,20 @@ export default async function SelectShopPage() {
   if (shopCount(access) >= 2) {
     // โหลดชื่อเฉพาะร้านที่เข้าได้ (อ่านไม่ได้ = ชื่อเริ่มต้น ไม่ทำให้หน้านี้พัง)
     const supabase = createClient()
-    const [rentalName, weddingName] = await Promise.all([
+    // ร้าน b.oncloud: ชื่อ + โลโก้ร้านในคำขอเดียว (ไม่มีสิทธิ์ร้านนี้ = ไม่อ่าน ไม่เห็นโลโก้)
+    const [rentalName, wedding] = await Promise.all([
       access.rental ? loadRentalShopName(supabase) : Promise.resolve(''),
-      access.wedding ? loadWeddingShopName(supabase) : Promise.resolve(''),
+      access.wedding ? loadWeddingBrand(supabase) : Promise.resolve({ shopName: '', logoUrl: '' }),
     ])
-    picker = <ShopPicker who={who} access={access} rentalName={rentalName} weddingName={weddingName} />
+    picker = (
+      <ShopPicker
+        who={who}
+        access={access}
+        rentalName={rentalName}
+        weddingName={wedding.shopName}
+        weddingLogoUrl={wedding.logoUrl}
+      />
+    )
   }
 
   return (
@@ -70,12 +90,13 @@ export default async function SelectShopPage() {
 //   ที่ว่างที่เหลืออยู่ใต้รายการงานหลัก (ปุ่ม "เข้าสู่ร้าน" ชิดล่างการ์ด)
 // - แท็บเล็ต/มือถือ และจอแนวตั้ง (เช่น iPad Pro แนวตั้ง): การ์ดเรียงลงคอลัมน์เดียว ใหญ่ตามธรรมชาติ เลื่อนหน้าได้ตามปกติ
 function ShopPicker({
-  who, access, rentalName, weddingName,
+  who, access, rentalName, weddingName, weddingLogoUrl,
 }: {
   who: string
   access: ShopAccess
   rentalName: string
   weddingName: string
+  weddingLogoUrl: string
 }) {
   // 3 ร้าน → จอใหญ่ 3 คอลัมน์ ; 2 ร้าน → 2 คอลัมน์ (กว้างรวม 92vw เท่ากัน)
   const cols = shopCount(access) >= 3 ? 3 : 2
@@ -133,7 +154,15 @@ function ShopPicker({
             <ShopCard
               href="/wedding"
               cols={cols}
-              mark={<WeddingMark size="lg" className={MARK_CLS} />}
+              mark={
+                // มีโลโก้ร้าน = โลโก้จริง ; ไม่มี/โหลดไม่ได้ = สัญลักษณ์ก้อนเมฆเดิม
+                <WeddingLogo
+                  src={weddingLogoUrl}
+                  className={LOGO_CLS}
+                  slot={LOGO_SLOT}
+                  fallback={<WeddingMark size="lg" className={MARK_CLS} />}
+                />
+              }
               name={weddingName}
               kind={WEDDING_SHOP_KIND}
               detail="ปฏิทินงาน · การจอง · ทีมงาน · ส่งงาน"

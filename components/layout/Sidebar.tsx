@@ -37,6 +37,7 @@ import { DEFAULT_WEDDING_SHOP_NAME } from '@/lib/wedding'
 import BrandMark from '@/components/theme/BrandMark'
 import RentalMark from '@/components/theme/RentalMark'
 import WeddingMark from '@/components/theme/WeddingMark'
+import WeddingLogo from '@/components/theme/WeddingLogo'
 import { ICON, ICON_SM } from '@/components/theme/icons'
 
 // ร้านที่เมนูชุดนี้เป็นของ — NEWCUTE (ขายเสื้อผ้า), ร้านเช่าชุด (/rental/*) หรือร้าน b.oncloud คอนเทนต์งานแต่ง (/wedding/*)
@@ -118,6 +119,7 @@ export type NavProps = {
   // ----- ร้าน (ไม่ส่ง = NEWCUTE แบบเดิมทุกอย่าง) -----
   shop?: ShopKey
   shopName?: string        // ชื่อร้านจากการตั้งค่า: rental_settings.shop_name / wed_settings.shop_name (ร้าน NEWCUTE ไม่ใช้)
+  shopLogoUrl?: string     // ลิงก์โลโก้ที่ร้าน b.oncloud อัปโหลด (wed_settings.logo_path) — ว่าง = สัญลักษณ์เดิมของร้าน (ร้านอื่นไม่ใช้)
   canSwitchShop?: boolean  // เข้าได้ตั้งแต่ 2 ร้าน → แสดงลิงก์ "เปลี่ยนร้าน" (/select)
   badges?: NavBadges
 }
@@ -207,15 +209,22 @@ export function activeNavHref(items: NavItem[], pathname: string | null): string
 // โลโก้ + ชื่อร้าน + คำอธิบาย (เมนูข้าง / ลิ้นชัก / แถบบนมือถือ)
 // NEWCUTE = หน้าตาเดิมทุกอย่าง ; ร้านเช่า = RentalMark + ชื่อร้านจากการตั้งค่า (ชื่อยาว → ตัดด้วย …)
 // ร้าน b.oncloud = WeddingMark (เมฆ บนทองแชมเปญ) + ชื่อร้านจาก wed_settings.shop_name
+//   มีโลโก้ที่อัปโหลด (logoUrl) → เมนูข้าง: โลโก้ตามสัดส่วนจริง (สูงไม่เกิน 56px กว้างไม่เกิน 148px มุมมน ไม่มีกรอบ/เงา)
+//   วางเหนือชื่อร้าน — โลโก้แนวนอนวางข้างชื่อจะเบียดชื่อร้านยาวจนตัดกลางคำ
+//   ลิ้นชักมือถือ (drawer): แบบเดียวกันแต่โลโก้สูง ≤ 40px (หัวลิ้นชักไม่ดันเมนูล่างสุดตกจอ) ; แถบบนมือถือ: โลโก้สูง ≤ 32px ข้างชื่อแบบเดิม
+//   จองที่ให้รูปไว้ก่อน (slot ของ WeddingLogo) → ชื่อร้าน/เมนูไม่กระโดดตอนรูปโหลดเสร็จ
+//   โหลดรูปไม่ได้ → หน้าตาเดิมทุกอย่าง (WeddingMark) ไม่มีรูปแตก
 // สีตัวอักษร text-side-ink / text-side-muted = ตัวแปรแถบเมนูของร้าน (NEWCUTE = gray-900 / gray-500 เท่าเดิม · ร้านเช่า = ธีม #18 ฟ้าใส)
-// compact = แถบบนมือถือ (โลโก้ 32px ชื่อ text-base) ; ปกติ = เมนูข้าง/ลิ้นชัก (โลโก้ 40px ชื่อ text-lg)
+// compact = แถบบนมือถือ (โลโก้ 32px ชื่อ text-base) ; ปกติ = เมนูข้าง/ลิ้นชัก (โลโก้ 40px ชื่อ text-lg) ; drawer = ใช้ในลิ้นชักมือถือ (มีผลกับโลโก้ร้าน b.oncloud เท่านั้น)
 // ชื่อร้าน = font-extrabold (800) ทุกร้าน ตามกติกาหัวเรื่องของฟอนต์ Prompt (ชื่อหน้า + ชื่อร้าน 800 — ดู .page-title ใน app/globals.css)
 export function ShopBrand({
-  shop = 'newcute', shopName, compact = false,
+  shop = 'newcute', shopName, logoUrl, compact = false, drawer = false,
 }: {
   shop?: ShopKey
   shopName?: string
+  logoUrl?: string
   compact?: boolean
+  drawer?: boolean
 }) {
   const title = compact ? 'text-base' : 'text-lg'
   if (shop === 'wedding') {
@@ -225,14 +234,45 @@ export function ShopBrand({
     // เฉพาะร้านนี้ — NEWCUTE / ร้านเช่า ใช้ขนาดเดิมทุกพิกเซล
     // (line-clamp-2 ตั้ง display:-webkit-box เอง — ห้ามใส่ block ซ้อน ไม่งั้นการตัด 2 บรรทัดไม่ทำงาน)
     const nameCls = compact ? `block truncate ${title}` : 'line-clamp-2 break-words text-base'
-    return (
+    const text = (
+      <span className="block min-w-0">
+        <span className={`${nameCls} font-extrabold leading-tight text-side-ink`} title={name}>{name}</span>
+        <span className="block truncate text-xs text-side-muted">ระบบคอนเทนต์งานแต่ง</span>
+      </span>
+    )
+    const plain = (
       <>
         <WeddingMark size={compact ? 'sm' : 'md'} />
-        <span className="block min-w-0">
-          <span className={`${nameCls} font-extrabold leading-tight text-side-ink`} title={name}>{name}</span>
-          <span className="block truncate text-xs text-side-muted">ระบบคอนเทนต์งานแต่ง</span>
-        </span>
+        {text}
       </>
+    )
+    if (compact) {
+      return (
+        <WeddingLogo src={logoUrl} className="max-h-8 max-w-[56px] rounded-md" slot="h-8 w-14" fallback={plain}>
+          {img => (
+            <>
+              {img}
+              {text}
+            </>
+          )}
+        </WeddingLogo>
+      )
+    }
+    // ลิ้นชัก: py-2 อยู่ในกล่องนี้ (ไม่ใช่หัวลิ้นชัก) → ไม่มีโลโก้/โหลดไม่ได้ หัวลิ้นชักสูง 64px เท่าเดิมทุกพิกเซล
+    return (
+      <WeddingLogo
+        src={logoUrl}
+        className={drawer ? 'max-h-10 max-w-[120px] rounded-lg' : 'max-h-14 max-w-[148px] rounded-lg'}
+        slot={drawer ? 'h-10' : 'h-14'}
+        fallback={plain}
+      >
+        {img => (
+          <span className={`flex w-full min-w-0 flex-col items-start ${drawer ? 'gap-1.5 py-2' : 'gap-2'}`}>
+            {img}
+            {text}
+          </span>
+        )}
+      </WeddingLogo>
     )
   }
   if (shop === 'rental') {
@@ -349,7 +389,7 @@ export function useLogout() {
 }
 
 export default function Sidebar({
-  email, fullName, role, permissions, shop = 'newcute', shopName, canSwitchShop = false, badges,
+  email, fullName, role, permissions, shop = 'newcute', shopName, shopLogoUrl, canSwitchShop = false, badges,
 }: NavProps) {
   const pathname = usePathname()
   const { loggingOut, logout } = useLogout()
@@ -361,7 +401,7 @@ export default function Sidebar({
     <aside className="surface-sidebar hidden md:flex w-60 shrink-0 flex-col pt-safe pb-safe pl-safe">
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 pt-5 pb-4 shrink-0">
-        <ShopBrand shop={shop} shopName={shopName} />
+        <ShopBrand shop={shop} shopName={shopName} logoUrl={shopLogoUrl} />
       </div>
 
       {/* Nav — เมนูที่เลือกอยู่ (aria-current) = พื้นเน้นอ่อน + ตัวอักษรเน้นเข้มของร้าน (มาจาก .nav-item เอง → --c-side-active*)

@@ -16,8 +16,7 @@ const CF_CSS = `
 .wdoc-cf { color: #1F2328; }
 .wdoc-cf-keep { break-inside: avoid; page-break-inside: avoid; }
 .wdoc-cf-logo { display: flex; justify-content: center; }
-.wdoc-cf-logo span { display: inline-flex; align-items: center; justify-content: center; padding: calc(var(--wdoc-u) * 10) calc(var(--wdoc-u) * 20); background: #F7F7F5; border: 1px solid #E8E8E4; border-radius: calc(var(--wdoc-u) * 14); }
-.wdoc-cf-logo img { display: block; width: auto; height: calc(var(--wdoc-u) * 92); max-width: calc(var(--wdoc-u) * 320); object-fit: contain; }
+.wdoc-cf-logo img { display: block; width: auto; height: auto; max-height: calc(var(--wdoc-u) * 150); max-width: calc(var(--wdoc-u) * 320); object-fit: contain; border-radius: calc(var(--wdoc-u) * 12); }
 .wdoc-cf-rule { height: 0; margin: calc(var(--wdoc-u) * 24) 0; border-top: 1px solid #D9DCE0; }
 .wdoc-cf-head { display: flex; align-items: flex-end; justify-content: space-between; gap: calc(var(--wdoc-u) * 28); }
 .wdoc-cf-head > div:first-child { min-width: 0; flex: 1 1 auto; }
@@ -381,14 +380,17 @@ export function ConfirmationForm({ booking: b, settings, options, assets, issued
     <div className="wdoc-cf">
       <style dangerouslySetInnerHTML={{ __html: CF_CSS }} />
 
-      {/* 1) โลโก้กลางหน้า + เส้นคั่น (ไม่มีโลโก้ = ไม่มีกล่อง) */}
+      {/* 1) โลโก้กลางหน้า + เส้นคั่น (ไม่มีโลโก้ = ไม่มีโลโก้/เส้น)
+          ตัวรูปอย่างเดียว ไม่มีกล่อง/กรอบ/พื้นรอบโลโก้ (เดิมเป็นกล่องซ้อนกล่อง เล็กและซีด — บอสขอ 27/11/2569)
+          ขนาดตามสัดส่วนจริงของรูป: สูงไม่เกิน 150 กว้างไม่เกิน 320 (หน่วยรูป 1080) → โลโก้แนวนอน ~276×150 · มุมมน 12 ตัดที่ตัวรูป
+          ไม่ตั้ง min-height: ถ้ามี โลโก้ที่กว้างมาก (เกิน ~3.3:1) จะได้กล่องผิดสัดส่วน รูปถูกเว้นขอบใสในกล่อง มุมมนไปตกที่ขอบใส
+          (โลโก้ที่ระบบย่อเก็บไว้ ขอบยาวสุด 800px สูงพอเสมอสำหรับโลโก้ทั่วไป)
+          (โลโก้ที่มีพื้นในตัว เช่น JPG พื้นเทาอ่อน = แผ่นโลโก้มุมมนที่ตั้งใจ) · ไม่มีเงา · พิมพ์ A4 ย่อตาม --wdoc-u */}
       {assets.logoSrc && (
         <>
           <div className="wdoc-cf-logo">
-            <span>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={assets.logoSrc} alt="" />
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={assets.logoSrc} alt="" />
           </div>
           <div className="wdoc-cf-rule" />
         </>

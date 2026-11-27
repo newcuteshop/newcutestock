@@ -65,7 +65,8 @@ const DayScheduleImage = forwardRef<HTMLDivElement, {
             crossOrigin="anonymous"
             onLoad={onLogoLoad}
             onError={onLogoError}
-            className="h-24 w-24 shrink-0 rounded-[22%] object-cover"
+            // แบบเดียวกับหัวเอกสาร: ตามสัดส่วนจริงของรูป (เดิมตัดเป็นสี่เหลี่ยมจัตุรัส — โลโก้แนวนอนถูกตัดข้าง) มุมมน ไม่มีกรอบ/เงา
+            className="block h-auto max-h-24 w-auto max-w-[180px] shrink-0 rounded-xl object-contain"
           />
         ) : (
           <WeddingMark size="lg" className="!h-24 !w-24" />

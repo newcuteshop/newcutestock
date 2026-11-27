@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { AtSign, Facebook, Instagram, Mail, Music2 } from 'lucide-react'
 import { ICON_XS } from '@/components/theme/icons'
 import WeddingMark from '@/components/theme/WeddingMark'
+import WeddingLogo from '@/components/theme/WeddingLogo'
 import ContactButtons from '@/components/book/ContactButtons'
 import { safeHttpUrl, weddingImageUrl, type WedPublicShop } from '@/lib/wedding'
 
@@ -51,12 +52,27 @@ function emailHref(v: string | null): string | null {
   return /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(s) && s.length <= 200 ? `mailto:${s}` : null
 }
 
+// โลโก้ร้าน: แบบเดียวกับหัวเอกสาร/เมนูหลังร้าน — รูปตามสัดส่วนจริง มุมมน ไม่มีกรอบ/พื้น/เงา (ไม่เป็นกล่องซ้อนกล่อง)
+// แถบบน: สูงไม่เกิน 36px (sm: 40px) กว้างไม่เกิน 40px (จอ < 390px) · 52px (390–639px) · 76px (sm ขึ้นไป)
+//   จอ 375: ชื่อร้าน "b.oncloud.wedding content" ที่ 14px/800 กว้าง ~190px — โลโก้กว้าง 52px เหลือช่องชื่อ 181px ถูกตัด "…"
+//   → กว้าง 40px เหลือ ~193px ชื่อเต็มเหมือนก่อนมีโลโก้ ; จอ 390+ ช่องชื่อกว้างขึ้น 15px จึงให้โลโก้ 52px ได้
+//   ห้ามใช้ min-[390px]: — tailwind.config.ts มี screens แบบ raw (wide) ทำให้ Tailwind ไม่สร้างคลาส min-[*]/max-[*] เลย
+//   → ใช้ variant @media แบบกำหนดเองที่มีขอบบน (max-width 639px) ไม่ไปทับค่า sm: (เขียนชื่อคลาสเต็มตรงๆ — Tailwind หาคลาสจากข้อความในไฟล์)
+//   (ชื่อร้านด้านล่างจึงยัง 14px ทุกจอที่เล็กกว่า 640px — min-[390px]:text-[15px] เดิมไม่เคยถูกสร้างด้วยเหตุเดียวกัน ; ถ้าแก้ให้เป็น 15px
+//    ที่จอ 390 ชื่อกว้าง ~204px จะเกินช่อง ~196px ข้างโลโก้ 52px — ต้องลดโลโก้ช่วงนั้นตาม)
+// ท้ายหน้า: สูง ≤ 48px กว้าง ≤ 96px
+// จองที่ให้รูปไว้ก่อน (slot) → ชื่อร้านไม่กระโดดตอนรูปโหลดเสร็จ (เน็ตช้าในแอป LINE)
+// ไม่มีโลโก้ / โหลดรูปไม่ได้ → สัญลักษณ์ก้อนเมฆเดิม (ไม่มีรูปแตก)
 export function ShopLogo({ shop, size = 'sm' }: { shop: WedPublicShop | null; size?: 'sm' | 'md' }) {
   const src = shop ? weddingImageUrl(shop.logo_url_path) : ''
   const box = size === 'md' ? 'h-12 w-12' : 'h-9 w-9 sm:h-10 sm:w-10'
-  if (!src) return <WeddingMark size="md" className={box} />
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt="" className={`${box} shrink-0 rounded-lg border border-gray-200 bg-white object-contain`} />
+  const logo = size === 'md'
+    ? 'max-h-12 max-w-[96px] rounded-lg'
+    : 'max-h-9 max-w-10 rounded-md [@media(min-width:390px)_and_(max-width:639px)]:max-w-[52px] sm:max-h-10 sm:max-w-[76px] sm:rounded-lg'
+  const slot = size === 'md'
+    ? 'h-12 w-24'
+    : 'h-9 w-10 [@media(min-width:390px)_and_(max-width:639px)]:w-[52px] sm:h-10 sm:w-[76px]'
+  return <WeddingLogo src={src} className={logo} slot={slot} fallback={<WeddingMark size="md" className={box} />} />
 }
 
 export default function PortalShell({ shop, children }: { shop: WedPublicShop | null; children: ReactNode }) {

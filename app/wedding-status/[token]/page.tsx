@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
-import { DEFAULT_WEDDING_SHOP_NAME } from '@/lib/wedding'
+import { DEFAULT_WEDDING_SHOP_NAME, weddingImageUrl, type WedPublicBooking } from '@/lib/wedding'
+import { weddingTabIcons } from '@/lib/weddingServer'
+import ShopTabIcon from '@/components/theme/ShopTabIcon'
 import { getWeddingPortal } from '@/components/wedding/portal/server'
 import PortalShell from '@/components/wedding/portal/PortalShell'
 import PortalNotice from '@/components/wedding/portal/PortalNotice'
@@ -17,11 +19,19 @@ function cleanToken(raw: unknown): string {
   return String(raw ?? '').trim().toLowerCase()
 }
 
+// ลิงก์โลโก้ร้านจากข้อมูลงานของโทเคน (ไม่พบงาน = ไม่รู้ร้าน → '' = ไอคอนแอปเดิม)
+function shopLogoOf(data: WedPublicBooking): string {
+  return data.state !== 'not_found' ? weddingImageUrl(data.shop.logo_url_path) : ''
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const r = await getWeddingPortal(cleanToken(params.token))
   const name = r.ok && r.data.state !== 'not_found' ? r.data.shop.name : DEFAULT_WEDDING_SHOP_NAME
   const couple = r.ok && r.data.state === 'ok' && r.data.couple_names ? r.data.couple_names : ''
+  // ไอคอนแท็บ = โลโก้ร้าน (ร้านยังไม่มีโลโก้ = ไอคอนแอปเดิม)
+  const icons = r.ok ? weddingTabIcons(shopLogoOf(r.data)) : undefined
   return {
+    ...(icons ? { icons } : {}),
     title: { absolute: couple ? `ติดตามงาน ${couple} · ${name}` : `ติดตามงาน · ${name}` },
     description: `ติดตามตารางคิว ผลงาน และยอดชำระกับ ${name}`,
     applicationName: name,
@@ -45,5 +55,11 @@ export default async function WeddingStatusPage({ params }: PageProps) {
       </PortalShell>
     )
   }
-  return <PortalClient key={token} token={token} initial={r.data} />
+  const logo = shopLogoOf(r.data)
+  return (
+    <>
+      {logo && <ShopTabIcon href={logo} />}
+      <PortalClient key={token} token={token} initial={r.data} />
+    </>
+  )
 }

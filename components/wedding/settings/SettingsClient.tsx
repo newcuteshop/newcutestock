@@ -381,7 +381,11 @@ export default function SettingsClient({ initial }: { initial: WedSettings }) {
             <LogoUploader
               settings={saved}
               disabled={busy}
-              onSaved={next => setSaved(next)}
+              onSaved={next => {
+                setSaved(next)
+                // โลโก้อยู่บนเมนูข้าง/แถบบน/ไอคอนแท็บ (layout ฝั่งเซิร์ฟเวอร์อ่านทุกคำขอ) → โหลดใหม่ให้โลโก้ใหม่ขึ้นทันที
+                if (navigator.onLine !== false) router.refresh()
+              }}
               onMessage={text => setToast({ ok: true, text })}
             />
             <hr className="divider" />

@@ -2,16 +2,21 @@ import Sidebar, { type NavBadges, type NavProps } from '@/components/layout/Side
 import MobileNav from '@/components/layout/MobileNav'
 import EntryGate from '@/components/auth/EntryGate'
 import ShopThemeSync from '@/components/theme/ShopThemeSync'
+import ShopTabIcon from '@/components/theme/ShopTabIcon'
 import { createClient } from '@/lib/supabase/server'
 import { canSwitchShop, requireWedding, shopAccess } from '@/lib/auth/permissions'
 import { NOSCRIPT_LOCK_HTML } from '@/lib/auth/entry-gate'
-import { loadWeddingBadges, loadWeddingShopName } from '@/lib/weddingServer'
+import { loadWeddingBadges, loadWeddingBrand } from '@/lib/weddingServer'
 import type { WedBadges } from '@/lib/wedding'
 
 // layout ของหลังร้าน b.oncloud คอนเทนต์งานแต่ง (/wedding/*) — โครงเดียวกับ app/(rental)/rental/layout.tsx
 // (ประตูเข้าระบบ + เมนูข้าง + แถบบนมือถือ)
 // - ไม่ได้เข้าสู่ระบบ → /login ; ไม่มีสิทธิ์ร้านนี้ (admin / wedding / wedding_manage) → /select (requireWedding)
-// - ชื่อร้านอ่านจาก wed_settings.shop_name (ห้าม hardcode — ยังไม่ได้ตั้ง = ชื่อเริ่มต้น)
+// - ชื่อร้าน + โลโก้ร้านอ่านจาก wed_settings (shop_name, logo_path) ในคำขอเดียว — ห้าม hardcode ; ยังไม่ได้ตั้ง = ชื่อเริ่มต้น + สัญลักษณ์ก้อนเมฆ
+//   ไม่แคชข้ามคำขอ: อัปโหลด/ลบโลโก้ในหน้าตั้งค่า → router.refresh() → เมนู/ไอคอนแท็บเปลี่ยนทันที
+// - มีโลโก้ = ไอคอนแท็บเบราว์เซอร์เป็นโลโก้ร้าน (ShopTabIcon ฝั่ง client อย่างเดียว) ; ไอคอนแอป/manifest คงชุดเดิมทุกร้าน
+//   ไม่ใช้ generateMetadata ของ layout นี้: Next.js คำนวณ metadata ทั้งต้นไม้ใหม่ทุกครั้งที่เปลี่ยนหน้าในแอป
+//   (= อ่าน wed_settings เพิ่มทุกการคลิกเมนู) ทั้งที่ layout เองไม่ render ใหม่ — ShopTabIcon เพิ่มลิงก์โลโก้เองอยู่แล้ว
 // - ตัวเลขบนเมนูจาก wed_badges() — อ่านไม่ได้ (ยังไม่รัน fix-07 ฯลฯ) = ไม่แสดงตัวเลข
 //   layout ไม่ render ใหม่ตอนเปลี่ยนหน้าในแอป → หน้าที่ทำให้ตัวเลขเปลี่ยน (ติดตามลูกค้า/ส่งงาน/รับเงินงวด) เรียก router.refresh()
 // - ทั้งหน้าอยู่ในธีม #13 ทองแชมเปญ (data-shop="wedding")
@@ -31,7 +36,7 @@ export default async function WeddingLayout({ children }: { children: React.Reac
   const access = shopAccess(session)
 
   const supabase = createClient()
-  const [shopName, badges] = await Promise.all([loadWeddingShopName(supabase), loadWeddingBadges(supabase)])
+  const [brand, badges] = await Promise.all([loadWeddingBrand(supabase), loadWeddingBadges(supabase)])
 
   // ส่งเฉพาะข้อมูลที่เมนูต้องใช้ไปฝั่ง client (ไม่ส่ง object user ทั้งก้อน)
   const nav: NavProps = {
@@ -40,7 +45,8 @@ export default async function WeddingLayout({ children }: { children: React.Reac
     role: session.role,
     permissions: session.permissions,
     shop: 'wedding',
-    shopName,
+    shopName: brand.shopName,
+    shopLogoUrl: brand.logoUrl,
     canSwitchShop: canSwitchShop(access),
     badges: navBadges(badges),
   }
@@ -55,6 +61,8 @@ export default async function WeddingLayout({ children }: { children: React.Reac
         <EntryGate />
         {/* ร้าน b.oncloud = ธีม #13 ทองแชมเปญ — เปลี่ยนหน้ามาจาก /select หรือร้านอื่น → สลับสี <html> ก่อนวาด */}
         <ShopThemeSync shop="wedding" />
+        {/* มีโลโก้ร้าน → ไอคอนแท็บเป็นโลโก้ (ปิด favicon ของแอปชั่วคราวระหว่างอยู่ในร้านนี้) */}
+        {brand.logoUrl && <ShopTabIcon href={brand.logoUrl} />}
 
         {/* เดสก์ท็อป/iPad แนวนอน (md+) */}
         <Sidebar {...nav} />

@@ -43,7 +43,10 @@ const DOC_CSS = `
 .wdoc-keep { break-inside: avoid; page-break-inside: avoid; }
 .wdoc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.9em; padding-bottom: 0.7em; border-bottom: 0.12em solid rgb(var(--c-brand-400)); }
 .wdoc-brand { display: flex; align-items: center; gap: 0.6em; min-width: 0; flex: 1 1 auto; }
-.wdoc-logo { flex: none; display: block; width: 2.9em; height: 2.9em; border-radius: 0.55em; object-fit: contain; background: #FFFFFF; border: 1px solid rgb(var(--c-gray-200)); }
+/* โลโก้ร้าน: ตัวรูปอย่างเดียว (ไม่มีกรอบ/พื้นขาว/เงา) ตามสัดส่วนจริงของรูป สูงไม่เกิน 104 กว้างไม่เกิน 200 (หน่วยรูป 1080) มุมมน 12 ตัดที่ตัวรูป
+   — เดิมเป็นช่องสี่เหลี่ยมจัตุรัส 2.9em มีกรอบ โลโก้แนวนอนจึงเล็กและเป็นกล่องซ้อนกล่อง ; พิมพ์ A4 ย่อตาม --wdoc-u
+   ไม่ตั้ง min-height: โลโก้กว้างมาก (เกิน 2.5:1) จะได้กล่องผิดสัดส่วน รูปถูกเว้นขอบใส มุมมนไปตกที่ขอบใส */
+.wdoc-logo { flex: none; display: block; width: auto; height: auto; max-height: calc(var(--wdoc-u) * 104); max-width: calc(var(--wdoc-u) * 200); object-fit: contain; border-radius: calc(var(--wdoc-u) * 12); }
 .wdoc-mark { flex: none; display: block; width: 2.9em; height: 2.9em; border-radius: 22%; background: rgb(var(--c-brand-400)); color: rgb(var(--c-brand-900)); overflow: hidden; }
 .wdoc-mark svg { display: block; width: 100%; height: 100%; }
 .wdoc-shop { font-size: calc(var(--wdoc-u) * 31); font-weight: 700; line-height: 1.25; color: rgb(var(--c-gray-900)); }

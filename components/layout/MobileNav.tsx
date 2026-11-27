@@ -14,7 +14,7 @@ const DRAWER_ID = 'mobile-nav-drawer'
 
 // แถบบน + ลิ้นชักเมนูสำหรับมือถือ (ซ่อนตั้งแต่ md ขึ้นไป ซึ่งใช้ Sidebar แทน)
 export default function MobileNav({
-  email, fullName, role, permissions, shop = 'newcute', shopName, canSwitchShop = false, badges,
+  email, fullName, role, permissions, shop = 'newcute', shopName, shopLogoUrl, canSwitchShop = false, badges,
 }: NavProps) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
@@ -116,7 +116,7 @@ export default function MobileNav({
           </button>
           <Link href={shopHomeHref(shop)} className="flex items-center gap-2.5 min-w-0 min-h-[44px] pr-3 rounded-lg">
             {/* ชื่อร้าน 2 บรรทัด (บรรทัดล่างตัดด้วย … เมื่อจอแคบ) */}
-            <ShopBrand shop={shop} shopName={shopName} compact />
+            <ShopBrand shop={shop} shopName={shopName} logoUrl={shopLogoUrl} compact />
           </Link>
         </div>
       </header>
@@ -155,10 +155,11 @@ export default function MobileNav({
             open ? 'translate-x-0' : '-translate-x-full'
           )}
         >
-          {/* Header */}
-          <div className="h-16 flex items-center justify-between gap-2 pl-4 pr-2 shrink-0">
+          {/* Header — สูง 64px (min-h-16 = h-16 เดิมทุกร้านเมื่อเนื้อหาไม่เกิน 64px) ; ร้าน b.oncloud ที่มีโลโก้ = โลโก้วางเหนือชื่อร้าน
+              กล่องสูงตามเนื้อหา (ระยะบน-ล่างอยู่ใน ShopBrand drawer เอง — ไม่มีโลโก้ = 64px เท่าเดิม) */}
+          <div className="min-h-16 flex items-center justify-between gap-2 pl-4 pr-2 shrink-0">
             <div className="flex items-center gap-2.5 min-w-0">
-              <ShopBrand shop={shop} shopName={shopName} />
+              <ShopBrand shop={shop} shopName={shopName} logoUrl={shopLogoUrl} drawer />
             </div>
             <button
               ref={closeButtonRef}
